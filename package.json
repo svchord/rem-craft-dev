@@ -9,6 +9,7 @@
         "amend": "git add . && git commit --amend --no-edit && git push --force",
         "preview": "vite preview",
         "format": "prettier --write .",
+        "release": "standard-version && git push --follow-tags origin main",
         "lint": "eslint . --ext .ts .cjs --fix --ignore-path .gitignore",
         "lint:scss": "stylelint src/*.scss --fix"
     },
@@ -28,6 +29,7 @@
         "prettier": "^2.8.8",
         "sass": "^1.62.0",
         "siyuan": "^0.3.18",
+        "standard-version": "^9.5.0",
         "stylelint": "^15.6.0",
         "stylelint-config-standard-scss": "^7.0.1",
         "typescript": "^5.0.4",

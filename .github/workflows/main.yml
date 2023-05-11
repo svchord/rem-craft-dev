@@ -28,10 +28,12 @@ jobs:
                   draft: false
                   prerelease: false
 
-            # Upload package to release
-            # https://github.com/philips-labs/terraform-aws-github-runner/blob/main/.github/workflows/release.yml#L46
-            - name: Upload package.zip to the release
+            - name: Upload Asset
+              uses: actions/upload-release-asset@v1.0.2
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-              run: |
-                  gh release upload ${{ github.ref }} package.zip
+              with:
+                  upload_url: ${{ steps.create_release.outputs.upload_url }}
+                  asset_path: ./package.zip
+                  asset_name: package.zip
+                  asset_content_type: application/zip

@@ -10,25 +10,27 @@ jobs:
         name: Create Release
         runs-on: ubuntu-latest
         steps:
-            # Archive package
-            - name: Archive package
+            - name: Zip files and create release
               uses: vimtor/action-zip@v1
               with:
-                  files: src/ theme.js theme.json
+              files: |
+                  script/
+                  utils/
+                  theme.css
                   dest: package.zip
 
-            - name: Create Release
-              id: create_release
-              uses: actions/create-release@v1
+            - name: Create release
+              uses: actions/create-release@v1.0.0
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
               with:
-                  tag_name: ${{ github.ref }}
-                  release_name: ${{ github.ref }}
+                  tag_name: v1.0.0
+                  release_name: Release v1.0.0
+                  body: This is the first release.
                   draft: false
                   prerelease: false
 
-            - name: Upload Asset
+            - name: Upload release asset
               uses: actions/upload-release-asset@v1.0.2
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

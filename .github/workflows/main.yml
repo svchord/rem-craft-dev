@@ -28,3 +28,10 @@ jobs:
                   draft: false
                   prerelease: false
 
+            # Upload package to release
+            # https://github.com/philips-labs/terraform-aws-github-runner/blob/main/.github/workflows/release.yml#L46
+            - name: Upload package.zip to the release
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: |
+                  gh release upload ${{ github.ref }} package.zip

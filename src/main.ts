@@ -1,6 +1,4 @@
-import '@/style/main.scss';
-import '@/loadPluginSystem.js';
+import '@/style/main.scss'
+import '@/loadPluginSystem.js' 
 
-import CalendarPlugin from '@/calendar';
-
-new CalendarPlugin().onload();
+// import ('https://esm.sh/noob-plugin-quickset@1.0.7?keep-names') 

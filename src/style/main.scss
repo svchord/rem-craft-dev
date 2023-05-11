@@ -1,3 +1,24 @@
-body {
-    color: green !important;
+// @use './siyuan-var.scss';
+
+.config__panel {
+    > .b3-tab-bar {
+        padding: 36px 12px;
+        width: 250px;
+        .b3-list-item {
+            margin-bottom: 8px;
+        }
+        > .b3-form__icon{
+            margin-bottom: 20px;
+        }
+        &::before{
+            display: block;
+            content: '设置';
+            font-size: 20px;
+            padding-left: 12px;
+            margin-bottom: 12px;
+        }
+    }
+    > .config__tab-container {
+        padding: 24px 0;
+    }
 }

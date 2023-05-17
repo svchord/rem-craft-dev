@@ -10,32 +10,14 @@ jobs:
         name: Create Release
         runs-on: ubuntu-latest
         steps:
-            - name: Zip files and create release
-              uses: vimtor/action-zip@v1
+            - name: Package
+              run: |
+                zip package.zip src theme.js theme.json
+                
+            - name: Release
+              uses: ncipollo/release-action@v1
               with:
-                  files: |
-                      script/
-                      utils/
-                      theme.css
-                  dest: package.zip
-
-            - name: Create release
-              id: create_release
-              uses: actions/create-release@v1.0.0
-              env:
-                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-              with:
-                  tag_name: ${{ github.ref }}
-                  release_name: ${{ github.ref }}
-                  draft: false
-                  prerelease: false
-
-            - name: Upload release asset
-              uses: actions/upload-release-asset@v1.0.2
-              env:
-                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-              with:
-                  upload_url: ${{ steps.create_release.outputs.upload_url }}
-                  asset_path: ./package.zip
-                  asset_name: package.zip
-                  asset_content_type: application/zip
+                allowUpdates: true
+                artifactErrorsFailBuild: true
+                artifacts: "package.zip"
+                token: ${{ secrets.GITHUB_TOKEN }}

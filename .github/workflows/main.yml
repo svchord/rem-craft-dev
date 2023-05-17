@@ -10,14 +10,16 @@ jobs:
         name: Create Release
         runs-on: ubuntu-latest
         steps:
+            - uses: actions/checkout@v3
+
             - name: Package
               run: |
-                zip package.zip src theme.js theme.json
-                
+                  zip package.zip src theme.js theme.json
+
             - name: Release
               uses: ncipollo/release-action@v1
               with:
-                allowUpdates: true
-                artifactErrorsFailBuild: true
-                artifacts: "package.zip"
-                token: ${{ secrets.GITHUB_TOKEN }}
+                  allowUpdates: true
+                  artifactErrorsFailBuild: true
+                  artifacts: 'package.zip'
+                  token: ${{ secrets.GITHUB_TOKEN }}

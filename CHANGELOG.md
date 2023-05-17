@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.0.14](https://github.com/svchord/rem-craft-dev/compare/v0.0.13...v0.0.14) (2023-05-17)
+
+
+### Bug Fixes
+
+* test ([34ce102](https://github.com/svchord/rem-craft-dev/commit/34ce10205562d7b866b5c294b6973d33be5ae761))
+
 ### [0.0.13](https://github.com/svchord/rem-craft-dev/compare/v0.0.12...v0.0.13) (2023-05-17)
 
 ### [0.0.12](https://github.com/svchord/rem-craft-dev/compare/v0.0.11...v0.0.12) (2023-05-17)

@@ -1,0 +1,3 @@
+@function is-important($important) {
+  @return #{if($important == true, '!important', '')};
+}

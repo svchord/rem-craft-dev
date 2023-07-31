@@ -1,4 +1,9 @@
-import '@/style/main.scss'
-import '@/loadPluginSystem.js' 
+import '@/style/main.scss';
 
-// import ('https://esm.sh/noob-plugin-quickset@1.0.7?keep-names') 
+async function test() {
+  const res = await fetch('/appearance/themes/Rem Craft Test/config.json');
+  const config = await res.json();
+  console.log(config);
+}
+
+await test();

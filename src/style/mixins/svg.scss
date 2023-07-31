@@ -1,0 +1,18 @@
+@use 'sass:math';
+@use 'function' as f;
+
+@mixin svg($w, $h: $w, $icon-w: $w, $important: false) {
+  width: $w f.is-important($important);
+  height: $h f.is-important($important);
+  padding: 0 math.div($w - $icon-w, 2) f.is-important($important);
+  stroke-width: 1.75px;
+}
+
+@mixin svg-parent($w, $h, $icon-w, $important: false) {
+  width: $w;
+  height: $h;
+  padding: 0 math.div($w - $icon-w, 2) f.is-important($important);
+  svg {
+    @include svg($icon-w, $h, $important: $important);
+  }
+}

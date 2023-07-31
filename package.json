@@ -1,41 +1,36 @@
 {
-    "name": "rem-craft-test",
-    "private": true,
-    "version": "0.0.14",
-    "scripts": {
-        "dev": "vite",
-        "build": "tsc && vite build",
-        "commit": "git add . && git cz",
-        "amend": "git add . && git commit --amend --no-edit && git push --force",
-        "preview": "vite preview",
-        "format": "prettier --write .",
-        "release": "standard-version && git push --follow-tags origin main",
-        "lint": "eslint . --ext .ts .cjs --fix --ignore-path .gitignore",
-        "lint:scss": "stylelint src/*.scss --fix"
-    },
-    "config": {
-        "commitizen": {
-            "path": "node_modules/cz-git"
-        }
-    },
-    "devDependencies": {
-        "@types/node": "^18.16.0",
-        "@typescript-eslint/eslint-plugin": "^5.59.0",
-        "@typescript-eslint/parser": "^5.59.0",
-        "commitizen": "^4.3.0",
-        "cz-git": "^1.6.1",
-        "eslint": "^8.39.0",
-        "postcss": "^8.4.23",
-        "prettier": "^2.8.8",
-        "sass": "^1.62.0",
-        "siyuan": "^0.3.18",
-        "standard-version": "^9.5.0",
-        "stylelint": "^15.6.0",
-        "stylelint-config-standard-scss": "^7.0.1",
-        "typescript": "^5.0.4",
-        "vite": "^4.3.1"
-    },
-    "dependencies": {
-        "@material/material-color-utilities": "^0.2.5"
+  "name": "rem-craft-test",
+  "private": true,
+  "version": "0.0.14",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "amend": "git add . && git commit --amend --no-edit && git push --force",
+    "preview": "vite preview",
+    "format": "prettier --write .",
+    "release": "standard-version && git push --follow-tags origin main",
+    "lint": "eslint . --ext .ts .cjs --fix --ignore-path .gitignore",
+    "lint:scss": "stylelint src/*.scss --fix"
+  },
+  "config": {
+    "commitizen": {
+      "path": "node_modules/cz-git"
     }
+  },
+  "devDependencies": {
+    "@tsconfig/node18": "^18.2.0",
+    "@typescript-eslint/eslint-plugin": "^6.2.0",
+    "@typescript-eslint/parser": "^6.2.0",
+    "@vue/tsconfig": "^0.4.0",
+    "commitizen": "^4.3.0",
+    "cz-git": "^1.7.0",
+    "eslint": "^8.46.0",
+    "prettier": "^3.0.0",
+    "sass": "^1.64.1",
+    "standard-version": "^9.5.0",
+    "stylelint": "^15.10.2",
+    "stylelint-config-standard-scss": "^10.0.0",
+    "typescript": "^5.1.6",
+    "vite": "^4.4.7"
+  }
 }

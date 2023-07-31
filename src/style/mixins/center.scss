@@ -1,0 +1,11 @@
+@mixin v-center($h) {
+  height: $h;
+  line-height: $h;
+  vertical-align: middle;
+}
+
+@mixin center {
+  text-align: center;
+  justify-content: center;
+  align-items: center;
+}

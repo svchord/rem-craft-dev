@@ -1,0 +1,10 @@
+@use 'function' as f;
+
+@mixin state($base, $hover, $active, $important: false) {
+  &:hover {
+    background-color: rgba($base, $hover) f.is-important($important);
+  }
+  &:active {
+    background-color: rgba($base, $active) f.is-important($important);
+  }
+}

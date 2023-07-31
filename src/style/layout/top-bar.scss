@@ -1,0 +1,51 @@
+@use 'sass:math';
+@use '../mixins' as m;
+
+:root {
+  --rc-text-primary: #111111;
+  --rc-text-secondary: #666666;
+  --rc-state-bg: 255, 255, 255;
+
+  --b3-theme-on-surface: var(--rc-text-secondary);
+  --b3-theme-on-background: var(--rc-text-primary);
+  --b3-toolbar-background: transparent;
+  --b3-toolbar-blur-background: transparent;
+  --b3-toolbar-hover: rgba(var(--rc-state-bg), 0.4);
+}
+
+$bar-h: 40px;
+
+$btn-h: 28px;
+$btn-w: 32px;
+$icon-size: 16px;
+
+.toolbar {
+  height: $bar-h;
+  border: none;
+  &__item {
+    @include m.svg-parent($btn-w, $btn-h, $icon-size);
+    @include m.state(var(--rc-state-bg), 0.4, 0.7, true);
+    margin: 0 4px;
+    border-radius: 4px;
+    svg.toolbar__svg {
+      height: $btn-h;
+    }
+  }
+  &__text {
+    @include m.v-center($btn-h);
+  }
+}
+
+#barWorkspace {
+  background: transparent;
+  width: auto;
+  @include m.state(var(--rc-state-bg), 0.4, 0.7, true);
+  &:hover {
+    background: var(--b3-toolbar-hover);
+  }
+}
+
+#barBack,
+#barForward {
+  @include m.svg-parent($btn-w, $btn-h, 14px);
+}

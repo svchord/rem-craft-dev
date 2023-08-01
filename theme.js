@@ -1,1 +1,1 @@
-import('http://localhost:8080/src/main.ts');
+import('http://localhost:5173/src/main.ts');

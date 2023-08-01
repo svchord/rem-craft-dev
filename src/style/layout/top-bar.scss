@@ -2,47 +2,60 @@
 @use '../mixins' as m;
 
 :root {
-  --rc-text-primary: #111111;
-  --rc-text-secondary: #666666;
-  --rc-state-bg: 255, 255, 255;
-
-  --b3-theme-on-surface: var(--rc-text-secondary);
-  --b3-theme-on-background: var(--rc-text-primary);
   --b3-toolbar-background: transparent;
   --b3-toolbar-blur-background: transparent;
-  --b3-toolbar-hover: rgba(var(--rc-state-bg), 0.4);
+  --b3-toolbar-hover: rgba(var(--rc-on-surface-2), 0.08);
 }
 
 $bar-h: 40px;
 
 $btn-h: 28px;
-$btn-w: 32px;
+$btn-w: 34px;
 $icon-size: 16px;
+
+$win-btnW: 46px;
 
 .toolbar {
   height: $bar-h;
   border: none;
   &__item {
     @include m.svg-parent($btn-w, $btn-h, $icon-size);
-    @include m.state(var(--rc-state-bg), 0.4, 0.7, true);
+    @include m.state(var(--rc-on-surface-2), true);
     margin: 0 4px;
     border-radius: 4px;
     svg.toolbar__svg {
       height: $btn-h;
     }
+
+    &--disabled {
+      @include m.disable(true);
+    }
+
+    #windowControls & {
+      @include m.svg-parent($win-btnW, $bar-h, 12px);
+      border-radius: unset;
+      margin: 0;
+    }
+    &--close {
+      @include m.close(true);
+      svg {
+        @include m.svg(12px, $bar-h, 10px, true);
+      }
+    }
   }
   &__text {
     @include m.v-center($btn-h);
   }
+
+  #drag {
+    font-size: 14px;
+  }
 }
 
 #barWorkspace {
+  @include m.state(var(--rc-on-surface-2), true);
   background: transparent;
   width: auto;
-  @include m.state(var(--rc-state-bg), 0.4, 0.7, true);
-  &:hover {
-    background: var(--b3-toolbar-hover);
-  }
 }
 
 #barBack,

@@ -1,10 +1,26 @@
 @use 'function' as f;
 
-@mixin state($base, $hover, $active, $important: false) {
+@mixin state($base, $important: false) {
   &:hover {
-    background-color: rgba($base, $hover) f.is-important($important);
+    background-color: rgba($base, 0.08) f.is-important($important);
   }
   &:active {
-    background-color: rgba($base, $active) f.is-important($important);
+    background-color: rgba($base, 0.12) f.is-important($important);
+  }
+}
+
+@mixin disable($important: false) {
+  opacity: 0.38;
+  cursor: not-allowed;
+  &:hover,
+  &:active {
+    background-color: transparent f.is-important($important);
+  }
+}
+
+@mixin close($important: false) {
+  &:hover {
+    color: var(--rc-on-primary) f.is-important($important);
+    background-color: rgba(232, 17, 35, 0.9) f.is-important($important);
   }
 }

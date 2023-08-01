@@ -1,0 +1,9 @@
+:root {
+  --rc-surface-2: #f3f6fc;
+  --rc-on-surface-2: 68, 71, 70;
+  --rc-on-surface: 31, 31, 31;
+  --rc-on-primary: #fff;
+
+  --b3-theme-on-surface: rgba(var(--rc-on-surface-2)); // base
+  --b3-theme-on-background: rgba(var(--rc-on-surface)); // hover
+}

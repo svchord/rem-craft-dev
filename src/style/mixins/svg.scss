@@ -8,7 +8,7 @@
   stroke-width: 1.75px;
 }
 
-@mixin svg-parent($w, $h, $icon-w, $important: false) {
+@mixin svg-parent($w, $icon-w, $h: $w, $important: false) {
   width: $w;
   height: $h;
   padding: 0 math.div($w - $icon-w, 2) f.is-important($important);

@@ -7,7 +7,7 @@
   --b3-toolbar-hover: rgba(var(--rc-on-surface-2), 0.08);
 }
 
-$bar-h: 40px;
+$height: 40px;
 
 $btn-h: 28px;
 $btn-w: 34px;
@@ -16,10 +16,10 @@ $icon-size: 16px;
 $win-btnW: 46px;
 
 .toolbar {
-  height: $bar-h;
+  height: $height;
   border: none;
   &__item {
-    @include m.svg-parent($btn-w, $btn-h, $icon-size);
+    @include m.svg-parent($btn-w, $icon-size, $btn-h);
     @include m.state(var(--rc-on-surface-2), true);
     margin: 0 4px;
     border-radius: 4px;
@@ -32,23 +32,24 @@ $win-btnW: 46px;
     }
 
     #windowControls & {
-      @include m.svg-parent($win-btnW, $bar-h, 12px);
+      @include m.svg-parent($win-btnW, 12px, $height);
       border-radius: unset;
       margin: 0;
     }
     &--close {
       @include m.close(true);
       svg {
-        @include m.svg(12px, $bar-h, 10px, true);
+        @include m.svg(12px, $height, 10px, true);
       }
     }
   }
   &__text {
     @include m.v-center($btn-h);
+    font-size: 13px;
   }
 
   #drag {
-    font-size: 14px;
+    font-size: 13px;
   }
 }
 
@@ -56,9 +57,10 @@ $win-btnW: 46px;
   @include m.state(var(--rc-on-surface-2), true);
   background: transparent;
   width: auto;
+  font-weight: 500;
 }
 
 #barBack,
 #barForward {
-  @include m.svg-parent($btn-w, $btn-h, 14px);
+  @include m.svg-parent($btn-w, 14px, $btn-h);
 }

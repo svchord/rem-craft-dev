@@ -1,7 +1,25 @@
 @use 'top-bar';
+@use 'dock';
+@use 'status';
 
-.dock,
-.status {
-  background: transparent;
+#layouts {
+  > .fn__flex:first-child {
+    border-radius: 8px;
+  }
 }
 
+body::before {
+  content: ' ';
+  border-radius: 8px;
+  background-color: transparent;
+  box-shadow: var(--rc-elevation-2);
+  position: absolute;
+  top: top-bar.$height;
+  left: dock.$width;
+  right: dock.$width;
+  bottom: 32px;
+}
+
+.layout-tab-container {
+  background: var(--rc-surface-1);
+}

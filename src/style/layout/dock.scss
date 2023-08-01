@@ -1,0 +1,68 @@
+@use '../mixins' as m;
+
+$item-w: 36px;
+$width: $item-w + 6px * 2;
+
+.dock {
+  background: transparent;
+  border: none !important;
+  &--vertical {
+    width: $width;
+    .dock__item {
+      margin: 0 auto 4px;
+      &:last-child{
+        margin-bottom: 0;
+      }
+    }
+  }
+  &__item {
+    @include m.svg-parent($item-w, 14px);
+    @include m.state(var(--rc-on-surface-2));
+    box-sizing: border-box;
+    border-radius: 4px;
+
+    &--active {
+      position: relative;
+      &::before {
+        @include m.reset-style();
+        @include m.reset-position();
+        @include m.focus-before(10.35px, 0);
+        #dockRight & {
+          left: auto;
+          right: 0;
+        }
+      }
+
+      &,
+      &focus {
+        &,
+        body.body--blur & {
+          @include m.focus(var(--rc-on-surface-2), true);
+        }
+      }
+    }
+
+    svg {
+      transition: transform 0.2s ease-in-out;
+    }
+    &--pin {
+      &[aria-label='钉住'] svg {
+        transform: rotate(45deg);
+      }
+      &[aria-label='取消钉住'] svg {
+        transform: rotate(0deg);
+      }
+    }
+  }
+}
+
+#dockBottom {
+  height: $width;
+  .dock__item {
+    margin: auto 0;
+    &:not(:last-child) {
+      margin-right: 4px;
+    }
+  }
+}
+

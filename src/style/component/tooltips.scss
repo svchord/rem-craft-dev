@@ -1,0 +1,27 @@
+:root {
+  --b3-tooltips-background: rgba(0, 0, 0, 0.9);
+  --b3-tooltips-color: var(--b3-theme-background-light);
+  --b3-tooltips-shadow: var(--rc-elevation-1);
+}
+
+@mixin tooltips {
+  padding: 4px 8px;
+  border-radius: 4px;
+  line-height: 1.7;
+  box-shadow: var(--b3-tooltips-shadow);
+}
+
+//tips
+.b3-tooltips {
+  &::before {
+    border: none;
+  }
+  &::after {
+    @include tooltips;
+  }
+}
+
+//悬浮提示条
+#tooltip {
+  @include tooltips;
+}

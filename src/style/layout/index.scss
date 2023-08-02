@@ -5,21 +5,37 @@
 #layouts {
   > .fn__flex:first-child {
     border-radius: 8px;
+    margin: 0 dock.$interval;
   }
 }
 
-body::before {
-  content: ' ';
-  border-radius: 8px;
-  background-color: transparent;
-  box-shadow: var(--rc-elevation-2);
-  position: absolute;
-  top: top-bar.$height;
-  left: dock.$width;
-  right: dock.$width;
-  bottom: 32px;
+body {
+  &::before {
+    content: ' ';
+    border-radius: 8px;
+    background-color: transparent;
+    box-shadow: var(--rc-elevation-1);
+    position: absolute;
+    top: top-bar.$height;
+    left: dock.$width;
+    right: dock.$width;
+    bottom: status.$height;
+  }
+  &:has(.dock--vertical.fn__none)::before {
+    left: dock.$interval;
+    right: dock.$interval;
+  }
 }
 
-.layout-tab-container {
+.layout__dockl,
+.layout__dockr,
+.layout__dockb {
   background: var(--rc-surface-1);
+
+  .layout-tab-container {
+    background: transparent;
+  }
+  &[style*=' 0px'] {
+    transition: width 0.2s var(--rc-timing-function);
+  }
 }

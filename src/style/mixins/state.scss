@@ -2,6 +2,7 @@
 
 @mixin state($base, $important: false) {
   color: rgba($base) f.is-important($important);
+  transition: var(--b3-transition);
   &:hover {
     background-color: rgba($base, 0.08) f.is-important($important);
   }
@@ -13,6 +14,7 @@
 @mixin focus($base, $important: false) {
   color: rgba($base) f.is-important($important);
   background-color: rgba($base, 0.08) f.is-important($important);
+  transition: var(--b3-transition);
   &:hover {
     background-color: rgba($base, 0.12) f.is-important($important);
   }
@@ -31,6 +33,7 @@
 }
 
 @mixin close($important: false) {
+  transition: var(--b3-transition);
   &:hover {
     color: var(--rc-on-primary) f.is-important($important);
     background-color: rgba(232, 17, 35, 0.9) f.is-important($important);
@@ -42,11 +45,11 @@
   display: block;
   position: absolute;
   top: $top;
-  bottom: $top;
   left: $left;
   width: 3px;
   z-index: 0;
-  height: calc(100% - $top * 2);
+  height: 100% - $top * 2;
   background-color: var(--rc-primary);
+  transition: var(--b3-transition);
   border-radius: 9999px;
 }

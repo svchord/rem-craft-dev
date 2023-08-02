@@ -1,16 +1,26 @@
 @use '../mixins' as m;
 
 $item-w: 36px;
-$width: $item-w + 6px * 2;
+$interval: 6px;
+$width: $item-w + $interval * 2;
 
 .dock {
   background: transparent;
-  border: none !important;
   &--vertical {
-    width: $width;
+    width: $item-w + $interval;
+
+    &#dockLeft {
+      padding-left: $interval;
+      border: none;
+    }
+
+    &#dockRight {
+      padding-right: $interval;
+      border: none;
+    }
     .dock__item {
-      margin: 0 auto 4px;
-      &:last-child{
+      margin: 0 0 4px;
+      &:last-child {
         margin-bottom: 0;
       }
     }
@@ -26,10 +36,10 @@ $width: $item-w + 6px * 2;
       &::before {
         @include m.reset-style();
         @include m.reset-position();
-        @include m.focus-before(10.35px, 0);
+        @include m.focus-before(28.75%, 1px);
         #dockRight & {
           left: auto;
-          right: 0;
+          right: 1px;
         }
       }
 
@@ -37,13 +47,13 @@ $width: $item-w + 6px * 2;
       &focus {
         &,
         body.body--blur & {
-          @include m.focus(var(--rc-on-surface-2), true);
+          @include m.focus(var(--rc-on-surface), true);
         }
       }
     }
 
     svg {
-      transition: transform 0.2s ease-in-out;
+      transition: var(--b3-transition);
     }
     &--pin {
       &[aria-label='钉住'] svg {
@@ -65,4 +75,3 @@ $width: $item-w + 6px * 2;
     }
   }
 }
-

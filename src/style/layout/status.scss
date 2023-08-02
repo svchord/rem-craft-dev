@@ -1,4 +1,23 @@
+@use '../mixins' as m;
+$height: 32px;
+
+$item-w: 30px;
+$item-h: 24px;
+
+$icon-w: 13px;
+
 .status {
   background: transparent;
+  height: $height;
+  padding: 0;
   border: none;
+  .toolbar__item {
+    @include m.svg-parent($item-w, $icon-w, $item-h);
+    @include m.state(var(--rc-on-surface-2), true);
+    border-radius: 4px;
+  }
+
+  &__msg {
+    @include m.v-center($height);
+  }
 }

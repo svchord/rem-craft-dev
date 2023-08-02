@@ -18,6 +18,11 @@ $win-btnW: 46px;
 .toolbar {
   height: $height;
   border: none;
+
+  body.body--win32 & {
+    padding: 2px;
+  }
+
   &__item {
     @include m.svg-parent($btn-w, $icon-size, $btn-h);
     @include m.state(var(--rc-on-surface-2), true);

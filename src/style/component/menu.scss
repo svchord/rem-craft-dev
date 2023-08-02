@@ -1,0 +1,61 @@
+@use '../mixins' as m;
+
+:root {
+  // 菜单
+  --b3-menu-background: var(--rc-surface-1);
+  // 阴影
+  --b3-dialog-shadow: var(--rc-elevation-3);
+  // 边框
+  --b3-list-hover: rgba(var(--rc-on-surface-variant), 0.08);
+  --b3-theme-surface-lighter: var(--b3-list-hover);
+}
+
+.b3-menu {
+  padding: 6px 0;
+  //border: none;
+  &__item {
+    @include m.state(var(--rc-on-surface-variant));
+    padding: 0 8px;
+    line-height: 28px;
+    font-size: 13px;
+    gap: 8px;
+    margin: 0 0 3px;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+
+    &s {
+      padding: 0 6px;
+    }
+    &--selected {
+      @include m.focus(var(--rc-on-surface-variant));
+      position: relative;
+      &::before {
+        @include m.focus-before(25%, 1px);
+      }
+    }
+    &--readonly {
+      @include m.transparent();
+      color: rgba(var(--rc-on-surface-variant));
+    }
+  }
+  &__icon {
+    margin: 0;
+    width: 13px;
+    &--arrow {
+      height: 9px;
+    }
+  }
+  &__submenu {
+    padding: 6px;
+  }
+  &__separator {
+    margin: 6px 0;
+    height: 0;
+    border-bottom: 1px solid var(--b3-list-hover);
+  }
+  &__accelerator {
+    margin: 0;
+  }
+}

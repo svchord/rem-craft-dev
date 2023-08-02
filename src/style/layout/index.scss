@@ -1,10 +1,11 @@
 @use 'top-bar';
 @use 'dock';
 @use 'status';
+@use 'scroller';
 
 #layouts {
   > .fn__flex:first-child {
-    border-radius: 8px;
+    border-radius: var(--b3-border-radius-b);
     margin: 0 dock.$interval;
   }
 }
@@ -12,9 +13,9 @@
 body {
   &::before {
     content: ' ';
-    border-radius: 8px;
+    border-radius: var(--b3-border-radius-b);
     background-color: transparent;
-    box-shadow: var(--rc-elevation-1);
+    box-shadow: var(--rc-elevation-0);
     position: absolute;
     top: top-bar.$height;
     left: dock.$width;

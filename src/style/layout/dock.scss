@@ -27,9 +27,8 @@ $width: $item-w + $interval * 2;
   }
   &__item {
     @include m.svg-parent($item-w, 14px);
-    @include m.state(var(--rc-on-surface-2));
+    @include m.state(var(--rc-on-surface-variant));
     box-sizing: border-box;
-    border-radius: 4px;
 
     &--active {
       position: relative;

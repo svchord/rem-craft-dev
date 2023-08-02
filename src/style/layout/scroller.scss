@@ -1,0 +1,22 @@
+:root {
+  // 滚动条
+  --b3-scroll-color: var(--b3-list-hover);
+}
+
+// Scrollbar
+::-webkit-scrollbar {
+  width: 10px;
+
+  &:horizontal {
+    height: 6px;
+  }
+
+  &-thumb {
+    border-radius: 9999px;
+    box-shadow: inset 0 0 8px 8px var(--b3-list-hover);
+    border: solid 3px transparent;
+    &:hover {
+      border: solid 1px transparent;
+    }
+  }
+}

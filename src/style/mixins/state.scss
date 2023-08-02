@@ -40,6 +40,14 @@
   }
 }
 
+@mixin transparent($important: false) {
+  &,
+  &:hover,
+  &:active {
+    background: transparent f.is-important($important);
+  }
+}
+
 @mixin focus-before($top, $left: 0) {
   content: '';
   display: block;

@@ -9,8 +9,8 @@
 }
 
 @mixin svg-parent($w, $icon-w, $h: $w, $important: false) {
-  width: $w;
-  height: $h;
+  width: $w f.is-important($important);
+  height: $h f.is-important($important);
   padding: 0 math.div($w - $icon-w, 2) f.is-important($important);
   svg {
     @include svg($icon-w, $h, $important: $important);

@@ -2,6 +2,7 @@
 
 $item-w: 36px;
 $interval: 6px;
+$icon-w: 14px;
 $width: $item-w + $interval * 2;
 
 .dock {
@@ -26,7 +27,7 @@ $width: $item-w + $interval * 2;
     }
   }
   &__item {
-    @include m.svg-parent($item-w, 14px);
+    @include m.svg-parent($item-w, $icon-w);
     @include m.state(var(--rc-on-surface-variant));
     box-sizing: border-box;
 

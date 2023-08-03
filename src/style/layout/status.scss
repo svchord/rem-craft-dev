@@ -1,10 +1,11 @@
 @use '../mixins' as m;
+@use 'dock';
 $height: 32px;
 
-$item-w: 30px;
+$item-w: dock.$item-w;
 $item-h: 24px;
 
-$icon-w: 12px;
+$icon-w: dock.$icon-w;
 
 .status {
   background: transparent;
@@ -14,6 +15,7 @@ $icon-w: 12px;
   .toolbar__item {
     @include m.svg-parent($item-w, $icon-w, $item-h);
     @include m.state(var(--rc-on-surface-variant), true);
+    margin: 0 dock.$interval;
   }
 
   &__msg {

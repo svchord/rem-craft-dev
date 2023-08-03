@@ -12,15 +12,8 @@
 }
 
 @mixin focus($base, $important: false) {
-  color: rgba($base) f.is-important($important);
+  @include state($base, $important);
   background-color: rgba($base, 0.08) f.is-important($important);
-  transition: var(--b3-transition);
-  &:hover {
-    background-color: rgba($base, 0.12) f.is-important($important);
-  }
-  &:active {
-    background-color: rgba($base, 0.16) f.is-important($important);
-  }
 }
 
 @mixin disable($important: false) {

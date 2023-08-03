@@ -1,0 +1,62 @@
+@use '../mixins' as m;
+
+$height: 28px;
+
+@mixin item($important: false) {
+  @include m.state(var(--rc-on-surface-variant), $important);
+  padding: 0 8px;
+  line-height: $height;
+  font-size: 13px;
+  margin: 0 0 3px;
+}
+
+@mixin icon($important: false) {
+  @include m.state(var(--rc-on-surface-variant), $important);
+  &:hover {
+    border-radius: 2px;
+  }
+}
+
+.b3-list {
+  padding: 0 12px;
+  &-item {
+    @include item(true);
+
+    &__icon {
+      font-size: 13px;
+      @include icon();
+    }
+
+    &__action {
+      @include icon();
+      svg {
+        width: 12px;
+      }
+    }
+
+    .counter {
+      @include icon();
+    }
+
+    &::before {
+      @include m.focus-before(50%, 2.5px);
+      opacity: 0;
+    }
+    &--focus {
+      position: relative;
+      @include m.focus(var(--rc-on-surface-variant), true);
+      &::before {
+        @include m.focus-before(22%, 2.5px);
+        opacity: 1;
+      }
+    }
+    &__toggle {
+      @include m.transparent();
+      color: rgba(var(--rc-on-surface-variant));
+      height: $height;
+      svg {
+        width: 8px;
+      }
+    }
+  }
+}

@@ -1,7 +1,9 @@
 :root {
   --rc-surface-1: #f8fafd;
   --rc-surface-2: #f3f6fc;
+  --rc-surface-variant: #e1e3e1;
   --rc-secondary-container: #c2e7ff;
+
   --rc-on-surface: 31, 31, 31;
   --rc-on-surface-variant: 68, 71, 70;
   --rc-primary: #0b57d0;
@@ -18,12 +20,15 @@
 
   --rc-timing-function: cubic-bezier(0.2, 0, 0, 1);
 
+  --b3-theme-surface-lighter: var(--rc-surface-variant);
+
+  --b3-border-color: var(--rc-surface-variant);
   --b3-border-radius: 4px;
   --b3-border-radius-b: 8px;
 
   /* 动画效果 */
   --b3-transition: all 0.2s var(--rc-timing-function) 0ms;
-  --b3-width-transition: width 0.5s var(--rc-timing-function) 0ms;
+  --b3-width-transition: width 0.2s var(--rc-timing-function) 0ms;
 
   --b3-theme-on-surface: rgba(var(--rc-on-surface-variant)); // base
   --b3-theme-on-background: rgba(var(--rc-on-surface)); // hover

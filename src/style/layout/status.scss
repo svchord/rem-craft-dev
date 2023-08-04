@@ -20,6 +20,5 @@ $icon-w: dock.$icon-w;
 
   &__msg {
     @include m.v-center($height);
-    padding: 0;
   }
 }

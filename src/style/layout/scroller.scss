@@ -1,6 +1,6 @@
 :root {
   // 滚动条
-  --b3-scroll-color: var(--b3-list-hover);
+  --b3-scroll-color: var(--rc-surface-variant);
 }
 
 // Scrollbar
@@ -13,7 +13,7 @@
 
   &-thumb {
     border-radius: 9999px;
-    box-shadow: inset 0 0 8px 8px var(--b3-list-hover);
+    box-shadow: inset 0 0 8px 8px var(--rc-surface-variant);
     border: solid 3px transparent;
     &:hover {
       border: solid 1px transparent;

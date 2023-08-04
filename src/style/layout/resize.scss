@@ -1,0 +1,6 @@
+.layout__resize {
+  &:hover::after {
+    width: 2px;
+    background-color: var(--rc-primary);
+  }
+}

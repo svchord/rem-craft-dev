@@ -1,6 +1,7 @@
 @use 'common';
 @use 'component';
 @use 'layout';
+@use 'panel';
 
 body {
   background: var(--rc-surface-2);

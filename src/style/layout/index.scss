@@ -1,6 +1,7 @@
 @use 'top-bar';
 @use 'dock';
 @use 'status';
+@use 'resize';
 @use 'scroller';
 
 #layouts {
@@ -11,6 +12,7 @@
 }
 
 body {
+  font-size: 13px;
   &::before {
     content: ' ';
     border-radius: var(--b3-border-radius-b);
@@ -22,8 +24,10 @@ body {
     right: dock.$width;
     bottom: status.$height;
   }
-  &:has(.dock--vertical.fn__none)::before {
+  &:has(#dockLeft.fn__none)::before {
     left: dock.$interval;
+  }
+  &:has(#dockRight.fn__none)::before {
     right: dock.$interval;
   }
 }
@@ -36,7 +40,16 @@ body {
   .layout-tab-container {
     background: transparent;
   }
-  &[style*=' 0px'] {
-    transition: width 0.2s var(--rc-timing-function);
+  &:has(+ .layout__resize.fn__none) {
+    transition-duration: 0.5s;
+    &[style*=' 0px'] {
+      transition-duration: 0.2s;
+    }
+  }
+  .layout__resize.fn__none + & {
+    transition-duration: 0.5s;
+    &[style*=' 0px'] {
+      transition-duration: 0.2s;
+    }
   }
 }

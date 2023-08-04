@@ -24,11 +24,17 @@ body {
     right: dock.$width;
     bottom: status.$height;
   }
-  &:has(#dockLeft.fn__none)::before {
-    left: dock.$interval;
+  &.body--window,
+  &:has(#dockLeft.fn__none) {
+    &::before {
+      left: dock.$interval;
+    }
   }
-  &:has(#dockRight.fn__none)::before {
-    right: dock.$interval;
+  &.body--window,
+  &:has(#dockRight.fn__none) {
+    &::before {
+      right: dock.$interval;
+    }
   }
 }
 

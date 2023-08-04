@@ -1,2 +1,31 @@
+@use '../mixins' as m;
+
 .block {
+  &__logo {
+    gap: 8px;
+    font-weight: 600;
+    svg {
+      color: var(--rc-primary);
+      @include m.svg(13px);
+    }
+  }
+  &__icon {
+    &s {
+      padding-left: 14px;
+      padding-right: 10px;
+    }
+    &[disabled] {
+      @include m.disable(true);
+    }
+
+    &[type='checkbox'] {
+      width: 14px;
+    }
+
+    &[data-type='previous'],
+    &[data-type='next'] {
+      box-sizing: border-box;
+      @include m.svg-parent(24px, 12px);
+    }
+  }
 }

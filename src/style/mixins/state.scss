@@ -17,11 +17,17 @@
 }
 
 @mixin disable($important: false) {
-  opacity: 0.38;
   cursor: not-allowed;
+  opacity: 1 f.is-important($important);
+  svg {
+    opacity: 0.38;
+  }
   &:hover,
   &:active {
     background-color: transparent f.is-important($important);
+  }
+  &::after {
+    opacity: 1 f.is-important($important);
   }
 }
 
@@ -39,18 +45,4 @@
   &:active {
     background: transparent f.is-important($important);
   }
-}
-
-@mixin focus-before($top, $left: 0) {
-  content: '';
-  display: block;
-  position: absolute;
-  top: $top;
-  left: $left;
-  width: 3px;
-  z-index: 0;
-  height: 100% - $top * 2;
-  background-color: var(--rc-primary);
-  transition: var(--b3-transition);
-  border-radius: 9999px;
 }

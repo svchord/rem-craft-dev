@@ -1,6 +1,11 @@
 .layout__resize {
   &:hover::after {
-    width: 2px;
     background-color: var(--rc-primary);
+  }
+  &--lr:hover::after {
+    width: 2px;
+  }
+  &:not(.layout__resize--lr):hover::after {
+    height: 2px;
   }
 }

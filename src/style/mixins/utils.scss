@@ -1,0 +1,15 @@
+
+@mixin focus-before($top, $left: 0) {
+  content: '';
+  display: block;
+  position: absolute;
+  top: $top;
+  left: $left;
+  width: 3px;
+  z-index: 0;
+  height: 100% - $top * 2;
+  background-color: var(--rc-primary);
+  transition: var(--b3-transition);
+  border-radius: 9999px;
+}
+

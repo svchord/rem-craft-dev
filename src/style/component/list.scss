@@ -23,23 +23,14 @@ $height: 28px;
   }
 }
 
-@mixin left($depth) {
-  > ul {
-    margin-left: if($depth > 0, 18px - 1px, 16px);
-    border-left: 1px solid var(--b3-border-color);
-    > li {
-      margin-left: -16px - 18px * $depth;
-    }
-    @if $depth < 14 {
-      @include left($depth + 1);
-    }
-  }
-}
-
 .b3-list {
   padding: 0 12px;
   &-item {
     @include item();
+
+    &[style*='0.1;'] {
+      opacity: 1 !important;
+    }
 
     &__icon {
       @include icon();
@@ -78,5 +69,20 @@ $height: 28px;
       }
     }
   }
+
+  @mixin left($depth) {
+    > ul {
+      margin-left: if($depth > 0, 18px - 1px, 16px);
+      border-left: 1px solid var(--b3-border-color);
+      overflow: visible;
+      > li {
+        margin-left: -16px - 18px * $depth;
+      }
+      @if $depth < 14 {
+        @include left($depth + 1);
+      }
+    }
+  }
+
   @include left(0);
 }

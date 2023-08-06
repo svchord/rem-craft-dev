@@ -1,0 +1,74 @@
+@use '../mixins' as m;
+
+.sy {
+  // 文档树
+  &__file {
+    // 已关闭的笔记本
+    > .b3-list {
+      margin-top: 8px;
+      margin-bottom: 4px;
+
+      > .b3-list-item {
+        margin-bottom: 8px !important;
+      }
+
+      > ul {
+        margin-bottom: 8px;
+      }
+    }
+  }
+  // 大纲
+  &__outline {
+    > .b3-list-item {
+      background: var(--rc-background);
+      box-shadow: var(--rc-elevation-0);
+      margin: 0 12px 12px;
+      line-height: 32px;
+
+      &::before {
+        //@include m.focus-before(20%, 1px);
+        //opacity: 1;
+      }
+    }
+  }
+  // 反链
+  &__backlink {
+    .protyle {
+      box-shadow: var(--rc-elevation-0);
+      border-radius: var(--b3-border-radius);
+      margin: 4px 0 8px;
+      padding: 8px 0;
+      font-size: 12px;
+
+      &-wysiwyg {
+        padding: 0 !important;
+        > [data-node-id] {
+          margin-left: 24px;
+          [contenteditable] {
+            font-size: 14px;
+          }
+        }
+      }
+
+      &-breadcrumb {
+        &__bar {
+          padding: 0 8px;
+          &:not(:first-child) {
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid var(--b3-border-color);
+          }
+        }
+      }
+    }
+  }
+}
+
+//关系图
+.graph {
+  background: transparent;
+  &__svg,
+  &__loading {
+    background: transparent !important;
+  }
+}

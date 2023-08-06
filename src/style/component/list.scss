@@ -12,6 +12,7 @@ $height: 28px;
   @include m.state(var(--rc-on-surface-variant));
   padding: 0 8px;
   line-height: $height;
+  min-height: $height;
   margin: 0 0 3px;
   border-radius: var(--b3-border-radius);
 }
@@ -48,13 +49,6 @@ $height: 28px;
       @include m.svg-parent(22px, 12px);
     }
 
-    .counter {
-      @include btn();
-      padding: 0;
-      width: 22px;
-      @include m.center();
-    }
-
     &::before {
       @include m.focus-before(50%, 1px);
       opacity: 0;
@@ -74,6 +68,10 @@ $height: 28px;
       svg {
         width: 8px;
       }
+    }
+
+    .counter {
+      @include btn();
     }
   }
 
@@ -96,4 +94,10 @@ $height: 28px;
   }
 
   @include left(0);
+}
+
+.counter {
+  @include m.center();
+  padding: 0;
+  width: 22px;
 }

@@ -24,7 +24,6 @@
 
     &[data-type='previous'],
     &[data-type='next'] {
-      box-sizing: border-box;
       @include m.svg-parent(24px, 12px);
     }
   }

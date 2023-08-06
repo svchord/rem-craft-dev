@@ -29,6 +29,9 @@ $win-btnW: 46px;
     margin: 0 4px;
     svg.toolbar__svg {
       height: $btn-h;
+      opacity: 1;
+      fill: rgba(var(--rc-on-surface-variant));
+      stroke-width: 8px;
     }
 
     &--disabled {
@@ -38,14 +41,13 @@ $win-btnW: 46px;
     #windowControls &,
     .toolbar__window & {
       @include m.svg-parent($win-btnW, 12px, $height);
-      box-sizing: border-box;
       border-radius: unset;
       margin: 0;
     }
     &--close {
       @include m.close(true);
       svg {
-        @include m.svg(12px, $height, 10px, true);
+        @include m.svg(12px, 10px, $height, true);
       }
     }
   }

@@ -16,8 +16,9 @@ $height: 28px;
   border-radius: var(--b3-border-radius);
 }
 
-@mixin icon($important: false) {
+@mixin btn($important: false) {
   @include m.state(var(--rc-on-surface-variant), $important);
+  margin: 0;
   &:hover {
     border-radius: 2px;
   }
@@ -25,27 +26,33 @@ $height: 28px;
 
 .b3-list {
   padding: 0 12px;
+
   &-item {
     @include item();
 
-    &[style*='0.1;'] {
-      opacity: 1 !important;
+    &__icon {
+      @include btn();
+      padding: 0;
+      width: 22px;
+      margin: 0 2px;
+      font-size: 13px;
     }
 
-    &__icon {
-      @include icon();
+    &__graphic {
+      @include m.svg(13px, 13px);
+      margin-right: 8px;
     }
 
     &__action {
-      @include icon();
-      padding: 0 5px;
-      svg {
-        width: 12px;
-      }
+      @include btn();
+      @include m.svg-parent(22px, 12px);
     }
 
     .counter {
-      @include icon();
+      @include btn();
+      padding: 0;
+      width: 22px;
+      @include m.center();
     }
 
     &::before {
@@ -68,6 +75,10 @@ $height: 28px;
         width: 8px;
       }
     }
+  }
+
+  &--empty {
+    padding: 8px 12px;
   }
 
   @mixin left($depth) {

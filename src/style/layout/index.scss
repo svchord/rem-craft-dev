@@ -17,7 +17,7 @@ body {
     content: ' ';
     border-radius: var(--b3-border-radius-b);
     background-color: transparent;
-    box-shadow: var(--rc-elevation-0);
+    box-shadow: var(--rc-panel-shadow);
     position: absolute;
     top: top-bar.$height;
     left: dock.$width;

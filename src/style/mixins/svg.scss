@@ -1,10 +1,11 @@
 @use 'sass:math';
 @use 'function' as f;
 
-@mixin svg($w, $h: $w, $icon-w: $w, $important: false) {
+@mixin svg($w, $icon-w: $w, $h: $w, $important: false) {
   width: $w f.is-important($important);
   height: $h f.is-important($important);
   padding: 0 math.div($w - $icon-w, 2) f.is-important($important);
+  box-sizing: border-box;
   stroke-width: 1.75px;
 }
 
@@ -12,7 +13,8 @@
   width: $w f.is-important($important);
   height: $h f.is-important($important);
   padding: 0 math.div($w - $icon-w, 2) f.is-important($important);
+  box-sizing: border-box;
   svg {
-    @include svg($icon-w, $h, $important: $important);
+    @include svg($icon-w, $h: $h, $important: $important);
   }
 }

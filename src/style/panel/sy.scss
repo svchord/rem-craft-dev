@@ -28,6 +28,9 @@
   }
   // 反链
   &__backlink {
+    .b3-list-item::before {
+      opacity: 0;
+    }
     .protyle {
       box-shadow: var(--rc-elevation-0);
       border-radius: var(--b3-border-radius);

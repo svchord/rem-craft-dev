@@ -42,6 +42,11 @@ $height: 28px;
     &__graphic {
       @include m.svg(13px, 13px);
       margin-right: 8px;
+      &.popover__block {
+        @include m.svg(22px, 13px);
+        @include btn();
+        margin-right: 2px;
+      }
     }
 
     &__action {

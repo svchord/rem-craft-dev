@@ -30,22 +30,20 @@ $height: 28px;
 
   &-item {
     @include item();
+    gap: 2px;
 
     &__icon {
       @include btn();
       padding: 0;
       width: 22px;
-      margin: 0 2px;
       font-size: 13px;
     }
 
     &__graphic {
       @include m.svg(13px, 13px);
-      margin-right: 8px;
       &.popover__block {
         @include m.svg(22px, 13px);
         @include btn();
-        margin-right: 2px;
       }
     }
 

@@ -24,11 +24,6 @@
       box-shadow: var(--rc-elevation-0);
       margin: 0 12px 12px;
       line-height: 32px;
-
-      &::before {
-        //@include m.focus-before(20%, 1px);
-        //opacity: 1;
-      }
     }
   }
   // 反链

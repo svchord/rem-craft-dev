@@ -32,6 +32,16 @@ $height: 28px;
     @include item();
     gap: 2px;
 
+    &__toggle {
+      @include m.transparent();
+      margin: 0 !important;
+      color: rgba(var(--rc-on-surface-variant));
+      height: $height;
+      svg {
+        width: 8px;
+      }
+    }
+
     &__icon {
       @include btn();
       padding: 0;
@@ -40,9 +50,9 @@ $height: 28px;
     }
 
     &__graphic {
-      @include m.svg(13px, 13px);
+      @include m.svg(22px, 13px);
+      margin: 0;
       &.popover__block {
-        @include m.svg(22px, 13px);
         @include btn();
       }
     }
@@ -56,20 +66,13 @@ $height: 28px;
       @include m.focus-before(50%, 1px);
       opacity: 0;
     }
+
     &--focus {
       position: relative;
       background: rgba(var(--rc-on-surface-variant), 0.08) !important;
       &::before {
         @include m.focus-before(22%, 1px);
         opacity: 1;
-      }
-    }
-    &__toggle {
-      @include m.transparent();
-      color: rgba(var(--rc-on-surface-variant));
-      height: $height;
-      svg {
-        width: 8px;
       }
     }
 

@@ -24,6 +24,13 @@
       box-shadow: var(--rc-elevation-0);
       margin: 0 12px 12px;
       line-height: 32px;
+      gap: 8px;
+
+      .b3-list-item__graphic {
+        padding: 0;
+        width: auto;
+        line-height: 22px;
+      }
     }
   }
   // 反链

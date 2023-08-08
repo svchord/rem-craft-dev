@@ -1,8 +1,19 @@
 import { fileURLToPath, URL } from 'node:url';
+import { viteStaticCopy } from 'vite-plugin-static-copy';
 import { defineConfig } from 'vite';
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  plugins: [
+    viteStaticCopy({
+      targets: [
+        { src: './theme.json', dest: './' },
+        { src: './README*.md', dest: './' },
+        { src: './preview.png', dest: './' },
+        { src: './config.json', dest: './' },
+      ],
+    }),
+  ],
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),

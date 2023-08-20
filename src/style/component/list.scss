@@ -12,7 +12,6 @@ $height: 28px;
   @include m.state(var(--rc-on-surface-variant));
   padding: 0 8px;
   line-height: $height;
-  min-height: $height;
   margin: 0 0 3px;
   border-radius: var(--b3-border-radius);
 }
@@ -62,8 +61,10 @@ $height: 28px;
       @include m.svg-parent(22px, 12px);
     }
 
+    $left: 3px;
+
     &::before {
-      @include m.focus-before(50%, 1px);
+      @include m.focus-before(50%, $left);
       opacity: 0;
     }
 
@@ -71,7 +72,7 @@ $height: 28px;
       position: relative;
       background: rgba(var(--rc-on-surface-variant), 0.08) !important;
       &::before {
-        @include m.focus-before(22%, 1px);
+        @include m.focus-before(20%, $left);
         opacity: 1;
       }
     }

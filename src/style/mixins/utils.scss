@@ -1,4 +1,3 @@
-
 @mixin focus-before($top, $left: 0) {
   content: '';
   display: block;
@@ -9,7 +8,10 @@
   z-index: 0;
   height: 100% - $top * 2;
   background-color: var(--rc-primary);
-  transition: var(--b3-transition);
+  transition: {
+    property: height, top;
+    duration: 0.2s;
+    timing-function: var(--rc-timing-function);
+  }
   border-radius: 9999px;
 }
-

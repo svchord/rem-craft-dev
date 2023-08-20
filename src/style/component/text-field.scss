@@ -1,0 +1,22 @@
+@use '../mixins' as m;
+
+//输入框
+.b3-text-field {
+  transition: var(--b3-transition);
+  border-radius: var(--b3-border-radius);
+
+  box-shadow: unset;
+  border: 1px solid var(--b3-border-color);
+  background: var(--rc-background);
+  border-bottom-color: var(--rc-outline);
+
+  &:not(.b3-text-field--text) {
+    &:hover {
+      box-shadow: unset;
+    }
+    &:focus {
+      box-shadow: 0 -3px 0 -2px inset var(--rc-primary);
+      border-bottom: 1px solid var(--rc-primary);
+    }
+  }
+}

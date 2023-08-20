@@ -1,0 +1,38 @@
+@use '../mixins' as m;
+//表单
+
+@mixin search-input($h, $border-w, $svg-w: 12px) {
+  .b3-form__icon {
+    // 搜索图标
+    &-icon {
+      @include m.svg($h, $svg-w);
+      left: 0 !important;
+      top: 0;
+    }
+
+    // 搜索文本框
+    &-input {
+      height: $h;
+      border-width: $border-w !important;
+      padding-left: $h - 2 * $border-w !important;
+    }
+  }
+}
+
+@include search-input(28px, 1px);
+
+// 搜索框
+.b3-form__icon {
+  // 边窗顶栏小搜索框
+  &--small {
+    @include search-input(24px, 0);
+    // 搜索文本框
+    .b3-form__icon-input {
+      &:hover,
+      &:focus {
+        box-shadow: unset;
+        border: none;
+      }
+    }
+  }
+}

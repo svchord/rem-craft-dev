@@ -10,11 +10,17 @@
 
 $padding: 6px;
 
+@mixin meta {
+  font-size: 11px;
+  color: rgba(var(--rc-on-surface-variant));
+}
+
 .b3-menu {
   padding: $padding;
   &__item {
     @include list.item();
-
+    line-height: 24px;
+    margin-bottom: 2px;
     &:last-child {
       margin-bottom: 0;
     }
@@ -27,16 +33,16 @@ $padding: 6px;
       @include m.focus(var(--rc-on-surface-variant));
       position: relative;
       &::before {
-        @include m.focus-before(22%, 1px);
+        @include m.focus-before(22%, 0px);
       }
     }
     &--readonly {
       @include m.transparent();
-      color: rgba(var(--rc-on-surface-variant));
+      @include meta();
+      line-height: 1.675;
     }
   }
   &__icon {
-    //margin: 0;
     width: 13px;
     &--arrow {
       height: 9px;
@@ -54,6 +60,6 @@ $padding: 6px;
   }
   // 菜单项快捷键
   &__accelerator {
-    //margin: 0;
+    @include meta();
   }
 }

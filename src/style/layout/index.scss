@@ -3,6 +3,7 @@
 @use 'status';
 @use 'resize';
 @use 'scroller';
+@use 'wnd';
 
 #layouts {
   > .fn__flex:first-child {
@@ -37,4 +38,3 @@ body {
     }
   }
 }
-

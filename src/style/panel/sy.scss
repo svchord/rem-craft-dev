@@ -3,6 +3,10 @@
 .sy {
   // 文档树
   &__file {
+    overflow-x: hidden;
+    > .fn__flex-1 {
+      overflow-x: hidden;
+    }
     // 已关闭的笔记本
     > .b3-list {
       margin-top: 8px;

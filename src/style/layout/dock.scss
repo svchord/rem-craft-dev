@@ -42,12 +42,13 @@ $width: $item-w + $interval * 2;
         }
       }
 
-      &,
       &focus {
-        &,
-        body.body--blur & {
-          @include m.focus(var(--rc-on-surface), true);
-        }
+        @include m.focus(var(--rc-on-surface), true);
+        background: transparent !important;
+      }
+      &,
+      body.body--blur & {
+        @include m.focus(var(--rc-on-surface), true);
       }
     }
 

@@ -1,0 +1,55 @@
+@use '../mixins' as m;
+
+//表情面板
+.emojis {
+  padding: 2px;
+
+  // 顶部工具栏
+  > .fn__flex:first-child {
+    padding-bottom: 4px;
+    .fn__space {
+      &:first-child,
+      &:last-child {
+        display: none;
+      }
+    }
+
+    .block__icon {
+      @include m.svg-parent(28px, 12px);
+    }
+  }
+
+  &__panel {
+    padding-right: 0;
+  }
+
+  &__title {
+    padding: 18px 0 8px;
+    font-size: 12px;
+    &:first-child {
+      padding-top: 8px;
+    }
+  }
+
+  &__item {
+    margin: 0 4px 4px 0;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    font-size: 18px;
+    @include m.state(var(--rc-on-surface-variant));
+    img {
+      width: 18px;
+      height: 18px;
+      margin: auto;
+    }
+  }
+
+  > .fn__flex:last-child {
+    padding-top: 4px;
+    .emojis__type {
+      border-radius: var(--b3-border-radius);
+      @include m.state(var(--rc-on-surface-variant));
+    }
+  }
+}

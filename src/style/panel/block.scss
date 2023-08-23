@@ -10,6 +10,9 @@
     }
   }
   &__icon {
+    @include m.svg-parent(24px, 12px);
+    @include m.state(var(--rc-on-surface-variant), true);
+
     &s {
       padding-left: 14px;
       padding-right: 10px;
@@ -29,7 +32,7 @@
 
     &[data-type='previous'],
     &[data-type='next'] {
-      @include m.svg-parent(24px, 12px);
+      @include m.svg-parent(24px, 10px);
     }
   }
 }

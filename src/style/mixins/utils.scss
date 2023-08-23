@@ -9,7 +9,7 @@
   height: 100% - $top * 2;
   background-color: var(--rc-primary);
   transition: {
-    property: height, top;
+    property: all;
     duration: 0.2s;
     timing-function: var(--rc-timing-function);
   }

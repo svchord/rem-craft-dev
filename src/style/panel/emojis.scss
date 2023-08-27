@@ -20,28 +20,27 @@
   }
 
   &__panel {
-    padding-right: 0;
+    padding: 0 0 0 18px;
   }
 
   &__title {
-    padding: 12px 0 8px;
+    padding: 24px 0 8px;
     font-size: 12px;
     &:first-child {
       padding-top: 8px;
     }
   }
 
+  &__content {
+    gap: 8px;
+  }
+
   &__item {
-    margin: 0 4px 4px 0;
-    width: 32px;
-    height: 32px;
-    padding: 0;
-    font-size: 18px;
+    font-size: 20px;
+    @include m.div(32px);
     @include m.state(var(--rc-on-surface-variant));
     img {
-      width: 18px;
-      height: 18px;
-      margin: auto;
+      @include m.svg(20px);
     }
   }
 

@@ -8,6 +8,8 @@
 
 $height: 28px;
 
+$btn-h: 22px;
+
 @mixin item($important: false) {
   @include m.state(var(--rc-on-surface-variant));
   padding: 0 8px;
@@ -44,13 +46,12 @@ $height: 28px;
     &__icon {
       @include btn();
       padding: 0;
-      width: 22px;
+      width: $btn-h;
       font-size: 13px;
     }
 
     &__graphic {
-      @include m.svg(22px, 13px);
-      margin: 0;
+      //margin: 0;
       &.popover__block {
         @include btn();
       }
@@ -58,7 +59,7 @@ $height: 28px;
 
     &__action {
       @include btn();
-      @include m.svg-parent(22px, 12px);
+      @include m.svg-parent($btn-h, 12px);
     }
 
     $left: 1px;
@@ -103,8 +104,18 @@ $height: 28px;
   @include left(0);
 }
 
+svg.b3-list-item__graphic {
+  @include m.svg($btn-h, 13px, $important: true);
+  margin: 0 !important;
+}
+
+span.b3-list-item__graphic {
+  width: auto;
+  padding: 0;
+}
+
 .counter {
   @include m.center();
   padding: 0;
-  width: 22px;
+  width: $btn-h;
 }

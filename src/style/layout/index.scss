@@ -3,6 +3,7 @@
 @use 'status';
 @use 'resize';
 @use 'scroller';
+@use "tab";
 @use 'top-bar';
 
 #layouts {
@@ -48,9 +49,6 @@ body {
   bottom: status.$height;
   left: dock.$width !important;
 
-  .layout-tab-container {
-    background: transparent;
-  }
   &:has(+ .layout__resize.fn__none) {
     transition-duration: 0.5s;
     &[style*=' 0px'] {

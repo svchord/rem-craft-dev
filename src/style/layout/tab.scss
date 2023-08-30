@@ -1,0 +1,56 @@
+@use '../mixins' as m;
+
+.layout-tab {
+  &-container {
+    background: transparent;
+  }
+  &-bar {
+    height: 42px;
+    padding: 0 8px;
+    box-sizing: border-box;
+    .item {
+      @include m.state(var(--rc-on-surface-variant));
+      min-height: 28px;
+      padding: 0 8px;
+      overflow: visible;
+      border-radius: var(--b3-border-radius);
+      &__icon {
+        padding: 0;
+      }
+      &__text {
+        min-width: 48px;
+      }
+      &__close {
+        @include m.state(var(--rc-on-surface-variant));
+        @include m.svg-parent(18px, 8px);
+        border-radius: var(--b3-border-radius);
+        svg {
+          border-radius: unset;
+          background: transparent !important;
+          opacity: 1 !important;
+        }
+      }
+      &--focus {
+        box-shadow: unset !important;
+      }
+      &--full {
+        max-width: 104px;
+      }
+      &::after {
+        left: 0;
+        bottom: -7px;
+      }
+    }
+    &--readonly {
+      display: flex;
+      align-items: center;
+      padding-left: 0;
+      .item {
+        @include m.transparent();
+        cursor: unset;
+        width: 100%;
+        padding: 0;
+      }
+    }
+  }
+}

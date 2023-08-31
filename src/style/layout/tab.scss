@@ -11,7 +11,7 @@
     .item {
       @include m.state(var(--rc-on-surface-variant));
       min-height: 28px;
-      padding: 0 8px;
+      padding: 0 5px;
       overflow: visible;
       border-radius: var(--b3-border-radius);
       &__icon {
@@ -34,7 +34,7 @@
         box-shadow: unset !important;
       }
       &--full {
-        max-width: 104px;
+        max-width: 90px;
       }
       &::after {
         left: 0;

@@ -1,23 +1,29 @@
 @use 'sass:math';
 @use '../mixins' as m;
 
-$border-w: 1px;
-$switch-h: 20px;
+$border-w: 1.5px;
+$switch-w: 39px;
+$switch-h: 24px;
 
 $btn-w: 12px;
-$btn-w-hover: 14px;
-$btn-w-active: 20px;
+$btn-w-checked: 16px;
 
-$spacing: math.div($switch-h - $btn-w, 2) - $border-w;
-$spacing-hover: math.div($switch-h - $btn-w-hover, 2) - $border-w;
+@mixin btn($w, $direction) {
+  $spacing: math.div($switch-h - $w, 2) - $border-w;
+  $center-load-w: $switch-w - $switch-h;
+  width: $w;
+  height: $w;
+  top: $spacing;
+  transform: translateX($spacing + if($direction == 'left', 0, $center-load-w));
+}
 
 //开关
 .b3-switch {
   background-color: var(--rc-background);
-  width: 40px;
+  width: $switch-w;
   height: $switch-h;
   border-radius: var(--rc-border-radius-max);
-  border: $border-w solid rgb(var(--rc-on-surface-variant));
+  border: $border-w solid var(--rc-outline);
   transition: var(--b3-transition);
 
   &::before {
@@ -25,30 +31,15 @@ $spacing-hover: math.div($switch-h - $btn-w-hover, 2) - $border-w;
   }
 
   &::after {
-    background-color: rgb(var(--rc-on-surface-variant));
+    background-color: var(--rc-outline); //rgba(var(--rc-on-surface-variant));
+    transition: var(--b3-transition);
     border: none;
-    width: $btn-w;
-    height: $btn-w;
-    left: $spacing;
-    top: $spacing;
-    bottom: unset;
     box-shadow: none;
+    bottom: unset;
+    left: unset;
+    right: unset;
     border-radius: var(--rc-border-radius-max);
-  }
-
-  &:hover {
-    &::after {
-      width: $btn-w-hover;
-      height: $btn-w-hover;
-      left: $spacing-hover;
-      top: $spacing-hover;
-    }
-  }
-
-  &:active {
-    &::after {
-      width: $btn-w-active;
-    }
+    @include btn($btn-w, 'left');
   }
 
   &:checked {
@@ -57,24 +48,7 @@ $spacing-hover: math.div($switch-h - $btn-w-hover, 2) - $border-w;
 
     &::after {
       background-color: var(--rc-background);
-      right: $spacing + $btn-w;
-      left: unset;
-      top: $spacing;
-      bottom: unset;
-      transform: translateX($btn-w);
-      transition: var(--b3-transition);
-    }
-
-    &:hover {
-      //border-color: var(--rc-primary);
-      &::after {
-        top: $spacing-hover;
-        right: $spacing-hover + $btn-w;
-      }
-    }
-
-    &:active {
-      //border-color: get($bg, 'primarybg', 3);
+      @include btn($btn-w-checked, 'right');
     }
   }
 }

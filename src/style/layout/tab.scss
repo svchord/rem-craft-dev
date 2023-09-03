@@ -5,24 +5,24 @@
     background: transparent;
   }
   &-bar {
-    height: 42px;
-    padding: 0 8px;
-    box-sizing: border-box;
     .item {
       @include m.state(var(--rc-on-surface-variant));
-      min-height: 28px;
-      padding: 0 5px;
-      overflow: visible;
-      border-radius: var(--b3-border-radius);
+      min-height: 41px;
       &__icon {
         padding: 0;
+        margin-left: 8px;
+        > svg,
+        > img {
+          margin: 0;
+        }
       }
       &__text {
-        min-width: 48px;
+        padding: 0 8px;
       }
       &__close {
         @include m.state(var(--rc-on-surface-variant));
         @include m.svg-parent(18px, 8px);
+        margin-right: 8px;
         border-radius: var(--b3-border-radius);
         svg {
           border-radius: unset;
@@ -30,26 +30,63 @@
           opacity: 1 !important;
         }
       }
+      &::after {
+        content: '';
+        display: block;
+        position: absolute;
+        background: transparent;
+        height: 2px;
+        border-radius: unset;
+        bottom: 0;
+        left: 8px;
+        right: 8px;
+        width: auto;
+        transition: var(--b3-transition);
+      }
+      &:hover::after {
+        left: 0;
+        right: 0;
+      }
       &--focus {
         box-shadow: unset !important;
+        &::after {
+          background: var(--rc-primary);
+        }
+      }
+      &--pin {
+        .item {
+          &__icon {
+            margin: 0;
+            padding: 0 16px;
+          }
+          &__text {
+            padding: 0 12px;
+          }
+        }
+
+        &::after {
+          left: 10px;
+          right: 10px;
+        }
       }
       &--full {
-        max-width: 90px;
-      }
-      &::after {
-        left: 0;
-        bottom: -7px;
+        min-width: unset !important;
+        flex: unset;
+        width: auto;
+        > .fn__flex-1 {
+          width: 8px;
+        }
+        &::after {
+          left: 16px;
+          right: 16px;
+        }
       }
     }
     &--readonly {
-      display: flex;
-      align-items: center;
-      padding-left: 0;
       .item {
         @include m.transparent();
         cursor: unset;
-        width: 100%;
-        padding: 0;
+        padding: 0 8px;
       }
     }
   }

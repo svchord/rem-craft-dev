@@ -48,10 +48,13 @@ $btn-h: 22px;
       padding: 0;
       width: $btn-h;
       font-size: 13px;
+      svg,
+      img {
+        @include m.svg($btn-h, 13px, $important: true);
+      }
     }
 
     &__graphic {
-      //margin: 0;
       &.popover__block {
         @include btn();
       }
@@ -104,11 +107,13 @@ $btn-h: 22px;
   @include left(0);
 }
 
-svg.b3-list-item__graphic {
-  @include m.svg($btn-h, 13px, $important: true);
-  margin: 0 !important;
+svg,
+img {
+  &.b3-list-item__graphic {
+    @include m.svg($btn-h, 13px, $important: true);
+    margin: 0 !important;
+  }
 }
-
 span.b3-list-item__graphic {
   width: auto;
   padding: 0;

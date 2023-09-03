@@ -13,5 +13,5 @@
     duration: 0.2s;
     timing-function: var(--rc-timing-function);
   }
-  border-radius: 9999px;
+  border-radius: var(--rc-border-radius-max);
 }

@@ -1,0 +1,80 @@
+@use 'sass:math';
+@use '../mixins' as m;
+
+$border-w: 1px;
+$switch-h: 20px;
+
+$btn-w: 12px;
+$btn-w-hover: 14px;
+$btn-w-active: 20px;
+
+$spacing: math.div($switch-h - $btn-w, 2) - $border-w;
+$spacing-hover: math.div($switch-h - $btn-w-hover, 2) - $border-w;
+
+//开关
+.b3-switch {
+  background-color: var(--rc-background);
+  width: 40px;
+  height: $switch-h;
+  border-radius: var(--rc-border-radius-max);
+  border: $border-w solid rgb(var(--rc-on-surface-variant));
+  transition: var(--b3-transition);
+
+  &::before {
+    display: none !important;
+  }
+
+  &::after {
+    background-color: rgb(var(--rc-on-surface-variant));
+    border: none;
+    width: $btn-w;
+    height: $btn-w;
+    left: $spacing;
+    top: $spacing;
+    bottom: unset;
+    box-shadow: none;
+    border-radius: var(--rc-border-radius-max);
+  }
+
+  &:hover {
+    &::after {
+      width: $btn-w-hover;
+      height: $btn-w-hover;
+      left: $spacing-hover;
+      top: $spacing-hover;
+    }
+  }
+
+  &:active {
+    &::after {
+      width: $btn-w-active;
+    }
+  }
+
+  &:checked {
+    border-color: var(--rc-primary);
+    background: var(--rc-primary);
+
+    &::after {
+      background-color: var(--rc-background);
+      right: $spacing + $btn-w;
+      left: unset;
+      top: $spacing;
+      bottom: unset;
+      transform: translateX($btn-w);
+      transition: var(--b3-transition);
+    }
+
+    &:hover {
+      //border-color: var(--rc-primary);
+      &::after {
+        top: $spacing-hover;
+        right: $spacing-hover + $btn-w;
+      }
+    }
+
+    &:active {
+      //border-color: get($bg, 'primarybg', 3);
+    }
+  }
+}

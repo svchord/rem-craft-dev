@@ -50,7 +50,7 @@
       &--focus {
         box-shadow: unset !important;
         &::after {
-          background: var(--rc-primary);
+          background: rgba(var(--rc-primary));
         }
       }
       &--pin {
@@ -73,12 +73,14 @@
         min-width: unset !important;
         flex: unset;
         width: auto;
+        $padding: 16px;
         > .fn__flex-1 {
-          width: 8px;
+          width: $padding;
         }
         &::after {
-          left: 14px;
-          right: 14px;
+          $interval: $padding + 8px - 4px;
+          left: $interval;
+          right: $interval;
         }
       }
     }

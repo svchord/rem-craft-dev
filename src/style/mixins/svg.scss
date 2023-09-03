@@ -7,7 +7,6 @@
   padding: 0 math.div($w - $icon-w, 2) f.is-important($important);
   margin: auto;
   box-sizing: border-box;
-  stroke-width: 1.75px;
 }
 
 @mixin div($w, $h: $w, $important: false) {

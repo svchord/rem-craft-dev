@@ -5,7 +5,7 @@
     gap: 8px;
     font-weight: 600;
     svg {
-      color: var(--rc-primary);
+      color: rgba(var(--rc-primary));
       @include m.svg(13px);
     }
   }

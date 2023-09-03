@@ -19,7 +19,6 @@ $padding: 6px;
   padding: $padding;
   &__item {
     @include list.item();
-    line-height: 26px;
     margin-bottom: 2px;
     &:last-child {
       margin-bottom: 0;

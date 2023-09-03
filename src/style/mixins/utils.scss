@@ -7,7 +7,7 @@
   width: 3px;
   z-index: 0;
   height: 100% - $top * 2;
-  background-color: var(--rc-primary);
+  background-color: rgba(var(--rc-primary));
   transition: {
     property: all;
     duration: 0.2s;

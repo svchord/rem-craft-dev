@@ -1,22 +1,49 @@
-@use "material-design";
+@use 'material-design';
 
 :root {
-  --rc-background: #fff;
-  --rc-surface-1: #f8fafd;
-  --rc-surface-2: #f3f6fc;
-  --rc-surface-3: #eff3fa;
-  --rc-surface-4: #edf2fa;
-  --rc-surface-5: #eaf0f9;
-  --rc-surface-variant: #e1e3e1;
-  --rc-primary-container: #d3e3fd;
-  --rc-secondary-container: #c2e7ff;
+  --rc-primary: 11, 87, 208;
+  --rc-background: var(--mio-theme-color-background);
+  --rc-surface-1: var(--mio-theme-color-surface-1);
+  --rc-surface-2: var(--mio-theme-color-surface-2);
+  --rc-surface-3: var(--mio-theme-color-surface-3);
+  --rc-surface-4: var(--mio-theme-color-surface-4);
+  --rc-surface-5: var(--mio-theme-color-surface-5);
+  --rc-surface-variant: var(--mio-theme-color-surface-variant);
+  --rc-primary-container: var(--mio-theme-color-primary-container);
+  --rc-secondary-container: var(--mio-theme-color-secondary-container);
+  --rc-error: var(--md-sys-color-error);
 
+  --rc-on-background:31, 31, 31;
   --rc-on-surface: 31, 31, 31;
   --rc-on-surface-variant: 68, 71, 70;
-  --rc-primary: #0b57d0;
-  --rc-on-primary: #fff;
+  --rc-on-primary: var(--mio-theme-color-on-primary);
+  --rc-on-secondary: var(--mio-theme-color-on-secondary);
+  --rc-on-error: var(--mio-theme-color-utility-on-error);
 
-  --rc-outline: #747775;
+  --b3-theme-primary: rgba(var(--rc-primary));
+  --b3-theme-primary-light: rgba(var(--rc-primary), 0.12);
+  --b3-theme-primary-lighter: rgba(var(--rc-primary), 0.12);
+  --b3-theme-primary-lightest: rgba(var(--rc-primary), 0.08);
+  --b3-theme-background: var(--rc-background);
+  --b3-theme-background-light: var(--rc-surface-variant);
+  --b3-theme-surface: var(--rc-surface-2);
+  --b3-theme-surface-lighter: var(--rc-surface-variant);
+  --b3-theme-error: var(--rc-error);
+
+  /* 文字颜色 */
+  --b3-theme-on-primary: var(--rc-on-primary);
+  --b3-theme-on-secondary: var(--rc-on-secondary);
+  --b3-theme-on-background: rgba(var(--rc-on-background));
+  --b3-theme-on-surface: rgba(var(--rc-on-surface));
+  --b3-theme-on-surface-light: rgba(var(--rc-on-surface-variant));
+  --b3-theme-on-error: var(--rc-on-error);
+
+  /* 线条 */
+  --b3-border-color: var(--rc-surface-variant);
+  --b3-border-radius: 4px;
+  --b3-border-radius-b: 8px;
+  --rc-border-radius-max: 9999px;
+  --rc-outline: var(--mio-theme-color-utility-outline);
 
   --rc-card-shadow: 0px 0px 0.1px rgba(0, 0, 0, 0.008), 0px 0px 0.3px rgba(0, 0, 0, 0.012),
     0px 0px 0.5px rgba(0, 0, 0, 0.015), 0px 0px 0.7px rgba(0, 0, 0, 0.018),
@@ -32,23 +59,9 @@
   --rc-elevation-2: 0px 1px 2px 0px rgb(0 0 0 / 30%), 0px 2px 6px 2px rgb(0 0 0 / 15%);
   --rc-elevation-3: 0px 1px 3px 0px rgb(0 0 0 / 30%), 0px 4px 8px 3px rgb(0 0 0 / 15%);
 
-  --rc-timing-function: cubic-bezier(0.2, 0, 0, 1);
-
-  --b3-theme-primary: var(--rc-primary);
-  --b3-theme-background: var(--rc-background);
-  --b3-theme-background-light: var(--rc-surface-variant);
-  --b3-theme-surface-lighter: var(--rc-surface-variant);
-
-  --b3-border-color: var(--rc-surface-variant);
-  --b3-border-radius: 4px;
-  --b3-border-radius-b: 8px;
-
-  --rc-border-radius-max: 9999px;
 
   /* 动画效果 */
+  --rc-timing-function: cubic-bezier(0.2, 0, 0, 1);
   --b3-transition: all 0.2s var(--rc-timing-function) 0ms;
   --b3-width-transition: width 0.2s var(--rc-timing-function) 0ms;
-
-  --b3-theme-on-surface: rgba(var(--rc-on-surface-variant)); // base
-  --b3-theme-on-background: rgba(var(--rc-on-surface)); // hover
 }

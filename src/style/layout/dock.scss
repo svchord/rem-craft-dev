@@ -9,6 +9,7 @@ $width: $item-w + $interval * 2;
   background: transparent;
   &--vertical {
     width: $item-w + $interval;
+    padding-bottom: $interval;
 
     &#dockLeft {
       padding-left: $interval;
@@ -75,4 +76,3 @@ $width: $item-w + $interval * 2;
     }
   }
 }
-

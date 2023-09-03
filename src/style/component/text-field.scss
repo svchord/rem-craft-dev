@@ -10,12 +10,13 @@
   background: var(--rc-background);
   border-bottom-color: var(--rc-outline);
   &:not(.b3-text-field--text) {
+    height: 30px;
     box-shadow: 0 -3px 0 -2px inset transparent !important;
 
     &:focus {
-      box-shadow: 0 -3px 0 -2px inset var(--rc-primary) !important;
+      box-shadow: 0 -3px 0 -2px inset rgba(var(--rc-primary)) !important;
 
-      border-bottom: 1px solid var(--rc-primary);
+      border-bottom: 1px solid rgba(var(--rc-primary));
     }
   }
 }

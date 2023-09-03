@@ -6,7 +6,7 @@ $switch-w: 39px;
 $switch-h: 24px;
 
 $btn-w: 12px;
-$btn-w-checked: 16px;
+$btn-w-checked: 14px;
 
 @mixin btn($w, $direction) {
   $spacing: math.div($switch-h - $w, 2) - $border-w;
@@ -19,7 +19,7 @@ $btn-w-checked: 16px;
 
 //开关
 .b3-switch {
-  background-color: var(--rc-background);
+  background-color: var(--rc-surface-variant);
   width: $switch-w;
   height: $switch-h;
   border-radius: var(--rc-border-radius-max);
@@ -43,8 +43,8 @@ $btn-w-checked: 16px;
   }
 
   &:checked {
-    border-color: var(--rc-primary);
-    background: var(--rc-primary);
+    border-color: rgba(var(--rc-primary));
+    background: rgba(var(--rc-primary));
 
     &::after {
       background-color: var(--rc-background);

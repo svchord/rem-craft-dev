@@ -1,0 +1,71 @@
+@use 'sass:math';
+@use '../mixins' as m;
+
+//按钮
+.b3-button {
+  @include m.focus(var(--rc-primary));
+  width: auto;
+  border: none;
+  box-shadow: unset;
+  border-radius: var(--b3-border-radius);
+  height: 30px;
+  padding: 0 18px;
+
+  svg {
+    @include m.svg(12px);
+    margin: 0 6px 0 0;
+    &[style*='height'] {
+      @include m.svg(8px, $important: true);
+      margin: 0 6px 0 0;
+    }
+  }
+
+  &:hover,
+  &:focus {
+    box-shadow: unset;
+  }
+
+  &--progress {
+    box-shadow: unset;
+    color: transparent;
+    position: relative;
+    background-color: rgba(var(--rc-on-surface-variant), 0.08) !important;
+    > span {
+      background-color: rgba(var(--rc-primary));
+      border-top-right-radius: 0;
+      border-bottom-right-radius: 0;
+    }
+  }
+
+  &--text {
+    background: transparent;
+  }
+
+  &--white {
+    @include m.transparent();
+  }
+
+  &--small {
+    height: 28px;
+    padding: 0 12px;
+  }
+
+  $feat-colors: (
+    'warning': 'orange',
+    'error': 'red',
+    'success': 'green',
+    'info': 'blue',
+  );
+
+  @each $feat, $color-type in $feat-colors {
+    &--#{$feat} {
+      //background-color: get($color, $color-type, 1);
+      //&:hover {
+      //  background-color: get($color, $color-type, 3);
+      //}
+      //&:active {
+      //  background-color: get($color, $color-type, 4);
+      //}
+    }
+  }
+}

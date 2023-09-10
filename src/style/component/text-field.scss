@@ -10,7 +10,7 @@
   background: var(--rc-background);
   border-bottom-color: var(--rc-outline);
   &:not(.b3-text-field--text) {
-    height: 30px;
+    height: var(--rc-component-height);
 
     &:focus {
       box-shadow:

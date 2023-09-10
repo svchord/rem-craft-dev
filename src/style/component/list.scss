@@ -68,7 +68,7 @@ $btn-h: 22px;
     $left: 1px;
 
     &::before {
-      @include m.focus-before(50%, $left);
+      @include m.focus-before(30%, $left);
       opacity: 0;
     }
 

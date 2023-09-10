@@ -15,7 +15,7 @@
     }
 
     .block__icon {
-      @include m.svg-parent(28px, 12px);
+      @include m.svg-parent(var(--rc-component-height), 12px);
     }
   }
 

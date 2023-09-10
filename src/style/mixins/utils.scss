@@ -8,10 +8,6 @@
   z-index: 0;
   height: 100% - $top * 2;
   background-color: rgba(var(--rc-primary));
-  transition: {
-    property: all;
-    duration: 0.2s;
-    timing-function: var(--rc-timing-function);
-  }
+  transition: var(--b3-transition);
   border-radius: var(--rc-border-radius-max);
 }

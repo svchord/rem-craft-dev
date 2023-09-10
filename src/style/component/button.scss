@@ -51,21 +51,17 @@
   }
 
   $feat-colors: (
-    'warning': 'orange',
-    'error': 'red',
-    'success': 'green',
-    'info': 'blue',
+    'info': 'secondary',
+    'success': 'tertiary',
+    'error': 'error',
+    'warning': 'warning',
   );
 
   @each $feat, $color-type in $feat-colors {
     &--#{$feat} {
-      //background-color: get($color, $color-type, 1);
-      //&:hover {
-      //  background-color: get($color, $color-type, 3);
-      //}
-      //&:active {
-      //  background-color: get($color, $color-type, 4);
-      //}
+      height: auto;
+      color: var(--rc-on-#{$color-type}-container);
+      background: var(--rc-#{$color-type}-container);
     }
   }
 }

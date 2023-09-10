@@ -2,11 +2,11 @@
 @use '../mixins' as m;
 
 $border-w: 1.5px;
-$switch-w: 39px;
-$switch-h: 24px;
+$switch-w: 36px;
+$switch-h: 20px;
 
-$btn-w: 12px;
-$btn-w-checked: 14px;
+$btn-w: 10px;
+$btn-w-checked: 12px;
 
 @mixin btn($w, $direction) {
   $spacing: math.div($switch-h - $w, 2) - $border-w;
@@ -14,17 +14,17 @@ $btn-w-checked: 14px;
   width: $w;
   height: $w;
   top: $spacing;
+  transition: transform 0.2s var(--rc-timing-function);
   transform: translateX($spacing + if($direction == 'left', 0, $center-load-w));
 }
 
 //开关
 .b3-switch {
-  background-color: var(--rc-surface-variant);
+  background: rgb(var(--rc-on-surface-variant), 0.08);
   width: $switch-w;
   height: $switch-h;
   border-radius: var(--rc-border-radius-max);
   border: $border-w solid var(--rc-outline);
-  transition: var(--b3-transition);
 
   &::before {
     display: none !important;
@@ -32,12 +32,11 @@ $btn-w-checked: 14px;
 
   &::after {
     background-color: var(--rc-outline); //rgba(var(--rc-on-surface-variant));
-    transition: var(--b3-transition);
     border: none;
     box-shadow: none;
     bottom: unset;
-    left: unset;
     right: unset;
+    left: unset;
     border-radius: var(--rc-border-radius-max);
     @include btn($btn-w, 'left');
   }

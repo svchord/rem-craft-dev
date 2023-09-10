@@ -5,16 +5,17 @@
   transition: var(--b3-transition);
   border-radius: var(--b3-border-radius);
 
-  box-shadow: unset !important;
+  box-shadow: var(--rc-elevation-0) !important;
   border: 1px solid var(--b3-border-color);
   background: var(--rc-background);
   border-bottom-color: var(--rc-outline);
   &:not(.b3-text-field--text) {
     height: 30px;
-    box-shadow: 0 -3px 0 -2px inset transparent !important;
 
     &:focus {
-      box-shadow: 0 -3px 0 -2px inset rgba(var(--rc-primary)) !important;
+      box-shadow:
+        var(--rc-elevation-0),
+        0 -3px 0 -2px inset rgba(var(--rc-primary)) !important;
 
       border-bottom: 1px solid rgba(var(--rc-primary));
     }

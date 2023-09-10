@@ -26,6 +26,7 @@
     > .b3-list-item {
       background: var(--rc-background);
       box-shadow: var(--rc-elevation-0);
+      border: 1px solid var(--b3-border-color);
       margin: 0 12px 12px;
       line-height: 32px;
     }
@@ -36,6 +37,7 @@
       opacity: 0;
     }
     .protyle {
+      border: 1px solid var(--b3-border-color);
       box-shadow: var(--rc-elevation-0);
       border-radius: var(--b3-border-radius);
       margin: 4px 0 8px;

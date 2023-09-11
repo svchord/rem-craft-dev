@@ -1,0 +1,15 @@
+@use '../layout/top-bar';
+body.body--win32 {
+  .fullscreen {
+    &.graph {
+      background: var(--rc-surface-5);
+    }
+    // 编辑器全屏
+    > .protyle-breadcrumb,
+      // 关系图全屏
+    > .block__icons {
+      height: 40px;
+      padding: 0 top-bar.$win-btnW * 3 + 8px 0 8px;
+    }
+  }
+}

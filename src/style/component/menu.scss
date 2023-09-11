@@ -20,6 +20,7 @@ $padding: 6px;
   &__item {
     @include list.item();
     margin-bottom: 2px;
+    padding: 0 10px;
     &:last-child {
       margin-bottom: 0;
     }
@@ -43,8 +44,10 @@ $padding: 6px;
   }
   &__icon {
     width: 13px;
+    margin-right: 10px;
     &--arrow {
       height: 9px;
+      margin-right: 0;
     }
   }
   &__submenu {

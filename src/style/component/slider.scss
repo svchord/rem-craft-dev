@@ -1,0 +1,45 @@
+@use 'sass:math';
+@use '../mixins' as m;
+
+$thumb-w: 12px;
+$track-h: 2px;
+$border-w: math.div($thumb-w - $track-h, 2);
+
+.b3-slider {
+  height: 28px;
+  padding: 0;
+  &::-webkit-slider-runnable-track {
+    height: $track-h;
+    background: var(--b3-theme-primary-lighter);
+    border-radius: var(--rc-border-radius-max);
+  }
+
+  &::-webkit-slider-container {
+    padding: 0 math.div($thumb-w, 2);
+    height: 28px;
+    border-radius: var(--rc-border-radius-max);
+    overflow: hidden;
+    clip-path: inset(0 0 0 6px);
+  }
+
+  &::-webkit-slider-thumb {
+    width: $thumb-w;
+    height: $thumb-w;
+    margin-top: 0 - $border-w;
+    border: $border-w solid transparent;
+    transform: unset !important;
+    background-color: var(--b3-theme-primary);
+    border-image: linear-gradient(var(--b3-theme-primary), var(--b3-theme-primary)) 0 fill / 1 3 1 0 /
+      0px 0px 0 2000px;
+  }
+}
+
+.b3-tooltips:has(.b3-slider),
+.b3-tooltips.b3-slider {
+  &::after {
+    $h: 21px;
+    margin-bottom: 0;
+    background-color: var(--b3-theme-primary);
+    padding: 2px 6px;
+  }
+}

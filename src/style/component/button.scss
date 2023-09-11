@@ -4,7 +4,6 @@
 //按钮
 .b3-button {
   @include m.focus(var(--rc-primary));
-  width: auto;
   border: none;
   box-shadow: unset;
   border-radius: var(--b3-border-radius);
@@ -48,6 +47,11 @@
   &--small {
     height: 28px;
     padding: 0 12px;
+  }
+
+  &--big{
+    height: auto;
+    padding: 24px 16px;
   }
 
   $feat-colors: (

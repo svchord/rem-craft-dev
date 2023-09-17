@@ -15,7 +15,7 @@
 
 body {
   font-size: 13px;
-  background: var(--rc-surface-5);
+  background: var(--bard-color-surface-container);
   &::before {
     content: ' ';
     border-radius: var(--b3-border-radius-b);
@@ -47,11 +47,10 @@ body {
 .layout__dockl,
 .layout__dockr,
 .layout__dockb {
-  background: var(--rc-surface-2);
+  background: var(--bard-color-surface-container-low);
   transition: var(--b3-transition);
   top: top-bar.$height;
   bottom: status.$height;
-  left: dock.$width !important;
   border: transparent;
 
   &:has(+ .layout__resize.fn__none) {
@@ -69,23 +68,38 @@ body {
 
   &.layout--float {
     box-shadow: var(--rc-elevation-2);
-    left: dock.$width !important;
     border: {
       width: 1px;
       radius: var(--b3-border-radius-b);
     }
 
-    &[style*='transform'] {
-      transform: translateX(-500px) !important;
-    }
-
     > .layout__dockresize {
       &:hover {
-        border: {
-          color: rgba(var(--rc-primary));
-          width: 0 2px 0 0;
-        }
+        border-color: rgba(var(--rc-primary));
+      }
+      &--lr {
+        border-width: 0 2px;
+      }
+      &:not(.layout__dockresize--lr) {
+        border-width: 2px 0;
       }
     }
   }
 }
+
+@mixin float($direction) {
+  .layout__dock#{if($direction=='left','l','r')} {
+    $width: dock.$width;
+    #{$direction}: $width !important;
+    &.layout--float {
+      #{$direction}: $width !important;
+      &[style*='transform'] {
+        $PN: if($direction== 'left', -1, 1);
+        transform: translateX(calc($PN * (100% + $width))) !important;
+      }
+    }
+  }
+}
+
+@include float('left');
+@include float('right');

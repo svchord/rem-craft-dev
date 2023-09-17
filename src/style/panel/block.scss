@@ -35,4 +35,23 @@
       @include m.svg-parent(24px, 10px);
     }
   }
+  &__popover {
+    box-shadow: var(--rc-elevation-3);
+
+    opacity: 0;
+    margin-top: 25px;
+    &--open {
+      opacity: 1;
+      margin-top: 0;
+      transition: {
+        property: opacity, margin-top;
+        duration: 0.2s;
+        timing-function: var(--rc-timing-function);
+      }
+    }
+  }
+
+  &__edit {
+    border: none;
+  }
 }

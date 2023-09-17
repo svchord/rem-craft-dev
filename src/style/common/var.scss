@@ -1,9 +1,9 @@
 @use 'material-design';
 
 :root {
-  --rc-primary: 11, 87, 208;
-  --rc-on-primary: var(--mio-theme-color-on-primary);
-  --rc-primary-container: var(--mio-theme-color-primary-container);
+  --rc-primary: var(--bard-color-primary-rgb);
+  --rc-on-primary: var(--bard-color-on-primary);
+  --rc-primary-container: var(--bard-color-primary-container);
   --rc-on-primary-container: var(--mio-theme-color-on-primary-container);
 
   --rc-secondary: var(--mio-theme-color-secondary);
@@ -13,12 +13,12 @@
 
   --rc-tertiary: var(--md-sys-color-tertiary);
   --rc-on-tertiary: var(--md-sys-color-on-tertiary);
-  --rc-tertiary-container: var(--mio-theme-color-tertiary-container);
+  --rc-tertiary-container: var(--bard-color-tertiary-container);
   --rc-on-tertiary-container: var(--mio-theme-color-on-tertiary-container);
 
-  --rc-error: var(--mio-theme-color-utility-error);
-  --rc-on-error: var(--mio-theme-color-utility-on-error);
-  --rc-error-container: var(--md-sys-color-error-container);
+  --rc-error: var(--bard-color-error);
+  --rc-on-error: var(--rc-on-primary);
+  --rc-error-container: var(--bard-color-error-container);
   --rc-on-error-container: var(--md-sys-color-on-error-container);
 
   --rc-warning: #616200;
@@ -26,8 +26,9 @@
   --rc-warning-container: #e8e971;
   --rc-on-warning-container: #1d1d00;
 
-  --rc-background: var(--mio-theme-color-background);
-  --rc-on-background: 31, 31, 31;
+  --rc-background: var(--bard-color-primary-background);
+  --rc-on-background: var(--bard-color-on-surface-rgb);
+  --rc-inverse-background: var(--bard-color-inverse-primary-background);
 
   --rc-surface-1: var(--mio-theme-color-surface-1);
   --rc-surface-2: var(--mio-theme-color-surface-2);
@@ -35,8 +36,8 @@
   --rc-surface-4: var(--mio-theme-color-surface-4);
   --rc-surface-5: var(--mio-theme-color-surface-5);
   --rc-surface-variant: var(--mio-theme-color-surface-variant);
-  --rc-on-surface: 31, 31, 31;
-  --rc-on-surface-variant: 68, 71, 70;
+  --rc-on-surface: var(--bard-color-on-surface-rgb);
+  --rc-on-surface-variant: var(--bard-color-on-surface-variant-rgb);
 
   --b3-theme-primary: rgba(var(--rc-primary));
   --b3-theme-primary-light: rgba(var(--rc-primary), 0.12);
@@ -71,9 +72,9 @@
     0px 0px 2px rgba(0, 0, 0, 0.025), 0px 0px 2.9px rgba(0, 0, 0, 0.028),
     0px 0px 4.5px rgba(0, 0, 0, 0.032), 0px 0px 8px rgba(0, 0, 0, 0.04);
   --rc-elevation-0: 0px 0px 1.5px rgba(0, 0, 0, 0.15);
-  --rc-elevation-1: 0px 1px 2px 0px rgb(0 0 0 / 30%), 0px 1px 3px 1px rgb(0 0 0 / 15%);
-  --rc-elevation-2: 0px 1px 2px 0px rgb(0 0 0 / 30%), 0px 2px 6px 2px rgb(0 0 0 / 15%);
-  --rc-elevation-3: 0px 1px 3px 0px rgb(0 0 0 / 30%), 0px 4px 8px 3px rgb(0 0 0 / 15%);
+  --rc-elevation-1: var(--mio-theme-elevation-1);
+  --rc-elevation-2: var(--mio-theme-elevation-2);
+  --rc-elevation-3: var(--mio-theme-elevation-3);
 
   /* 动画效果 */
   --rc-timing-function: cubic-bezier(0.2, 0, 0, 1);

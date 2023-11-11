@@ -1,0 +1,10 @@
+@use 'config';
+
+.b3-dialog {
+  &__close {
+    display: none;
+  }
+  .layout-tab-bar {
+    background-color: transparent;
+  }
+}

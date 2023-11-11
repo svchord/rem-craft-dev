@@ -33,7 +33,7 @@ $padding: 6px;
       @include m.focus(var(--rc-on-surface-variant));
       position: relative;
       &::before {
-        @include m.focus-before(22%, 0px);
+        @include m.focus-before(25%, 0px);
       }
     }
     &--readonly {

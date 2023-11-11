@@ -68,7 +68,7 @@ $btn-h: 22px;
     $left: 1px;
 
     &::before {
-      @include m.focus-before(30%, $left);
+      @include m.focus-before(33%, $left);
       opacity: 0;
     }
 
@@ -76,7 +76,7 @@ $btn-h: 22px;
       position: relative;
       background: rgba(var(--rc-on-surface-variant), 0.08) !important;
       &::before {
-        @include m.focus-before(22%, $left);
+        @include m.focus-before(25%, $left);
         opacity: 1;
       }
     }

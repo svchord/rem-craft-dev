@@ -2,11 +2,9 @@
 
 //输入框
 .b3-text-field {
+  @include m.elevation-0(true);
   transition: var(--b3-transition);
   border-radius: var(--b3-border-radius);
-
-  box-shadow: var(--rc-elevation-0) !important;
-  border: 1px solid var(--b3-border-color);
   background: var(--rc-background);
   border-bottom-color: var(--rc-outline);
   &:not(.b3-text-field--text) {

@@ -4,8 +4,7 @@
 .b3-select {
   padding: 0 24px 0 8px;
   height: var(--rc-component-height);
-  box-shadow: var(--rc-elevation-0);
-  border: 1px solid var(--b3-border-color);
+  @include m.elevation-0();
   @include m.transparent();
   &:hover,
   &:focus,

@@ -6,7 +6,7 @@ $icon-w: 14px;
 $width: $item-w + $interval * 2;
 
 .dock {
-  background: transparent;
+  background-color: transparent;
   &--vertical {
     width: $item-w + $interval;
     padding-bottom: $interval;
@@ -45,7 +45,7 @@ $width: $item-w + $interval * 2;
 
       &focus {
         @include m.focus(var(--rc-on-surface), true);
-        background: transparent !important;
+        background-color: transparent !important;
       }
       &,
       body.body--blur & {

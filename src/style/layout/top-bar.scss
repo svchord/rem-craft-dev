@@ -62,7 +62,7 @@ $win-btnW: 46px;
 
 #barWorkspace {
   @include m.state(var(--rc-on-surface-variant), true);
-  background: transparent;
+  background-color: transparent;
   width: auto;
   padding: 0 8px;
   font-weight: 500;

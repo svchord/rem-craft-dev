@@ -25,8 +25,7 @@
   &__outline {
     > .b3-list-item {
       background: var(--rc-background);
-      box-shadow: var(--rc-elevation-0);
-      border: 1px solid var(--b3-border-color);
+      @include m.elevation-0();
       margin: 0 12px 12px;
       line-height: 32px;
     }
@@ -37,8 +36,7 @@
       opacity: 0;
     }
     .protyle {
-      border: 1px solid var(--b3-border-color);
-      box-shadow: var(--rc-elevation-0);
+      @include m.elevation-0();
       border-radius: var(--b3-border-radius);
       margin: 4px 0 8px;
       padding: 8px 0;
@@ -70,10 +68,10 @@
 
 //关系图
 .graph {
-  background: transparent;
+  background-color: transparent;
   &__svg,
   &__loading {
-    background: transparent !important;
+    background-color: transparent !important;
   }
   &__loading {
     border-radius: var(--b3-border-radius);

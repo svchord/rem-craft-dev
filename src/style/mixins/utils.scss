@@ -1,3 +1,4 @@
+@use 'function' as f;
 @mixin focus-before($top, $left: 0) {
   content: '';
   display: block;
@@ -10,4 +11,9 @@
   background-color: rgba(var(--rc-primary));
   transition: var(--b3-transition);
   border-radius: var(--rc-border-radius-max);
+}
+
+@mixin elevation-0($important: false) {
+  box-shadow: var(--rc-elevation-0) f.is-important($important);
+  border: 1px solid var(--b3-border-color) f.is-important($important);
 }

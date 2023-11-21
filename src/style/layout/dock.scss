@@ -6,7 +6,7 @@ $icon-w: 14px;
 $width: $item-w + $interval * 2;
 
 .dock {
-  background-color: transparent;
+  background-color: var(--rc-base);
   &--vertical {
     width: $item-w + $interval;
     padding-bottom: $interval;

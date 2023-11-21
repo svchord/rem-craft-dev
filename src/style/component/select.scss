@@ -4,11 +4,6 @@
 .b3-select {
   padding: 0 24px 0 8px;
   height: var(--rc-component-height);
-  @include m.elevation-0();
-  @include m.transparent();
-  &:hover,
-  &:focus,
-  &:focus-visible {
-    box-shadow: var(--rc-elevation-0);
-  }
+  box-shadow: unset !important;
+  @include m.focus(var(--rc-on-surface-variant), true);
 }

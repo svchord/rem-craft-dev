@@ -8,7 +8,7 @@ $item-h: 24px;
 $icon-w: dock.$icon-w;
 
 .status {
-  background-color: transparent;
+  background-color: var(--rc-base);
   height: $height - dock.$interval;
   padding: 0;
   border: none;

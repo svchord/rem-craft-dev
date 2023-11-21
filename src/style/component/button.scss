@@ -3,6 +3,7 @@
 
 //按钮
 .b3-button {
+  //@include m.focus(var(--rc-on-surface-variant));
   @include m.focus(var(--rc-primary));
   border: none;
   box-shadow: unset;
@@ -49,7 +50,7 @@
     padding: 0 12px;
   }
 
-  &--big{
+  &--big {
     height: auto;
     padding: 24px 16px;
   }

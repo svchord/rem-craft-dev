@@ -1,6 +1,8 @@
 @use 'material-design';
 
 :root {
+  --rc-base: rgb(211, 227, 253);
+
   --rc-primary: var(--bard-color-primary-rgb);
   --rc-on-primary: var(--bard-color-on-primary);
   --rc-primary-container: var(--bard-color-primary-container);
@@ -35,7 +37,7 @@
   --rc-surface-3: var(--mio-theme-color-surface-3);
   --rc-surface-4: var(--mio-theme-color-surface-4);
   --rc-surface-5: var(--mio-theme-color-surface-5);
-  --rc-surface: var(--rc-surface-2);
+  --rc-surface: rgb(236, 243, 254); //var(--rc-surface-2);
   --rc-surface-variant: var(--mio-theme-color-surface-variant);
   --rc-on-surface: var(--bard-color-on-surface-rgb);
   --rc-on-surface-variant: var(--bard-color-on-surface-variant-rgb);
@@ -72,7 +74,6 @@
     0px 0px 1px rgba(0, 0, 0, 0.02), 0px 0px 1.4px rgba(0, 0, 0, 0.022),
     0px 0px 2px rgba(0, 0, 0, 0.025), 0px 0px 2.9px rgba(0, 0, 0, 0.028),
     0px 0px 4.5px rgba(0, 0, 0, 0.032), 0px 0px 8px rgba(0, 0, 0, 0.04);
-  --rc-elevation-0: 0px 0px 1.5px rgba(0, 0, 0, 0.15);
   --rc-elevation-1: var(--mio-theme-elevation-1);
   --rc-elevation-2: var(--mio-theme-elevation-2);
   --rc-elevation-3: var(--mio-theme-elevation-3);

@@ -2,7 +2,7 @@
 
 //表情面板
 .emojis {
-  padding: 2px;
+  padding: 8px;
 
   // 顶部工具栏
   > .fn__flex:first-child {
@@ -20,7 +20,7 @@
   }
 
   &__panel {
-    padding: 0 0 0 18px;
+    padding: 0 0 0 8px;
   }
 
   &__title {
@@ -32,7 +32,7 @@
   }
 
   &__content {
-    gap: 8px;
+    gap: 6px;
   }
 
   &__item {

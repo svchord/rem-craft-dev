@@ -2,8 +2,8 @@
 @use '../mixins' as m;
 
 :root {
-  --b3-toolbar-background: transparent;
-  --b3-toolbar-blur-background: transparent;
+  --b3-toolbar-background: var(--rc-base);
+  --b3-toolbar-blur-background: var(--rc-base);
   --b3-toolbar-hover: rgba(var(--rc-on-surface-variant), 0.08);
 }
 

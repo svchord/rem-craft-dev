@@ -2,20 +2,16 @@
 
 //输入框
 .b3-text-field {
-  @include m.elevation-0(true);
+  border: 1px solid transparent !important;
+  box-shadow: unset !important;
   transition: var(--b3-transition);
   border-radius: var(--b3-border-radius);
-  background: var(--rc-background);
-  border-bottom-color: var(--rc-outline);
   &:not(.b3-text-field--text) {
+    @include m.focus(var(--rc-on-surface-variant));
     height: var(--rc-component-height);
-
     &:focus {
-      box-shadow:
-        var(--rc-elevation-0),
-        0 -3px 0 -2px inset rgba(var(--rc-primary)) !important;
-
-      border-bottom: 1px solid rgba(var(--rc-primary));
+      border-color: rgb(var(--rc-primary)) !important;
+      background-color: var(--rc-background);
     }
   }
 }

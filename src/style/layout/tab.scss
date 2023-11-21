@@ -1,5 +1,7 @@
 @use '../mixins' as m;
 
+$pad: 12px;
+
 .layout-tab {
   &-container {
     background-color: transparent;
@@ -10,14 +12,19 @@
       min-height: 41px;
       &__icon {
         padding: 0;
-        margin-left: 8px;
+        margin-left: $pad;
         > svg,
         > img {
           margin: 0;
         }
+        + .item__text {
+          padding-left: 8px;
+        }
       }
       &__text {
-        padding: 0 8px;
+        padding: 0 8px 0 $pad;
+        min-width: 90px;
+        max-width: 190px;
       }
       &__close {
         @include m.state(var(--rc-on-surface-variant));
@@ -38,8 +45,8 @@
         height: 2px;
         border-radius: unset;
         bottom: 0;
-        left: 8px;
-        right: 8px;
+        left: $pad - 2px;
+        right: $pad - 2px;
         width: auto;
         transition: var(--b3-transition);
       }
@@ -63,11 +70,6 @@
             padding: 0 12px;
           }
         }
-
-        &::after {
-          left: 10px;
-          right: 10px;
-        }
       }
       &--full {
         min-width: unset !important;
@@ -76,6 +78,12 @@
         $padding: 16px;
         > .fn__flex-1 {
           width: $padding;
+        }
+        .item {
+          &__text {
+            padding: 0 8px;
+            min-width: 30px;
+          }
         }
         &::after {
           $interval: $padding + 8px - 4px;

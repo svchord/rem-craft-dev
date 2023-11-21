@@ -161,6 +161,12 @@ $padding-lr: 16px;
   .b3-select {
     background-color: var(--rc-background);
   }
+  .counter {
+    @include m.focus(var(--rc-on-surface-variant), true);
+    @include m.div(25px);
+    @include m.v-center(25px);
+    font-size: 100%;
+  }
 }
 
 .b3-card {
@@ -171,7 +177,7 @@ $padding-lr: 16px;
     transform: unset;
     box-shadow: unset;
     background-color: var(--rc-background);
-    border-color: rgb(var(--rc-primary));
+    border: 1px solid rgb(var(--rc-primary));
   }
   &--disabled {
     opacity: 0.38;

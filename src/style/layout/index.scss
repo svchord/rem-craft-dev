@@ -15,7 +15,7 @@
 
 body {
   font-size: 13px;
-  background: var(--bard-color-surface-container);
+  background: rgb(211, 227, 253);
   &::before {
     content: ' ';
     border-radius: var(--b3-border-radius-b);
@@ -47,7 +47,7 @@ body {
 .layout__dockl,
 .layout__dockr,
 .layout__dockb {
-  background: var(--bard-color-surface-container-low);
+  background: var(--rc-surface);
   transition: var(--b3-transition);
   top: top-bar.$height;
   bottom: status.$height;

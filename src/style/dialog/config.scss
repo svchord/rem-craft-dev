@@ -163,9 +163,21 @@ $padding-lr: 16px;
   }
   .counter {
     @include m.focus(var(--rc-on-surface-variant), true);
-    @include m.div(25px);
     @include m.v-center(25px);
+    width: auto;
     font-size: 100%;
+    &:not(:empty) {
+      padding: 0 8px;
+    }
+  }
+}
+
+#configBazaarDownloaded {
+  > .fn__flex {
+    margin-top: 8px;
+  }
+  > .b3-card {
+    margin-top: 8px;
   }
 }
 

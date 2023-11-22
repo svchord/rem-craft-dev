@@ -1,0 +1,64 @@
+@use '../mixins' as m;
+@use 'sass:math';
+@use '../component/form-input' as form;
+
+$height: 36px;
+$icon-w: 30px;
+
+.search {
+  &__header {
+    height: $height;
+    margin: 0 8px;
+    div:has(> &) {
+      background-color: var(--rc-background);
+
+      .b3-button {
+        @include m.focus(var(--rc-on-surface-variant));
+        height: 28px;
+        font-size: 12px;
+      }
+    }
+    .b3-form__icon-icon {
+      top: math.div($height - $icon-w, 2);
+    }
+    .b3-text-field {
+      font-size: 14px;
+      height: $height;
+    }
+    .block__icons {
+      min-height: $height;
+    }
+  }
+  &__arrowdown {
+    $w: 8px;
+    @include m.svg($w);
+    top: math.div($height - $w, 2);
+    left: $icon-w - $w + 2px;
+  }
+  &__layout {
+    border-top: none;
+    margin: 0 8px;
+    background-color: var(--rc-surface);
+  }
+  &__list,
+  &__preview {
+    padding-top: 8px;
+  }
+
+  &__tip {
+    margin: 0;
+    height: 36px;
+  }
+}
+
+#criteria {
+  min-height: $height !important;
+  border-bottom: 1px solid var(--b3-border-color);
+  margin: 0 8px;
+
+  + .block__icons {
+    min-height: $height;
+    margin: 0 8px;
+    border-bottom: 1px solid var(--b3-border-color);
+  }
+}

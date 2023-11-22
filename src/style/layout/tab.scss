@@ -2,6 +2,13 @@
 
 $pad: 12px;
 
+@mixin icon {
+  margin-left: $pad;
+  + .item__text {
+    padding-left: 8px;
+  }
+}
+
 .layout-tab {
   &-container {
     background-color: transparent;
@@ -12,14 +19,15 @@ $pad: 12px;
       min-height: 41px;
       &__icon {
         padding: 0;
-        margin-left: $pad;
+        @include icon();
         > svg,
         > img {
           margin: 0;
         }
-        + .item__text {
-          padding-left: 8px;
-        }
+      }
+      &__graphic {
+        @include m.svg(12px);
+        @include icon();
       }
       &__text {
         padding: 0 8px 0 $pad;

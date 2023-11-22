@@ -40,21 +40,29 @@ $padding-lr: 16px;
         }
       }
     }
+    // 设置菜单特化样式
+    .config__tab-container {
+      margin-top: 36px;
+      height: calc(100% - 36px);
+      padding: 0 0 24px;
+      &--top {
+        margin-top: 24px;
+        height: calc(100% - 24px);
+        padding-bottom: 0;
+      }
+      .b3-label {
+        margin-right: $padding-lr;
+      }
+    }
   }
   &__tab-wrap {
     padding: 0 0 0 $padding-lr;
     background-color: transparent;
     height: auto;
   }
+  // 设置菜单公共样式
   &__tab-container {
-    margin-top: 36px;
-    height: calc(100% - 36px);
-    padding-bottom: 24px;
-    &--top {
-      margin-top: 24px;
-      height: calc(100% - 24px);
-      padding-bottom: 0;
-    }
+    padding: $padding-lr;
     .layout-tab-bar {
       margin-right: $padding-lr;
       margin-bottom: 16px;
@@ -66,7 +74,7 @@ $padding-lr: 16px;
       padding: 16px;
       margin-bottom: 6px;
       margin-left: 0;
-      margin-right: $padding-lr;
+      margin-right: 0;
       &--inner,
       &--noborder {
         border: none;
@@ -145,6 +153,29 @@ $padding-lr: 16px;
       }
     }
   }
+  &-account {
+    margin-top: 30px;
+    height: 700px;
+    &__info{
+      margin-top: 180px;
+    }
+    &__svg {
+      display: none;
+    }
+    &__center {
+      .b3-button--text {
+        @include m.focus(var(--rc-primary));
+      }
+      &--text {
+        .fn__hr--b {
+          height: 24px;
+          + .fn__flex-1 {
+            display: none;
+          }
+        }
+      }
+    }
+  }
 }
 
 // 集市
@@ -174,10 +205,10 @@ $padding-lr: 16px;
 
 #configBazaarDownloaded {
   > .fn__flex {
-    margin-top: 8px;
-  }
-  > .b3-card {
-    margin-top: 8px;
+    margin-top: 16px;
+    .b3-switch {
+      margin: 0 32px !important;
+    }
   }
 }
 

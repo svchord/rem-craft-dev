@@ -10,13 +10,13 @@
   border-radius: var(--b3-border-radius);
   height: var(--rc-component-height);
   padding: 0 18px;
+  gap: 6px;
 
   svg {
     @include m.svg(12px);
-    margin: 0 6px 0 0;
+    margin: 0;
     &[style*='height'] {
       @include m.svg(8px, $important: true);
-      margin: 0 6px 0 0;
     }
   }
 

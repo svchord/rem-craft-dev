@@ -1,0 +1,12 @@
+@use '../mixins' as m;
+
+.b3-chip {
+  &:not(.b3-chip--pointer) {
+    height: var(--rc-component-height);
+    padding: 0 15px;
+  }
+  svg:not(.b3-chip__close) {
+    @include m.svg(13px);
+    margin-right: 6px;
+  }
+}

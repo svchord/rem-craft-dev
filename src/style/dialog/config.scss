@@ -156,14 +156,14 @@ $padding-lr: 16px;
   &-account {
     margin-top: 30px;
     height: 700px;
-    &__info{
+    &__info {
       margin-top: 180px;
     }
     &__svg {
       display: none;
     }
     &__center {
-      .b3-button--text {
+      .b3-button--text:not(#activationCode) {
         @include m.focus(var(--rc-primary));
       }
       &--text {
@@ -176,6 +176,10 @@ $padding-lr: 16px;
       }
     }
   }
+}
+
+#activationCode {
+  @include m.state(var(--rc-on-surface-variant));
 }
 
 // 集市

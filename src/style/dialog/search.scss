@@ -8,12 +8,16 @@ $icon-w: 30px;
 .search {
   &__header {
     height: $height;
-    margin: 0 8px;
+    grid-column: span 2;
     div:has(> &) {
       background-color: var(--rc-background);
+      .b3-dialog__container & {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+      }
 
       .b3-button {
-        //@include m.focus(var(--rc-on-surface-variant));
+        @include m.focus(var(--rc-on-surface-variant));
         height: 28px;
         font-size: 12px;
         &[disabled] {
@@ -43,11 +47,13 @@ $icon-w: 30px;
   }
   &__layout {
     border: none;
+    grid-column: span 2;
+    order: 3;
   }
   &__list {
+    padding-top: 8px;
     background-color: var(--rc-surface);
   }
-  &__list,
   &__preview {
     padding-top: 8px;
   }
@@ -55,16 +61,26 @@ $icon-w: 30px;
   &__tip {
     margin: 0;
     height: 36px;
+    grid-column: span 2;
+    order: 4;
     background-color: var(--rc-base);
   }
 }
 
 #criteria {
   min-height: $height !important;
-  margin: 0 8px;
+  border-bottom: 1px solid var(--b3-border-color);
+  grid-column: span 1;
+  order: 2;
 
   + .block__icons {
+    grid-column: span 1;
+    order: 1;
     min-height: $height;
-    background-color: var(--rc-base);
+    border-bottom: 1px solid var(--b3-border-color);
+
+    .b3-dialog__container & {
+      border-right: 1px solid var(--b3-border-color);
+    }
   }
 }

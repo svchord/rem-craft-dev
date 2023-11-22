@@ -1,6 +1,13 @@
 @use '../mixins' as m;
 
 .b3-chip {
+  &s {
+    padding: 0;
+    height: 36px;
+    .b3-chip {
+      margin: auto 6px;
+    }
+  }
   &:not(.b3-chip--pointer) {
     height: var(--rc-component-height);
     padding: 0 15px;

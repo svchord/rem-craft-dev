@@ -16,6 +16,12 @@ $icon-w: 30px;
         //@include m.focus(var(--rc-on-surface-variant));
         height: 28px;
         font-size: 12px;
+        &[disabled] {
+          background-color: transparent;
+        }
+        &--cancel {
+          @include m.transparent();
+        }
       }
     }
     .b3-form__icon-icon {
@@ -37,7 +43,9 @@ $icon-w: 30px;
   }
   &__layout {
     border: none;
-    margin: 0 8px;
+  }
+  &__list {
+    background-color: var(--rc-surface);
   }
   &__list,
   &__preview {
@@ -47,7 +55,7 @@ $icon-w: 30px;
   &__tip {
     margin: 0;
     height: 36px;
-    background-color: var(--rc-surface);
+    background-color: var(--rc-base);
   }
 }
 
@@ -57,6 +65,6 @@ $icon-w: 30px;
 
   + .block__icons {
     min-height: $height;
-    background-color: var(--rc-surface);
+    background-color: var(--rc-base);
   }
 }

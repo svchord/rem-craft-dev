@@ -67,20 +67,7 @@ $padding-lr: 16px;
       margin-right: $padding-lr;
       margin-bottom: 16px;
     }
-    .b3-label {
-      border: none;
-      border-radius: var(--b3-border-radius);
-      background-color: var(--rc-background);
-      padding: 16px;
-      margin-bottom: 6px;
-      margin-left: 0;
-      margin-right: 0;
-      &--inner,
-      &--noborder {
-        border: none;
-        box-shadow: none;
-      }
-    }
+
     // 键盘快捷键
     .b3-list--border {
       padding: 0;
@@ -175,6 +162,21 @@ $padding-lr: 16px;
         }
       }
     }
+  }
+}
+
+.b3-dialog__body .b3-label {
+  border: none;
+  border-radius: var(--b3-border-radius);
+  background-color: var(--rc-background);
+  padding: 16px;
+  margin-bottom: 6px;
+  margin-left: 0;
+  margin-right: 0;
+  &--inner,
+  &--noborder {
+    border: none;
+    box-shadow: none;
   }
 }
 

@@ -4,6 +4,7 @@
 
 $height: 36px;
 $icon-w: 30px;
+$interval: math.div($height - $icon-w, 2);
 
 .search {
   &__header {
@@ -24,11 +25,13 @@ $icon-w: 30px;
       }
     }
     .b3-form__icon-icon {
-      top: math.div($height - $icon-w, 2);
+      top: $interval;
+      left: $interval !important;
     }
     .b3-text-field {
       font-size: 14px;
       height: $height;
+      padding-left: $height;
       background-color: transparent;
     }
     .block__icons {
@@ -39,7 +42,7 @@ $icon-w: 30px;
     $w: 8px;
     @include m.svg($w);
     top: math.div($height - $w, 2);
-    left: $icon-w - $w + 2px;
+    left: $icon-w - $w + $interval + 2px;
   }
   &__layout {
     border: none;
@@ -48,14 +51,27 @@ $icon-w: 30px;
     padding-top: 8px;
     background-color: var(--rc-surface);
   }
-  &__preview {
-    padding-top: 8px;
+
+  &__preview{
+  }
+
+  &__drag {
+    &:hover::after {
+      background-color: rgba(var(--rc-primary));
+
+      .search__layout--row & {
+        width: 2px;
+      }
+      .search__layout:not(.search__layout--row) & {
+        height: 2px;
+      }
+    }
   }
 
   &__tip {
     margin: 0;
     height: 36px;
-    background-color: var(--rc-base);
+    border-top: 1px solid var(--b3-border-color);
   }
 }
 

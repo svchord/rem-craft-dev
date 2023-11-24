@@ -5,6 +5,18 @@
   &__close {
     display: none;
   }
+  &__header{
+    border: none;
+    padding: 24px 24px 16px;
+  }
+  &__content{
+    background-color: transparent !important;
+    padding: 0 24px 24px;
+  }
+  &__action{
+    border: none;
+    padding: 0 24px 24px;
+  }
   .layout-tab-bar {
     background-color: transparent;
   }

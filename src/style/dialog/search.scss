@@ -92,12 +92,12 @@ $interval: math.div($height - $icon-w, 2);
 }
 
 .b3-dialog__container {
-  div:has(> .search__header) {
+  .fn__flex-column:has(> .search__header) {
     display: grid;
     grid-template-columns: 1fr 1fr;
     grid-template-rows: 36px 36px auto 36px;
   }
-  div:not(:has(> .search__header.fn__none)) {
+  .fn__flex-column:not(:has(> .search__header.fn__none)) {
     grid-template-rows: 36px 36px 36px auto 36px;
   }
   .search {

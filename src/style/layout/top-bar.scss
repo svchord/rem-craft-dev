@@ -1,5 +1,6 @@
 @use 'sass:math';
 @use '../mixins' as m;
+@use "dock";
 
 :root {
   --b3-toolbar-background: var(--rc-base);
@@ -18,15 +19,16 @@ $win-btnW: 46px;
 .toolbar {
   height: $height;
   border: none;
+  gap: 3px;
 
   body.body--win32 & {
-    padding-left: 2px;
+    padding-left: dock.$interval;
   }
 
   &__item {
     @include m.svg-parent($btn-w, $icon-size, $btn-h);
     @include m.state(var(--rc-on-surface-variant), true);
-    margin: 0 4px;
+    margin: 0;
     svg.toolbar__svg {
       height: $btn-h;
       opacity: 1;

@@ -17,6 +17,7 @@
     margin: 0;
     &[style*='height'] {
       @include m.svg(8px, $important: true);
+      margin: 0;
     }
   }
 

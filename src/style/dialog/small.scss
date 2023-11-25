@@ -1,0 +1,84 @@
+@use '../mixins' as m;
+
+.b3-dialog {
+  &__container {
+    // 属性设置
+    &:has(.custom-attr){
+      width: 600px !important;
+      height: 640px !important;
+    }
+    // 移动文档
+    &:has(#foldTree) {
+      width: 560px !important;
+      height: 720px !important;
+    }
+    // 重命名
+    &[style*='520px'] {
+      width: 360px !important;
+    }
+    // 笔记本设置界面
+    &:has(#dailyNoteSavePath) {
+      width: 720px !important;
+    }
+  }
+  // 重命名 - 输入框
+  &__content > .b3-text-field.fn__block {
+    margin: 12px 0 0;
+  }
+  &__body {
+    // 属性设置 / 数据历史 - 顶部tab
+    > .fn__flex-column > .layout-tab-bar {
+      margin: 16px 16px 12px;
+      border-radius: unset !important;
+    }
+    // 移动文档 - 搜索框
+    > .b3-form__icon {
+      margin: 0 24px 12px !important;
+    }
+  }
+  &__action {
+    .b3-button {
+      background-color: transparent;
+      @include m.state(var(--rc-primary));
+    }
+  }
+}
+
+// 移动文档 - 查询后列表
+#foldList {
+  margin: 0 24px;
+  padding: 0;
+}
+
+// 移动文档 - 文档树
+#foldTree {
+  margin: 0 24px;
+  > .b3-list {
+    padding: 0;
+    @mixin left($depth) {
+      > ul {
+        > li > .b3-list-item__toggle {
+          padding-left: 22px + ($depth * 18px) !important;
+        }
+        @if $depth < 14 {
+          @include left($depth + 1);
+        }
+      }
+    }
+
+    @include left(0);
+  }
+  + .fn__hr {
+    display: none;
+  }
+}
+
+// 导出为图片
+#preview {
+  background-color: var(--rc-background);
+}
+
+// 属性设置
+.custom-attr{
+  padding: 0 24px 24px;
+}

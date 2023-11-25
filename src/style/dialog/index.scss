@@ -1,21 +1,25 @@
 @use 'config';
 @use 'search';
+@use 'small';
 
 .b3-dialog {
   &__close {
     display: none;
   }
-  &__header{
+  &__header {
     border: none;
     padding: 24px 24px 16px;
   }
-  &__content{
+  &__content {
     background-color: transparent !important;
     padding: 0 24px 24px;
+    &:has(+ .b3-dialog__action) {
+      padding-bottom: 0;
+    }
   }
-  &__action{
+  &__action {
     border: none;
-    padding: 0 24px 24px;
+    padding: 24px;
   }
   .layout-tab-bar {
     background-color: transparent;

@@ -3,7 +3,7 @@
 .b3-dialog {
   &__container {
     // 属性设置
-    &:has(.custom-attr){
+    &:has(.custom-attr) {
       width: 600px !important;
       height: 640px !important;
     }
@@ -12,7 +12,7 @@
       width: 560px !important;
       height: 720px !important;
     }
-    // 重命名
+    // 重命名 / 提示弹窗
     &[style*='520px'] {
       width: 360px !important;
     }
@@ -21,9 +21,16 @@
       width: 720px !important;
     }
   }
-  // 重命名 - 输入框
-  &__content > .b3-text-field.fn__block {
-    margin: 12px 0 0;
+  &__content {
+    // 提示弹窗
+    > .ft__breakword,
+    // 重命名 - 输入框
+    > .b3-text-field.fn__block {
+      margin: 12px 0 0;
+    }
+    > .ft__breakword {
+      font-size: 14px;
+    }
   }
   &__body {
     // 属性设置 / 数据历史 - 顶部tab
@@ -79,6 +86,6 @@
 }
 
 // 属性设置
-.custom-attr{
+.custom-attr {
   padding: 0 24px 24px;
 }

@@ -125,48 +125,31 @@ $interval: math.div($height - $icon-w, 2);
 }
 
 #searchList > .b3-list-item {
-  // 分组
-  + div:not([data-type='search-item']) {
-    > [data-type='search-item'] {
-      height: 32px;
-      //padding-left: list.$padding !important;
-    }
-  }
-
   // 未分组
   &[data-type='search-item'] {
     $padding: 8px;
     $text-h: 24px;
     height: auto;
-    flex-wrap: wrap;
-    align-items: start;
+    display: block;
     gap: 0;
-    padding: $padding $padding 24px + $padding;
+    padding: $padding $padding $text-h + $padding;
 
     .b3-list-item {
       &__graphic {
         @include m.svg(28px, 12px, $important: true);
+        position: absolute;
       }
       &__text {
         overflow-y: auto !important;
         text-overflow: ellipsis !important;
         -webkit-box-orient: inherit;
-        padding: 0 $padding 0 0;
-        width: 100% !important;
-        flex: 100;
+        padding: 0 $padding 0 28px;
       }
       &__meta {
-        position: absolute;
+        float: right;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        left: $padding + 0px;
-        bottom: $padding;
-        margin: 0;
-        &--ellipsis {
-          left: unset;
-          right: $padding;
-        }
       }
     }
   }

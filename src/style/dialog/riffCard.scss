@@ -1,0 +1,29 @@
+// 管理闪卡
+.b3-dialog__body:has(#cardPreview) {
+  padding: 24px;
+  .block__icons {
+    background-color: var(--rc-background);
+    border-radius: var(--b3-border-radius);
+    padding: 8px 16px;
+    margin-bottom: 12px;
+  }
+  .b3-list {
+    background-color: var(--rc-background);
+    border-radius: var(--b3-border-radius);
+    padding: 8px;
+    margin-right: 12px;
+  }
+  .card__empty {
+    border-radius: var(--b3-border-radius);
+  }
+}
+
+#cardPreview {
+  border-radius: var(--b3-border-radius);
+}
+
+.card__action {
+  .b3-button {
+    height: auto;
+  }
+}

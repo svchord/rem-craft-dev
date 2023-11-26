@@ -3,7 +3,7 @@
   &:has(+ .history__panel) {
     background-color: var(--rc-background);
     border-radius: var(--b3-border-radius);
-    padding: 8px 12px;
+    padding: 8px 16px;
     margin: 24px 24px 12px;
   }
   #historyContainer & {

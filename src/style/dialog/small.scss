@@ -22,13 +22,14 @@
     }
   }
   &__content {
-    // 提示弹窗
-    > .ft__breakword,
     // 重命名 - 输入框
     > .b3-text-field.fn__block {
       margin: 12px 0 0;
     }
+    // 提示弹窗
     > .ft__breakword {
+      margin: 12px 0;
+      line-height: 1.625;
       font-size: 14px;
     }
   }
@@ -88,4 +89,25 @@
 // 属性设置
 .custom-attr {
   padding: 0 24px 24px;
+}
+
+// ctrl + tab 菜单
+.switch-doc {
+  padding: 0 24px 24px;
+  > .fn__flex {
+    gap: 8px;
+    > .b3-list {
+      padding: 12px 8px;
+      background-color: var(--rc-background);
+      border-radius: var(--b3-border-radius);
+      border: none;
+      width: auto !important;
+      flex: 1;
+    }
+  }
+  &__path {
+    margin-top: 24px;
+    border: none;
+    font-size: 14px;
+  }
 }

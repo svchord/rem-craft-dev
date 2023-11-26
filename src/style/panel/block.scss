@@ -17,8 +17,7 @@
       padding-left: 14px;
       padding-right: 10px;
       .counter {
-        color: rgba(var(--rc-on-surface));
-        background: rgba(var(--rc-on-surface), 0.08);
+        @include m.focus(var(--rc-on-surface-variant));
       }
     }
     &[disabled] {

@@ -13,12 +13,12 @@
       height: 720px !important;
     }
     // 重命名 / 提示弹窗
-    &[style*='520px'] {
+    &[style*='520px'][style*='height:auto'] {
       width: 360px !important;
     }
     // 笔记本设置界面
     &:has(#dailyNoteSavePath) {
-      width: 720px !important;
+      width: 800px !important;
     }
   }
   &__content {

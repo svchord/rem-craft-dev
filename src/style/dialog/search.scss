@@ -52,7 +52,7 @@ $interval: math.div($height - $icon-w, 2);
     background-color: var(--rc-surface);
   }
 
-  &__preview{
+  &__preview {
   }
 
   &__drag {
@@ -120,6 +120,54 @@ $interval: math.div($height - $icon-w, 2);
       grid-column: span 1;
       order: 1;
       border-right: 1px solid var(--b3-border-color);
+    }
+  }
+}
+
+#searchList > .b3-list-item {
+  // 分组
+  + div:not([data-type='search-item']) {
+    > [data-type='search-item'] {
+      height: 32px;
+      //padding-left: list.$padding !important;
+    }
+  }
+
+  // 未分组
+  &[data-type='search-item'] {
+    $padding: 8px;
+    $text-h: 24px;
+    height: auto;
+    flex-wrap: wrap;
+    align-items: start;
+    gap: 0;
+    padding: $padding $padding 24px + $padding;
+
+    .b3-list-item {
+      &__graphic {
+        @include m.svg(28px, 12px, $important: true);
+      }
+      &__text {
+        overflow-y: auto !important;
+        text-overflow: ellipsis !important;
+        -webkit-box-orient: inherit;
+        padding: 0 $padding 0 0;
+        width: 100% !important;
+        flex: 100;
+      }
+      &__meta {
+        position: absolute;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        left: $padding + 0px;
+        bottom: $padding;
+        margin: 0;
+        &--ellipsis {
+          left: unset;
+          right: $padding;
+        }
+      }
     }
   }
 }

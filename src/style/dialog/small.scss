@@ -48,6 +48,9 @@
     .b3-button {
       background-color: transparent;
       @include m.state(var(--rc-primary));
+      &--cancel {
+        @include m.state(var(--rc-on-surface));
+      }
     }
   }
 }

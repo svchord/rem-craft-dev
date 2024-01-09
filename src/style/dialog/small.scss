@@ -46,11 +46,9 @@
   }
   &__action {
     .b3-button {
-      background-color: transparent;
       @include m.state(var(--rc-primary));
-      //&--cancel {
-      //  @include m.state(var(--rc-on-surface));
-      //}
+      background-color: transparent;
+      border-radius: var(--rc-border-radius-max);
     }
   }
 }

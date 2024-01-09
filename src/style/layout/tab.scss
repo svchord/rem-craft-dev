@@ -11,9 +11,10 @@ $pad: 12px;
 
 .layout-tab {
   &-container {
-    background-color: transparent;
+    //background-color: transparent;
   }
   &-bar {
+    background-color: transparent;
     .item {
       @include m.state(var(--rc-on-surface-variant));
       min-height: 41px;

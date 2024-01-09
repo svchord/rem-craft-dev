@@ -10,26 +10,36 @@ $item-h: 36px;
 $padding-lr: 16px;
 .config {
   &__panel {
+    .b3-dialog__container:has(&) {
+      padding: 0;
+    }
+    // 侧边栏
     > .b3-tab-bar {
-      padding: 24px 16px;
-      width: 340px;
-      .config__tab-title {
-        padding: 0;
-        font-size: 16px;
-        height: $item-h;
-        line-height: $item-h;
-        margin-bottom: 16px;
-        .b3-list-item__graphic {
-          @include m.svg($item-h, 16px, $important: true);
+      padding: 0;
+      width: 320px;
+      .config__tab {
+        &-title {
+          padding: 24px 16px 16px;
+          margin-bottom: 0;
+          font-size: 16px;
+          height: $item-h;
+          line-height: $item-h;
+
+          .b3-list-item__graphic {
+            @include m.svg($item-h, 16px, $important: true);
+          }
+        }
+        &-hr {
+          margin: 16px;
         }
       }
       .b3-form__icon {
-        margin: 0;
+        margin: 0 16px;
         @include form.search-input(32px, 1px, 13px);
       }
       .b3-list-item {
         line-height: $item-h;
-        margin-bottom: 4px;
+        margin: 0 16px 4px;
         &__graphic {
           @include m.svg(24px, 14px, $important: true);
         }
@@ -41,31 +51,34 @@ $padding-lr: 16px;
       }
     }
     // 设置菜单特化样式
-    .config__tab-container {
-      margin-top: 36px;
-      height: calc(100% - 36px);
-      padding: 0 0 24px;
-      &--top {
-        margin-top: 24px;
-        height: calc(100% - 24px);
-        padding-bottom: 0;
-      }
-      .b3-label {
-        margin-right: $padding-lr;
-      }
+    .config__tab-container .b3-label {
+      padding: 16px;
+      margin: 0 0 6px;
+      box-shadow: none;
     }
   }
+  // 设置项
   &__tab-wrap {
-    padding: 0 0 0 $padding-lr;
     background-color: transparent;
     height: auto;
+    > .resize__move {
+      height: 36px;
+    }
+    > .fn__hr--b:last-child {
+      display: none;
+    }
   }
   // 设置菜单公共样式
   &__tab-container {
-    padding: $padding-lr;
+    height: calc(100% - 36px);
+    padding: 0 16px 24px;
+    &--top {
+      margin-top: -12px;
+      height: 100%;
+      padding-bottom: 0;
+    }
     .layout-tab-bar {
-      margin-right: $padding-lr;
-      margin-bottom: 16px;
+      margin: 0 0 16px;
     }
 
     // 键盘快捷键
@@ -97,12 +110,13 @@ $padding-lr: 16px;
   &-bazaar__readme {
     padding: 16px;
     background-color: var(--rc-surface);
+    border-radius: var(--rc-border-radius-dialog);
     .item {
       // 侧栏
       &__side {
         width: 350px;
         background-color: var(--rc-background);
-        border-radius: var(--b3-border-radius);
+        border-radius: var(--b3-border-radius-b);
         // 按钮
         .block__icon {
           &[data-type='goBack'] {
@@ -120,7 +134,7 @@ $padding-lr: 16px;
       // Readme主页
       &__main {
         background-color: var(--rc-background);
-        border-radius: var(--b3-border-radius);
+        border-radius: var(--b3-border-radius-b);
         // Readme正文
         .b3-typography {
           padding: 0 96px;
@@ -135,11 +149,12 @@ $padding-lr: 16px;
       &__preview {
         border-radius: unset;
         &--fullscreen {
-          border-radius: var(--b3-border-radius-b);
+          border-radius: var(--rc-border-radius-dialog);
         }
       }
     }
   }
+  // 账号
   &-account {
     margin-top: 30px;
     height: 700px;
@@ -162,21 +177,6 @@ $padding-lr: 16px;
         }
       }
     }
-  }
-}
-
-.b3-dialog__body .b3-label {
-  border: none;
-  border-radius: var(--b3-border-radius);
-  background-color: var(--rc-background);
-  padding: 16px;
-  margin-bottom: 6px;
-  margin-left: 0;
-  margin-right: 0;
-  &--inner,
-  &--noborder {
-    border: none;
-    box-shadow: none;
   }
 }
 
@@ -210,6 +210,10 @@ $padding-lr: 16px;
 }
 
 #configBazaarDownloaded {
+  padding: 16px 0;
+  display: flex;
+  gap: 16px;
+  flex-direction: column;
   > .fn__flex {
     margin-top: 16px;
     .b3-switch {
@@ -222,6 +226,11 @@ $padding-lr: 16px;
   box-shadow: unset;
   background-color: var(--rc-background);
   border: 1px solid transparent;
+  margin: 0;
+  &s {
+    padding: 16px 0;
+    gap: 16px;
+  }
   &:hover {
     transform: unset;
     box-shadow: unset;

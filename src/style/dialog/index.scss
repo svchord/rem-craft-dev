@@ -1,29 +1,28 @@
 @use 'config';
-@use "history";
-@use "riff-card";
-@use 'search';
-@use 'small';
+//@use "history";
+//@use "riff-card";
+//@use 'search';
+//@use 'small';
 
 .b3-dialog {
+  &__container {
+    border-radius: var(--rc-border-radius-dialog);
+    padding: 24px 0;
+  }
   &__close {
     display: none;
   }
   &__header {
     border: none;
-    padding: 24px 24px 16px;
+    padding: 0 24px 16px;
+    font-size: 18px;
   }
   &__content {
     background-color: transparent !important;
-    padding: 0 24px 24px;
-    &:has(+ .b3-dialog__action) {
-      padding-bottom: 0;
-    }
+    padding: 0 24px;
   }
   &__action {
     border: none;
-    padding: 24px;
-  }
-  .layout-tab-bar {
-    background-color: transparent;
+    padding: 16px 24px 0;
   }
 }

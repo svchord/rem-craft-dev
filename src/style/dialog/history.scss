@@ -17,10 +17,6 @@
   }
 }
 
-#historyContainer > [data-type='notebook'] {
-  //padding: 0 24px 24px !important;
-}
-
 .history {
   &__panel {
     > .b3-list {
@@ -28,6 +24,9 @@
       margin-right: 12px;
       background-color: var(--rc-background);
       border-radius: var(--b3-border-radius-b);
+      > ul {
+        margin-bottom: 3px;
+      }
     }
   }
   &__repo {
@@ -57,7 +56,6 @@
     border: none;
     > .b3-list {
       padding: 0;
-      margin-bottom: 3px;
     }
 
     + .fn__flex {

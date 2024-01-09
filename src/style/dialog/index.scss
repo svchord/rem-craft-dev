@@ -1,7 +1,7 @@
 @use '../mixins' as m;
 @use 'config';
 @use "history";
-//@use "riff-card";
+@use "riff-card";
 //@use 'search';
 @use 'small';
 
@@ -17,6 +17,9 @@
     border: none;
     padding: 0 24px 16px;
     font-size: 18px;
+    .b3-form__icon{
+      font-size: 13px;
+    }
   }
   &__content {
     background-color: transparent !important;
@@ -30,7 +33,7 @@
       padding: 8px 16px;
       line-height: 20px;
       height: auto;
-      width: 80px;
+      width: 90px;
       border-radius: var(--rc-border-radius-max);
       &--cancel {
         background-color: transparent;

@@ -1,27 +1,32 @@
 // 管理闪卡
+.b3-dialog__container:has(#cardPreview) {
+  padding-top: 12px;
+}
 .b3-dialog__body:has(#cardPreview) {
-  padding: 24px;
+  padding: 0 24px;
   .block__icons {
-    background-color: var(--rc-background);
-    border-radius: var(--b3-border-radius);
-    padding: 8px 16px;
-    margin-bottom: 12px;
+    margin-bottom: 8px;
   }
   .b3-list {
     background-color: var(--rc-background);
-    border-radius: var(--b3-border-radius);
+    border-radius: var(--b3-border-radius-b);
     padding: 8px;
     margin-right: 12px;
   }
   .card__empty {
-    border-radius: var(--b3-border-radius);
+    border-radius: var(--b3-border-radius-b);
   }
 }
 
 #cardPreview {
-  border-radius: var(--b3-border-radius);
+  border-radius: var(--b3-border-radius-b);
+  padding: 8px 0;
 }
 
+// 间隔重复
+.b3-dialog__container:has(.card__action) {
+  padding: 0;
+}
 .card__action {
   .b3-button {
     height: auto;

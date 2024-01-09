@@ -150,6 +150,16 @@ $interval: math.div($height - $icon-w, 2);
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+        @include m.focus(var(--rc-on-surface-variant));
+        @include m.v-center(24px);
+        border-radius: var(--b3-border-radius);
+        padding: 0 8px;
+        gap: 8px;
+        &--ellipsis {
+          display: flex;
+          width: auto;
+          //max-width: unset;
+        }
       }
     }
   }

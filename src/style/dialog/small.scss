@@ -6,6 +6,11 @@
     &:has(.custom-attr) {
       width: 600px !important;
       height: 640px !important;
+      padding-top: 12px;
+      .layout-tab-bar {
+        margin: 0 24px 12px;
+        border-radius: unset !important;
+      }
     }
     // 移动文档
     &:has(#foldTree) {
@@ -24,7 +29,8 @@
   &__content {
     // 重命名 - 输入框
     > .b3-text-field.fn__block {
-      margin: 12px 0 0;
+      margin: 8px 0;
+      height: 36px;
     }
     // 提示弹窗
     > .ft__breakword {
@@ -34,21 +40,9 @@
     }
   }
   &__body {
-    // 属性设置 / 数据历史 - 顶部tab
-    > .fn__flex-column > .layout-tab-bar {
-      margin: 16px 16px 12px;
-      border-radius: unset !important;
-    }
     // 移动文档 - 搜索框
     > .b3-form__icon {
       margin: 0 24px 12px !important;
-    }
-  }
-  &__action {
-    .b3-button {
-      @include m.state(var(--rc-primary));
-      background-color: transparent;
-      border-radius: var(--rc-border-radius-max);
     }
   }
 }
@@ -90,15 +84,18 @@
 // 属性设置
 .custom-attr {
   padding: 0 24px 24px;
+  .b3-label {
+    padding: 16px;
+  }
 }
 
 // ctrl + tab 菜单
 .switch-doc {
-  padding: 0 24px 24px;
+  padding: 0 24px;
   > .fn__flex {
     gap: 8px;
     > .b3-list {
-      padding: 12px 8px;
+      padding: 8px;
       background-color: var(--rc-background);
       border-radius: var(--b3-border-radius);
       border: none;
@@ -107,7 +104,7 @@
     }
   }
   &__path {
-    margin-top: 24px;
+    margin-top: 16px;
     border: none;
     font-size: 14px;
   }

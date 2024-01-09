@@ -14,8 +14,11 @@ $btn-h: 22px;
   @include m.state(var(--rc-on-surface-variant));
   padding: 0 8px;
   line-height: $height;
-  margin: 0 0 3px;
   border-radius: var(--b3-border-radius);
+  margin: 0 0 3px;
+  &:last-child {
+    margin-bottom: 0;
+  }
 }
 
 @mixin btn($important: false) {
@@ -78,18 +81,6 @@ $btn-h: 22px;
       &::before {
         @include m.focus-before(25%, $left);
         opacity: 1;
-      }
-    }
-    &__meta {
-      @include m.focus(var(--rc-on-surface-variant));
-      @include m.v-center(24px);
-      border-radius: var(--b3-border-radius);
-      padding: 0 8px;
-      gap: 8px;
-      &--ellipsis {
-        display: flex;
-        width: auto;
-        //max-width: unset;
       }
     }
     &__hint {

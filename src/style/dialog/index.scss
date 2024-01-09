@@ -1,8 +1,9 @@
+@use '../mixins' as m;
 @use 'config';
 //@use "history";
 //@use "riff-card";
 //@use 'search';
-//@use 'small';
+@use 'small';
 
 .b3-dialog {
   &__container {
@@ -24,5 +25,21 @@
   &__action {
     border: none;
     padding: 16px 24px 0;
+    .b3-button {
+      font-size: 14px;
+      padding: 8px 16px;
+      line-height: 20px;
+      height: auto;
+      width: 80px;
+      border-radius: var(--b3-border-radius);
+      &--cancel {
+        background-color: transparent;
+        margin-right: 8px;
+        @include m.state(var(--rc-primary));
+      }
+      &--text {
+        @include m.focus(var(--rc-primary));
+      }
+    }
   }
 }

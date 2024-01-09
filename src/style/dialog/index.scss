@@ -1,6 +1,6 @@
 @use '../mixins' as m;
 @use 'config';
-//@use "history";
+@use "history";
 //@use "riff-card";
 //@use 'search';
 @use 'small';
@@ -31,7 +31,7 @@
       line-height: 20px;
       height: auto;
       width: 80px;
-      border-radius: var(--b3-border-radius);
+      border-radius: var(--rc-border-radius-max);
       &--cancel {
         background-color: transparent;
         margin-right: 8px;

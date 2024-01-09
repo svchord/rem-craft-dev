@@ -34,7 +34,7 @@
     }
     // 提示弹窗
     > .ft__breakword {
-      margin: 12px 0;
+      margin: 8px 0;
       line-height: 1.625;
       font-size: 14px;
     }
@@ -93,18 +93,21 @@
 .switch-doc {
   padding: 0 24px;
   > .fn__flex {
+    background-color: var(--rc-background);
+    border-radius: var(--b3-border-radius-b);
+    padding: 8px;
     gap: 8px;
     > .b3-list {
-      padding: 8px;
-      background-color: var(--rc-background);
-      border-radius: var(--b3-border-radius);
-      border: none;
       width: auto !important;
+      padding: 0;
       flex: 1;
+      &:last-child {
+        padding-left: 8px;
+      }
     }
   }
   &__path {
-    margin-top: 16px;
+    margin-top: 12px;
     border: none;
     font-size: 14px;
   }

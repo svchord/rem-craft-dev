@@ -1,38 +1,48 @@
-.block__icons {
-  #historyContainer &,
-  &:has(+ .history__panel) {
-    background-color: var(--rc-background);
-    border-radius: var(--b3-border-radius);
-    padding: 8px 16px;
-    margin: 24px 24px 12px;
+.b3-dialog__container {
+  &:has(#historyContainer) {
+    padding-top: 12px;
   }
-  #historyContainer & {
-    margin-top: 0;
+  &:has(.history__panel) {
+    .b3-dialog__body {
+      padding: 0 24px;
+    }
+
+    .layout-tab-bar {
+      border-radius: unset !important;
+    }
+
+    .block__icons {
+      padding: 8px;
+    }
   }
 }
 
 #historyContainer > [data-type='notebook'] {
-  padding: 0 24px 24px !important;
+  //padding: 0 24px 24px !important;
 }
 
 .history {
   &__panel {
-    padding: 0 24px 24px;
     > .b3-list {
       padding: 8px;
       margin-right: 12px;
       background-color: var(--rc-background);
-      border-radius: var(--b3-border-radius);
+      border-radius: var(--b3-border-radius-b);
     }
   }
   &__repo {
-    &[data-type='doc'] {
-    }
     &[data-type='repo'] {
       .b3-list {
-        padding: 0 24px 24px !important;
+        padding: 8px;
+        border-radius: var(--b3-border-radius-b);
+        background-color: var(--rc-background);
         &-item {
-          padding: 0 12px;
+          padding: 8px 12px;
+          margin-bottom: 8px;
+          line-height: 24px;
+          &:last-child {
+            margin-bottom: 0;
+          }
         }
       }
     }
@@ -40,20 +50,21 @@
 
   &__diff {
     padding: 8px;
-    margin: 0 12px 24px 0;
+    margin-right: 12px;
     box-sizing: border-box;
     background-color: var(--rc-background);
-    border-radius: var(--b3-border-radius);
+    border-radius: var(--b3-border-radius-b);
     border: none;
-    .b3-list {
+    > .b3-list {
       padding: 0;
+      margin-bottom: 3px;
     }
+
     + .fn__flex {
-      border-radius: var(--b3-border-radius);
-      margin: 0 0 24px 0;
+      border-radius: var(--b3-border-radius-b);
     }
   }
   &__text {
-    border-radius: var(--b3-border-radius);
+    border-radius: var(--b3-border-radius-b);
   }
 }

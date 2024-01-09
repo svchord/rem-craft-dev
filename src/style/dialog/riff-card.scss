@@ -1,9 +1,12 @@
 // 管理闪卡
-.b3-dialog__container:has(#cardPreview) {
-  padding-top: 12px;
-}
-.b3-dialog__body:has(#cardPreview) {
-  padding: 0 24px;
+
+[data-key='dialog-viewcards'] {
+  .b3-dialog__container {
+    padding-top: 12px;
+  }
+  .b3-dialog__body {
+    padding: 0 24px;
+  }
   .block__icons {
     margin-bottom: 8px;
   }
@@ -24,7 +27,7 @@
 }
 
 // 间隔重复
-.b3-dialog__container:has(.card__action) {
+[data-key='dialog-opencard'] .b3-dialog__container {
   padding: 0;
 }
 .card__action {

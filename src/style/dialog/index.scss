@@ -33,11 +33,11 @@
       padding: 8px 16px;
       line-height: 20px;
       height: auto;
-      width: 90px;
+      width: 80px;
       border-radius: var(--rc-border-radius-max);
       &--cancel {
         background-color: transparent;
-        margin-right: 8px;
+        margin-right: 4px;
         @include m.state(var(--rc-primary));
       }
       &--text {

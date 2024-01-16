@@ -210,15 +210,12 @@ $padding-lr: 16px;
 }
 
 #configBazaarDownloaded {
-  padding: 16px 0;
+  padding: 16px 16px 0 0;
   display: flex;
   gap: 16px;
   flex-direction: column;
-  > .fn__flex {
-    margin-top: 16px;
-    .b3-switch {
-      margin: 0 32px !important;
-    }
+  [data-type='plugins-enable'] {
+    margin: 0 16px !important;
   }
 }
 

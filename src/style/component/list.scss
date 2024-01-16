@@ -16,9 +16,6 @@ $btn-h: 22px;
   line-height: $height;
   border-radius: var(--b3-border-radius);
   margin: 0 0 3px;
-  &:last-child {
-    margin-bottom: 0;
-  }
 }
 
 @mixin btn($important: false) {

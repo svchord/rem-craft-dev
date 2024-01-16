@@ -6,12 +6,17 @@ $height: 36px;
 $icon-w: 30px;
 $interval: math.div($height - $icon-w, 2);
 
+[data-key='dialog-globalsearch'] {
+  .b3-dialog__container {
+    padding: 0;
+  }
+}
 .search {
   &__header {
     box-sizing: border-box;
     height: $height;
     div:has(> &) {
-      background-color: var(--rc-background);
+      //background-color: var(--rc-background);
       .b3-button {
         @include m.focus(var(--rc-on-surface-variant));
         height: 28px;
@@ -44,9 +49,6 @@ $interval: math.div($height - $icon-w, 2);
     top: math.div($height - $w, 2);
     left: $icon-w - $w + $interval + 2px;
   }
-  &__layout {
-    border: none;
-  }
   &__list {
     padding-top: 8px;
     background-color: var(--rc-surface);
@@ -69,59 +71,12 @@ $interval: math.div($height - $icon-w, 2);
   }
 
   &__tip {
-    margin: 0;
     height: 36px;
-    border-top: 1px solid var(--b3-border-color);
-  }
-}
-
-#criteria {
-  min-height: $height !important;
-  border-bottom: 1px solid var(--b3-border-color);
-  box-sizing: border-box;
-
-  + .block__icons {
-    min-height: $height;
-    box-sizing: border-box;
-    border-bottom: 1px solid var(--b3-border-color);
   }
 }
 
 #searchHistoryList {
   min-width: 150px;
-}
-
-.b3-dialog__container {
-  .fn__flex-column:has(> .search__header) {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    grid-template-rows: 36px 36px auto 36px;
-  }
-  .fn__flex-column:not(:has(> .search__header.fn__none)) {
-    grid-template-rows: 36px 36px 36px auto 36px;
-  }
-  .search {
-    &__header {
-      grid-column: span 2;
-    }
-    &__layout {
-      grid-column: span 2;
-      order: 3;
-    }
-    &__tip {
-      grid-column: span 2;
-      order: 4;
-    }
-  }
-  #criteria {
-    grid-column: span 1;
-    order: 2;
-    + .block__icons {
-      grid-column: span 1;
-      order: 1;
-      border-right: 1px solid var(--b3-border-color);
-    }
-  }
 }
 
 #searchList > .b3-list-item {
@@ -136,22 +91,23 @@ $interval: math.div($height - $icon-w, 2);
 
     .b3-list-item {
       &__graphic {
-        @include m.svg(28px, 12px, $important: true);
+        @include m.svg(24px, 12px, $important: true);
         position: absolute;
       }
       &__text {
         overflow-y: auto !important;
         text-overflow: ellipsis !important;
         -webkit-box-orient: inherit;
-        padding: 0 $padding 0 28px;
+        padding: 0 $padding 0 24px;
+        line-height: 24px;
       }
       &__meta {
+        @include m.focus(var(--rc-on-surface-variant));
+        @include m.v-center(24px);
         float: right;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        @include m.focus(var(--rc-on-surface-variant));
-        @include m.v-center(24px);
         border-radius: var(--b3-border-radius);
         padding: 0 8px;
         gap: 8px;

@@ -1,12 +1,17 @@
-.b3-label {
+@mixin label {
   border: none;
   box-shadow: unset;
   border-radius: var(--b3-border-radius);
   background-color: var(--rc-background);
   padding: 16px;
-  &:not(:last-child) {
-    margin: 0 0 6px;
+  margin: 0 0 4px;
+  &:last-child {
+    margin-bottom: 0;
   }
+}
+
+.b3-label {
+  @include label();
   &__text {
     font-size: 100% !important;
   }

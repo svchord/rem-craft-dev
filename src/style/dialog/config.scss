@@ -1,5 +1,6 @@
 @use '../mixins' as m;
 @use '../component/form-input' as form;
+@use '../component/label' as label;
 
 :root {
   /* 遮罩 */
@@ -52,9 +53,7 @@ $padding-lr: 16px;
     }
     // 设置菜单特化样式
     .config__tab-container .b3-label {
-      padding: 16px;
-      margin: 0 0 6px;
-      box-shadow: none;
+      @include label.label();
     }
   }
   // 设置项

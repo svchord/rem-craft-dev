@@ -18,7 +18,7 @@ $interval: math.div($height - $icon-w, 2);
     div:has(> &) {
       //background-color: var(--rc-background);
       .b3-button {
-        @include m.focus(var(--rc-on-surface-variant));
+        @include m.focus(var(--rc-on-surface));
         height: 28px;
         font-size: 12px;
         &[disabled] {
@@ -102,7 +102,7 @@ $interval: math.div($height - $icon-w, 2);
         line-height: 24px;
       }
       &__meta {
-        @include m.focus(var(--rc-on-surface-variant));
+        @include m.focus(var(--rc-on-surface));
         @include m.v-center(24px);
         float: right;
         white-space: nowrap;

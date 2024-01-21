@@ -11,13 +11,13 @@
   }
   &__icon {
     @include m.svg-parent(24px, 12px);
-    @include m.state(var(--rc-on-surface-variant), true);
+    @include m.state(var(--rc-on-surface), true);
 
     &s {
       padding-left: 14px;
       padding-right: 10px;
       .counter {
-        @include m.focus(var(--rc-on-surface-variant));
+        @include m.focus(var(--rc-on-surface));
       }
     }
     &[disabled] {

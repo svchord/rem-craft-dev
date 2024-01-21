@@ -29,7 +29,7 @@ $width: $item-w + $interval * 2;
   }
   &__item {
     @include m.svg-parent($item-w, $icon-w);
-    @include m.state(var(--rc-on-surface-variant));
+    @include m.state(var(--rc-on-surface));
 
     &--active {
       position: relative;

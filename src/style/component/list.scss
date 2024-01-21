@@ -2,7 +2,7 @@
 
 :root {
   // 边框
-  --b3-list-hover: rgba(var(--rc-on-surface-variant), 0.08);
+  --b3-list-hover: rgba(var(--rc-on-surface), 0.08);
   --b3-list-icon-hover: var(--b3-list-hover);
 }
 
@@ -11,7 +11,7 @@ $height: 28px;
 $btn-h: 22px;
 
 @mixin item($important: false) {
-  @include m.state(var(--rc-on-surface-variant));
+  @include m.state(var(--rc-on-surface));
   padding: 0 8px;
   line-height: $height;
   border-radius: var(--b3-border-radius);
@@ -19,7 +19,7 @@ $btn-h: 22px;
 }
 
 @mixin btn($important: false) {
-  @include m.state(var(--rc-on-surface-variant), $important);
+  @include m.state(var(--rc-on-surface), $important);
   margin: 0;
   &:hover {
     border-radius: 2px;
@@ -37,7 +37,7 @@ $btn-h: 22px;
     &__toggle {
       @include m.transparent();
       margin: 0 !important;
-      color: rgba(var(--rc-on-surface-variant));
+      color: rgba(var(--rc-on-surface));
       height: $height;
       svg {
         width: 8px;
@@ -75,7 +75,7 @@ $btn-h: 22px;
 
     &--focus {
       position: relative;
-      background: rgba(var(--rc-on-surface-variant), 0.08) !important;
+      background: rgba(var(--rc-on-surface), 0.08) !important;
       &::before {
         @include m.focus-before(25%, $left);
         opacity: 1;

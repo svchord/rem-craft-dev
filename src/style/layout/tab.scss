@@ -16,7 +16,7 @@ $pad: 12px;
   &-bar {
     background-color: transparent;
     .item {
-      @include m.state(var(--rc-on-surface-variant));
+      @include m.state(var(--rc-on-surface));
       min-height: 41px;
       &__icon {
         padding: 0;
@@ -37,7 +37,7 @@ $pad: 12px;
         max-width: 190px;
       }
       &__close {
-        @include m.state(var(--rc-on-surface-variant));
+        @include m.state(var(--rc-on-surface));
         @include m.svg-parent(18px, 8px);
         margin-right: 8px;
         border-radius: var(--b3-border-radius);

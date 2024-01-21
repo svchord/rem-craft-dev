@@ -3,7 +3,7 @@
 
 //按钮
 .b3-button {
-  //@include m.focus(var(--rc-on-surface-variant));
+  //@include m.focus(var(--rc-on-surface));
   @include m.focus(var(--rc-primary));
   border: none;
   box-shadow: unset;
@@ -30,7 +30,7 @@
     box-shadow: unset;
     color: transparent;
     position: relative;
-    background-color: rgba(var(--rc-on-surface-variant), 0.08) !important;
+    background-color: rgba(var(--rc-on-surface), 0.08) !important;
     > span {
       background-color: rgba(var(--rc-primary));
       border-top-right-radius: 0;

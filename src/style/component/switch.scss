@@ -20,7 +20,7 @@ $btn-w-checked: 12px;
 
 //开关
 .b3-switch {
-  background: rgb(var(--rc-on-surface-variant), 0.08);
+  background: rgb(var(--rc-on-surface), 0.08);
   width: $switch-w;
   height: $switch-h;
   border-radius: var(--rc-border-radius-max);
@@ -31,7 +31,7 @@ $btn-w-checked: 12px;
   }
 
   &::after {
-    background-color: var(--rc-outline); //rgba(var(--rc-on-surface-variant));
+    background-color: var(--rc-outline); //rgba(var(--rc-on-surface));
     border: none;
     box-shadow: none;
     bottom: unset;

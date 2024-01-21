@@ -5,7 +5,7 @@
 :root {
   --b3-toolbar-background: var(--rc-base);
   --b3-toolbar-blur-background: var(--rc-base);
-  --b3-toolbar-hover: rgba(var(--rc-on-surface-variant), 0.08);
+  --b3-toolbar-hover: rgba(var(--rc-on-surface), 0.08);
 }
 
 $height: 40px;
@@ -27,7 +27,7 @@ $win-btnW: 46px;
 
   &__item {
     @include m.svg-parent($btn-w, $icon-size, $btn-h);
-    @include m.state(var(--rc-on-surface-variant), true);
+    @include m.state(var(--rc-on-surface), true);
     margin: 0;
     svg.toolbar__svg {
       height: $btn-h;
@@ -63,7 +63,7 @@ $win-btnW: 46px;
 }
 
 #barWorkspace {
-  @include m.state(var(--rc-on-surface-variant), true);
+  @include m.state(var(--rc-on-surface), true);
   background-color: transparent;
   width: auto;
   padding: 0 8px;

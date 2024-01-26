@@ -3,7 +3,10 @@
 //表情面板
 .emojis {
   padding: 8px;
-
+  .b3-dialog__container:has(&) {
+    padding: 0;
+    border-radius: var(--b3-border-radius-b);
+  }
   // 顶部工具栏
   > .fn__flex:first-child {
     padding-bottom: 8px;

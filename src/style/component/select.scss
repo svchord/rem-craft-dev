@@ -5,5 +5,6 @@
   padding: 0 24px 0 8px;
   height: var(--rc-component-height);
   box-shadow: unset !important;
+  font-size: 100%;
   @include m.focus(var(--rc-on-surface), true);
 }

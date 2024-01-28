@@ -8,53 +8,62 @@ $interval: math.div($height - $icon-w, 2);
 
 [data-key='dialog-globalsearch'] {
   .b3-dialog__container {
-    padding: 0;
+    padding: 0 !important;
   }
 }
 .search {
-  &__header {
-    box-sizing: border-box;
+  &__history-icon {
+    width: $height;
     height: $height;
-    div:has(> &) {
-      //background-color: var(--rc-background);
-      .b3-button {
-        @include m.focus(var(--rc-on-surface));
-        height: 28px;
-        font-size: 12px;
-        &[disabled] {
-          background-color: transparent;
-        }
-        &--cancel {
-          @include m.transparent();
-        }
-      }
-    }
     .b3-form__icon-icon {
       top: $interval;
-      left: $interval !important;
-    }
-    .b3-text-field {
-      font-size: 14px;
-      height: $height;
-      padding-left: $height;
-      background-color: transparent;
-    }
-    .block__icons {
-      min-height: $height;
     }
   }
   &__arrowdown {
     $w: 8px;
     @include m.svg($w);
     top: math.div($height - $w, 2);
-    left: $icon-w - $w + $interval + 2px;
+    left: $icon-w - $w;
+  }
+  &__header {
+    box-sizing: border-box;
+    height: $height;
+    min-height: $height;
+    margin: 0 8px;
+    border-top: none;
+    border-bottom: 1px solid var(--b3-border-color);
+
+    .block__icons:has(+ &) {
+      background-color: var(--rc-surface);
+      padding-left: 10px;
+    }
+    div:has(> &) {
+      background-color: var(--rc-background);
+    }
+    > .fn__flex-1 {
+      height: $height;
+    }
+    .b3-text-field {
+      font-size: 14px;
+      height: $height;
+      background-color: transparent;
+    }
+    .b3-form__icon-clear {
+      height: $height !important;
+    }
+    .block__icons {
+      min-height: $height;
+      height: $height;
+      background-color: transparent;
+      padding: 0 2px;
+    }
+    > .fn__space:last-child {
+      width: 2px;
+    }
   }
   &__list {
     padding-top: 8px;
     background-color: var(--rc-surface);
-  }
-
-  &__preview {
   }
 
   &__drag {
@@ -75,46 +84,57 @@ $interval: math.div($height - $icon-w, 2);
   }
 }
 
-#searchHistoryList {
-  min-width: 150px;
+#criteria {
+  border-bottom: none;
 }
 
-#searchList > .b3-list-item {
-  // 未分组
-  &[data-type='search-item'] {
-    $padding: 8px;
-    $text-h: 24px;
-    height: auto;
-    display: block;
-    gap: 0;
-    padding: $padding $padding $text-h + $padding;
+[data-name='search-history'] {
+  min-width: 200px;
+  max-height: 50vh;
+  .b3-menu__items {
+    max-height: unset;
+  }
+}
 
-    .b3-list-item {
-      &__graphic {
-        @include m.svg(24px, 12px, $important: true);
-        position: absolute;
-      }
-      &__text {
-        overflow-y: auto !important;
-        text-overflow: ellipsis !important;
-        -webkit-box-orient: inherit;
-        padding: 0 $padding 0 24px;
-        line-height: 24px;
-      }
-      &__meta {
-        @include m.focus(var(--rc-on-surface));
-        @include m.v-center(24px);
-        float: right;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        border-radius: var(--b3-border-radius);
-        padding: 0 8px;
-        gap: 8px;
-        &--ellipsis {
-          display: flex;
-          width: auto;
-          //max-width: unset;
+#searchList {
+  margin-bottom: 0;
+  > .b3-list-item {
+    // 未分组
+    &[data-type='search-item'] {
+      $padding: 8px;
+      $text-h: 24px;
+      height: auto;
+      display: block;
+      gap: 0;
+      padding: $padding $padding $text-h + $padding;
+
+      .b3-list-item {
+        &__graphic {
+          @include m.svg(24px, 12px, $important: true);
+          position: absolute;
+        }
+        &__text {
+          overflow-y: auto !important;
+          text-overflow: ellipsis !important;
+          -webkit-box-orient: inherit;
+          padding: 0 $padding 0 24px;
+          line-height: 24px;
+        }
+        &__meta {
+          @include m.focus(var(--rc-on-surface));
+          @include m.v-center(24px);
+          float: right;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          border-radius: var(--b3-border-radius);
+          padding: 0 8px;
+          gap: 8px;
+          &--ellipsis {
+            display: flex;
+            width: auto;
+            //max-width: unset;
+          }
         }
       }
     }

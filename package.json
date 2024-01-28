@@ -1,6 +1,7 @@
 {
   "name": "rem-craft-test",
   "private": true,
+  "type": "module",
   "version": "0.0.14",
   "scripts": {
     "dev": "vite",

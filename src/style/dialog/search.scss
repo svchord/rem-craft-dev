@@ -6,6 +6,8 @@ $height: 36px;
 $icon-w: 30px;
 $interval: math.div($height - $icon-w, 2);
 
+$margin: 10px;
+
 [data-key='dialog-globalsearch'] {
   .b3-dialog__container {
     padding: 0 !important;
@@ -29,7 +31,7 @@ $interval: math.div($height - $icon-w, 2);
     box-sizing: border-box;
     height: $height;
     min-height: $height;
-    margin: 0 8px;
+    margin: 0 $margin;
     border-top: none;
     border-bottom: 1px solid var(--b3-border-color);
 
@@ -55,7 +57,7 @@ $interval: math.div($height - $icon-w, 2);
       min-height: $height;
       height: $height;
       background-color: transparent;
-      padding: 0 2px;
+      padding: 0 10px - $margin 0 2px;
     }
     > .fn__space:last-child {
       width: 2px;

@@ -6,7 +6,7 @@
     &:has(.custom-attr) {
       width: 600px !important;
       height: 640px !important;
-      padding-top: 12px;
+      padding-top: 12px !important;
       .layout-tab-bar {
         margin: 0 24px 12px;
         border-radius: unset !important;

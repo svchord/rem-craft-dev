@@ -1,7 +1,7 @@
 @use '../mixins' as m;
 @use 'config';
-@use "history";
-@use "riff-card";
+@use 'history';
+@use 'riff-card';
 //@use 'search';
 @use 'small';
 
@@ -9,15 +9,29 @@
   &__container {
     border-radius: var(--rc-border-radius-dialog);
     padding: 24px 0;
+    &:has(.resize__move) {
+      padding-top: 0;
+    }
+    &:has(.resize__move.fn__none) {
+      padding-top: 24px;
+    }
   }
   &__close {
     display: none;
   }
   &__header {
     border: none;
-    padding: 0 24px 16px;
+    padding: 0 28px 16px;
     font-size: 18px;
-    .b3-form__icon{
+    font-weight: bold;
+    &.resize__move{
+      padding-top: 24px;
+    }
+    .ft__on-surface {
+      font-weight: normal;
+      margin-top: 6px;
+    }
+    .b3-form__icon {
       font-size: 13px;
     }
   }
@@ -33,12 +47,12 @@
       padding: 8px 16px;
       line-height: 20px;
       height: auto;
-      width: 80px;
+      width: 100px;
       border-radius: var(--rc-border-radius-max);
       &--cancel {
         background-color: transparent;
         margin-right: 4px;
-        @include m.state(var(--rc-primary));
+        @include m.focus(var(--rc-on-surface));
       }
       &--text {
         @include m.focus(var(--rc-primary));

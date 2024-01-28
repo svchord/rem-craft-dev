@@ -12,7 +12,7 @@ $padding-lr: 16px;
 .config {
   &__panel {
     .b3-dialog__container:has(&) {
-      padding: 0;
+      padding: 0 !important;
     }
     // 侧边栏
     > .b3-tab-bar {

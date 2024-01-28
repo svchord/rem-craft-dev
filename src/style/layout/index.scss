@@ -53,19 +53,6 @@ body {
   bottom: status.$height;
   border: transparent;
 
-  &:has(+ .layout__resize.fn__none) {
-    transition-duration: 0.5s;
-    &[style*=' 0px'] {
-      transition-duration: 0.2s;
-    }
-  }
-  .layout__resize.fn__none + & {
-    transition-duration: 0.5s;
-    &[style*=' 0px'] {
-      transition-duration: 0.2s;
-    }
-  }
-
   &.layout--float {
     box-shadow: var(--rc-elevation-2);
     border: {

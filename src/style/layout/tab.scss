@@ -1,23 +1,69 @@
+@use 'sass:math';
 @use '../mixins' as m;
 
-$pad: 12px;
+$bar-h: 42px;
+$iten-h: 32px;
+$item-pad: 8px;
+$item-mar: 3px;
+
+$interval: math.div($bar-h - $iten-h, 2);
 
 @mixin icon {
-  margin-left: $pad;
+  margin-left: $item-pad;
   + .item__text {
-    padding-left: 8px;
+    padding-left: 8px !important;
   }
 }
 
 .layout-tab {
-  &-container {
-    //background-color: transparent;
-  }
   &-bar {
     background-color: transparent;
+    border-color: var(--b3-border-color);
+
+    .layout__center [data-type='wnd'] > .fn__flex > & {
+      background-color: var(--rc-background);
+      height: $bar-h;
+      padding: 0 $interval - $item-mar;
+      border: none;
+      .item {
+        box-shadow: unset;
+        height: 32px;
+        min-height: 0;
+        margin: 0 $item-mar;
+        overflow: visible;
+        border-radius: var(--b3-border-radius);
+
+        &__text {
+          padding: 0 8px 0 $item-pad;
+          min-width: 60px;
+          max-width: 190px;
+        }
+        &::after {
+          content: '';
+          display: block;
+          position: absolute;
+          background-color: var(--b3-border-color);
+          top: 4px;
+          bottom: 4px;
+          right: -$item-mar;
+          left: unset;
+          width: 0;
+          height: auto;
+          border-right: 1px solid var(--b3-border-color);
+        }
+        &:has(+ .item--focus)::after {
+          border: none;
+        }
+        &--focus {
+          @include m.focus(var(--rc-on-surface));
+          &::after {
+            border: none;
+          }
+        }
+      }
+    }
     .item {
       @include m.state(var(--rc-on-surface));
-      min-height: 41px;
       &__icon {
         padding: 0;
         @include icon();
@@ -30,12 +76,6 @@ $pad: 12px;
         @include m.svg(12px);
         @include icon();
       }
-      &__text {
-        padding: 0 8px 0 $pad;
-        box-sizing: border-box;
-        min-width: 90px;
-        max-width: 190px;
-      }
       &__close {
         @include m.state(var(--rc-on-surface));
         @include m.svg-parent(18px, 8px);
@@ -47,29 +87,7 @@ $pad: 12px;
           opacity: 1 !important;
         }
       }
-      &::after {
-        content: '';
-        display: block;
-        position: absolute;
-        background-color: transparent;
-        height: 2px;
-        border-radius: unset;
-        bottom: 0;
-        left: $pad - 2px;
-        right: $pad - 2px;
-        width: auto;
-        transition: var(--b3-transition);
-      }
-      &:hover::after {
-        left: 0;
-        right: 0;
-      }
-      &--focus {
-        box-shadow: unset !important;
-        &::after {
-          background: rgba(var(--rc-primary));
-        }
-      }
+
       &--pin {
         .item {
           &__icon {
@@ -85,28 +103,55 @@ $pad: 12px;
         min-width: unset !important;
         flex: unset;
         width: auto;
-        $padding: 16px;
-        > .fn__flex-1 {
-          width: $padding;
-        }
+        padding: 0 16px;
         .item {
           &__text {
             padding: 0 8px;
-            min-width: 46px;
+          }
+          &--focus {
+            &::after {
+              background: rgba(var(--rc-primary));
+            }
           }
         }
+
         &::after {
-          $interval: $padding + 8px - 4px;
-          left: $interval;
-          right: $interval;
+          content: '';
+          display: block;
+          position: absolute;
+          background-color: transparent;
+          border-radius: unset;
+          width: auto;
+          height: 2px;
+          bottom: 0;
+          left: 18px;
+          right: 18px;
+          transition: var(--b3-transition);
+        }
+        &:hover::after {
+          left: 0;
+          right: 0;
+        }
+      }
+      &--readonly {
+        > .fn__flex-1 {
+          min-width: 0;
+          width: 0;
         }
       }
     }
     &--readonly {
+      padding: 0 !important;
+      min-width: 24px * 2 + 8px * 2 - $interval;
       .item {
         @include m.transparent();
+        margin: $interval 0 0 !important;
         cursor: unset;
-        padding: 0 8px;
+        padding: 0 8px 0 8px - $interval;
+      }
+      [data-type='more'] {
+        @include m.svg-parent(24px, 10px);
+        margin-left: 4px;
       }
     }
   }

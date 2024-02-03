@@ -27,8 +27,13 @@
 }
 
 // 间隔重复
-[data-key='dialog-opencard'] .b3-dialog__container {
-  padding: 0;
+[data-key='dialog-opencard'] {
+  .b3-dialog__container {
+    padding: 0 !important;
+  }
+  .b3-dialog__body {
+    border-radius: var(--rc-border-radius-dialog);
+  }
 }
 .card__action {
   .b3-button {

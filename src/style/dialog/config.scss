@@ -32,6 +32,9 @@ $padding-lr: 16px;
         }
         &-hr {
           margin: 16px;
+          border-bottom: 1px solid var(--b3-border-color);
+          height: 0;
+          background-color: unset;
         }
       }
       .b3-form__icon {
@@ -71,6 +74,11 @@ $padding-lr: 16px;
   &__tab-container {
     height: calc(100% - 36px);
     padding: 0 16px 24px;
+
+    &[data-name="AI"] .layout-tab-bar{
+      margin-bottom: 16px;
+    }
+
     &--top {
       margin-top: -12px;
       height: 100%;
@@ -90,8 +98,10 @@ $padding-lr: 16px;
   }
 
   // 资源列表
-  &-assets__list {
-    padding: 0 $padding-lr 0 8px;
+  &-assets {
+    &__list {
+      padding: 0 $padding-lr 0 8px;
+    }
   }
   // 搜索筛选设置
   &-query {
@@ -102,17 +112,16 @@ $padding-lr: 16px;
       margin: 12px 0 0 0;
     }
   }
-  // 集市Readme
+  // 集市
   &-bazaar {
     &__title {
-      // backdrop-filter: blur(px);
       .b3-button {
         &--outline {
           background-color: transparent;
         }
       }
-      .b3-switch{
-        margin: auto 16px!important;
+      .b3-switch {
+        margin: auto 16px !important;
       }
       .b3-select {
         background-color: var(--rc-background);

@@ -97,13 +97,11 @@
     border-radius: var(--b3-border-radius-b);
     padding: 8px;
     .b3-list {
-      width: auto !important;
       padding: 0;
       flex: 1;
       &:last-child {
         margin-left: 8px;
         padding-left: 8px;
-        min-width: 320px !important;
       }
     }
   }

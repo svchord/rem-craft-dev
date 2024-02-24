@@ -76,9 +76,6 @@ $padding-lr: 16px;
       height: 100%;
       padding-bottom: 0;
     }
-    .layout-tab-bar {
-      margin: 0 0 16px;
-    }
 
     // 键盘快捷键
     .b3-list--border {
@@ -106,49 +103,75 @@ $padding-lr: 16px;
     }
   }
   // 集市Readme
-  &-bazaar__readme {
-    padding: 16px;
-    background-color: var(--rc-surface);
-    border-radius: var(--rc-border-radius-dialog);
-    .item {
-      // 侧栏
-      &__side {
-        width: 350px;
+  &-bazaar {
+    &__title {
+      // backdrop-filter: blur(px);
+      .b3-button {
+        &--outline {
+          background-color: transparent;
+        }
+      }
+      .b3-switch{
+        margin: auto 16px!important;
+      }
+      .b3-select {
         background-color: var(--rc-background);
-        border-radius: var(--b3-border-radius-b);
-        // 按钮
-        .block__icon {
-          &[data-type='goBack'] {
-            width: auto;
-            margin-top: 16px;
-            padding: 0 8px;
-            height: 32px;
-            font-size: 14px;
+      }
+      .counter {
+        @include m.focus(var(--rc-on-surface), true);
+        @include m.v-center(25px);
+        width: auto;
+        font-size: 100%;
+        &:not(:empty) {
+          padding: 0 8px;
+        }
+      }
+    }
+
+    &__readme {
+      padding: 16px;
+      background-color: var(--rc-surface);
+      border-radius: var(--rc-border-radius-dialog);
+      .item {
+        // 侧栏
+        &__side {
+          width: 350px;
+          background-color: var(--rc-background);
+          border-radius: var(--b3-border-radius-b);
+          // 按钮
+          .block__icon {
+            &[data-type='goBack'] {
+              width: auto;
+              margin-top: 16px;
+              padding: 0 8px;
+              height: 32px;
+              font-size: 14px;
+            }
+          }
+          .b3-button {
+            margin-top: 12px;
           }
         }
-        .b3-button {
-          margin-top: 12px;
+        // Readme主页
+        &__main {
+          background-color: var(--rc-background);
+          border-radius: var(--b3-border-radius-b);
+          // Readme正文
+          .b3-typography {
+            padding: 0 96px;
+          }
         }
-      }
-      // Readme主页
-      &__main {
-        background-color: var(--rc-background);
-        border-radius: var(--b3-border-radius-b);
-        // Readme正文
-        .b3-typography {
-          padding: 0 96px;
+
+        &__readme {
+          margin-top: 0;
+          padding-bottom: 30vh;
         }
-      }
 
-      &__readme {
-        margin-top: 0;
-        padding-bottom: 30vh;
-      }
-
-      &__preview {
-        border-radius: unset;
-        &--fullscreen {
-          border-radius: var(--rc-border-radius-dialog);
+        &__preview {
+          border-radius: unset;
+          &--fullscreen {
+            border-radius: var(--rc-border-radius-dialog);
+          }
         }
       }
     }
@@ -181,31 +204,6 @@ $padding-lr: 16px;
 
 #activationCode {
   @include m.state(var(--rc-on-surface));
-}
-
-// 集市
-.bazaarPanel {
-  > .fn__hr--b {
-    display: none;
-  }
-  .b3-button {
-    margin-right: 8px;
-    &--outline {
-      background-color: transparent;
-    }
-  }
-  .b3-select {
-    background-color: var(--rc-background);
-  }
-  .counter {
-    @include m.focus(var(--rc-on-surface), true);
-    @include m.v-center(25px);
-    width: auto;
-    font-size: 100%;
-    &:not(:empty) {
-      padding: 0 8px;
-    }
-  }
 }
 
 #configBazaarDownloaded {

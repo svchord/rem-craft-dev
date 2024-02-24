@@ -42,7 +42,6 @@ $interval: math.div($bar-h - $iten-h, 2);
           content: '';
           display: block;
           position: absolute;
-          background-color: var(--b3-border-color);
           top: 4px;
           bottom: 4px;
           right: -$item-mar;

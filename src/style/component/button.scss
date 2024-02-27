@@ -63,11 +63,14 @@
     'warning': 'warning',
   );
 
-  @each $feat, $color-type in $feat-colors {
+  @each $feat, $type in $feat-colors {
     &--#{$feat} {
       height: auto;
-      color: var(--rc-on-#{$color-type}-container);
-      background: var(--rc-#{$color-type}-container);
+      color: var(--rc-on-#{$type}-container);
+      background-color: var(--rc-#{$type}-container);
+      &:hover{
+        background-color: var(--rc-#{$type}-container);
+      }
     }
   }
 }

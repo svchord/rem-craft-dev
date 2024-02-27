@@ -53,6 +53,10 @@ body {
   bottom: status.$height;
   border: transparent;
 
+  .layout-tab-container {
+    background-color: transparent;
+  }
+
   &.layout--float {
     box-shadow: var(--rc-elevation-2);
     border: {

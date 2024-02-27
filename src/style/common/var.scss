@@ -1,5 +1,46 @@
 @use 'material-design';
+:root,
+:host {
+  --md-sys-color-background: #faf8ff;
+  --md-sys-color-on-background: #191b23;
+  --md-sys-color-surface: #faf8ff;
+  --md-sys-color-surface-dim: #d9d9e4;
+  --md-sys-color-surface-bright: #faf8ff;
 
+  --md-sys-color-surface-container-lowest: #ffffff;
+  --md-sys-color-surface-container-low: #f3f3fd;
+  --md-sys-color-surface-container: #ededf8;
+  --md-sys-color-surface-container-high: #e7e7f2;
+  --md-sys-color-surface-container-highest: #e1e2ec;
+
+  --md-sys-color-on-surface: #191b23;
+  --md-sys-color-surface-variant: #dfe2f3;
+  --md-sys-color-on-surface-variant: #424654;
+  --md-sys-color-inverse-surface: #2e3038;
+  --md-sys-color-inverse-on-surface: #f0f0fb;
+  --md-sys-color-outline: #737785;
+  --md-sys-color-outline-variant: #c3c6d6;
+  --md-sys-color-shadow: #000000;
+  --md-sys-color-scrim: #000000;
+  --md-sys-color-surface-tint: #0856cf;
+  --md-sys-color-primary: #0043a8;
+  --md-sys-color-on-primary: #ffffff;
+  --md-sys-color-primary-container: #2b67e0;
+  --md-sys-color-on-primary-container: #ffffff;
+  --md-sys-color-inverse-primary: #b2c5ff;
+  --md-sys-color-secondary: #4b5d8c;
+  --md-sys-color-on-secondary: #ffffff;
+  --md-sys-color-secondary-container: #c0cfff;
+  --md-sys-color-on-secondary-container: #293b68;
+  --md-sys-color-tertiary: #751c92;
+  --md-sys-color-on-tertiary: #ffffff;
+  --md-sys-color-tertiary-container: #9e47ba;
+  --md-sys-color-on-tertiary-container: #ffffff;
+  --md-sys-color-error: #ba1a1a;
+  --md-sys-color-on-error: #ffffff;
+  --md-sys-color-error-container: #ffdad6;
+  --md-sys-color-on-error-container: #410002;
+}
 :root {
   --rc-primary: var(--bard-color-primary-rgb);
   --rc-on-primary: var(--bard-color-on-primary);
@@ -30,14 +71,8 @@
   --rc-on-background: var(--bard-color-on-surface-rgb);
   --rc-inverse-background: var(--bard-color-inverse-primary-background);
 
-  --rc-surface-1: var(--mio-theme-color-surface-1);
-  --rc-surface-2: var(--mio-theme-color-surface-2);
-  --rc-surface-3: var(--mio-theme-color-surface-3);
-  --rc-surface-4: var(--mio-theme-color-surface-4);
-  --rc-surface-5: var(--mio-theme-color-surface-5);
-
   --rc-base: rgb(211, 227, 253);
-  --rc-surface: rgb(236, 243, 254); //var(--rc-surface-2);
+  --rc-surface: rgb(236, 242, 251);
   --rc-surface-variant: var(--mio-theme-color-surface-variant);
   --rc-on-surface: var(--bard-color-on-surface-rgb);
   --rc-on-surface-variant: var(--bard-color-on-surface-variant-rgb);

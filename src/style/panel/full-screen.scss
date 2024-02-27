@@ -9,7 +9,8 @@ body.body--win32 {
       // 关系图全屏
     > .block__icons {
       height: 40px;
-      padding: 0 top-bar.$win-btnW * 3 + 8px 0 8px;
+      padding-right: top-bar.$win-btnW * 3 + 8px;
+      padding-left: 14px;
     }
   }
 }

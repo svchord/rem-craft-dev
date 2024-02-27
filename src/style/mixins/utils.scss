@@ -16,7 +16,7 @@
 
 @mixin add-icon($color, $icon_name, $size, $position) {
   background-color: $color;
-  $icon_url: 'assets/icons/#{$icon_name}_black_#{$size}dp.svg';
+  $icon_url: 'icons/#{$icon_name}_black_#{$size}dp.svg';
   -webkit-mask: url($icon_url) #{$position};
   mask: url($icon_url) #{$position};
 }

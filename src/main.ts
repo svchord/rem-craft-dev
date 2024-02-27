@@ -5,4 +5,4 @@ async function test() {
   const config = await res.json();
   console.log(config);
 }
-await test();
+test();

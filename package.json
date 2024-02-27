@@ -4,7 +4,8 @@
   "type": "module",
   "version": "0.0.14",
   "scripts": {
-    "dev": "vite",
+    "make-link": "node  --no-warnings ./scripts/make_dev_link.js",
+    "dev": "tsc && vite build --watch",
     "build": "tsc && vite build",
     "amend": "git add . && git commit --amend --no-edit && git push --force",
     "preview": "vite preview",

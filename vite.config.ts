@@ -2,6 +2,8 @@ import { fileURLToPath, URL } from 'node:url';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
 import { defineConfig } from 'vite';
 
+const args = process.argv.slice(2);
+const isWatch = args[1] === '--watch';
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
@@ -19,7 +21,11 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
-
+  css: {
+    // 预处理器配置项
+    // preprocessorOptions: {// ..... },
+    devSourcemap: true,
+  },
   build: {
     // 设置入口文件
     emptyOutDir: false,
@@ -33,7 +39,8 @@ export default defineConfig({
       },
     },
     // 打包文件所在目录
-    outDir: './dist',
+    outDir: isWatch ? 'dev' : 'dist',
+    sourcemap: true,
   },
   server: {
     port: 5173,

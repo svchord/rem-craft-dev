@@ -70,7 +70,7 @@ $margin: 10px;
 
   &__drag {
     &:hover::after {
-      background-color: rgba(var(--rc-primary));
+      background-color: var(--rc-primary);
 
       .search__layout--row & {
         width: 2px;
@@ -123,7 +123,7 @@ $margin: 10px;
           line-height: 24px;
         }
         &__meta {
-          @include m.focus(var(--rc-on-surface));
+          @include m.focus(var(--rc-on-surface-rgb));
           @include m.v-center(24px);
           float: right;
           white-space: nowrap;

@@ -5,19 +5,19 @@
     gap: 8px;
     font-weight: 600;
     svg {
-      color: rgba(var(--rc-primary));
+      color: var(--rc-primary);
       @include m.svg(13px);
     }
   }
   &__icon {
     @include m.svg-parent(24px, 12px);
-    @include m.state(var(--rc-on-surface), true);
+    @include m.state(var(--rc-on-surface-rgb), true);
 
     &s {
       padding-left: 14px;
       padding-right: 10px;
       .counter {
-        @include m.focus(var(--rc-on-surface));
+        @include m.focus(var(--rc-on-surface-rgb));
       }
     }
     &[disabled] {

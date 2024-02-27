@@ -20,7 +20,7 @@ $btn-w-checked: 12px;
 
 //开关
 .b3-switch {
-  background: rgb(var(--rc-on-surface), 0.08);
+  background: rgb(var(--rc-on-surface-rgb), 0.08);
   width: $switch-w;
   height: $switch-h;
   border-radius: var(--rc-border-radius-max);
@@ -31,7 +31,7 @@ $btn-w-checked: 12px;
   }
 
   &::after {
-    background-color: var(--rc-outline); //rgba(var(--rc-on-surface));
+    background-color: var(--rc-outline); //var(--rc-on-surface);
     border: none;
     box-shadow: none;
     bottom: unset;
@@ -42,8 +42,8 @@ $btn-w-checked: 12px;
   }
 
   &:checked {
-    border-color: rgba(var(--rc-primary));
-    background: rgba(var(--rc-primary));
+    border-color: var(--rc-primary);
+    background: var(--rc-primary);
 
     &::after {
       background-color: var(--rc-background);

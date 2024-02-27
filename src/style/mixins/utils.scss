@@ -9,7 +9,7 @@
   width: 3px;
   z-index: 0;
   height: 100% - $top * 2;
-  background-color: rgba(var(--rc-primary));
+  background-color: var(--rc-primary);
   transition: var(--b3-transition);
   border-radius: var(--rc-border-radius-max);
 }

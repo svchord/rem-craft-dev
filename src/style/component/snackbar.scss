@@ -13,7 +13,7 @@ $text-h: 20px;
     &__content {
       height: auto;
       position: relative;
-      color: var(--rc-on-surface);
+      color: var(--rc-on-surface-rgb);
       box-shadow: var(--rc-elevation-2);
       background-color: var(--rc-surface);
       padding: $pad-tb $pad-lr;
@@ -61,14 +61,14 @@ $text-h: 20px;
     }
     // 提示内按钮
     .b3-button {
-      @include m.state(var(--rc-on-surface));
+      @include m.state(var(--rc-on-surface-rgb));
     }
   }
 
   // 全部已读按钮
   > .b3-button {
     color: var(--rc-on-primary);
-    background-color: rgb(var(--rc-primary));
+    background-color: var(--rc-primary);
     box-shadow: var(--rc-elevation-2);
 
     svg,

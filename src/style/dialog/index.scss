@@ -24,7 +24,7 @@
     padding: 0 28px 16px;
     font-size: 18px;
     font-weight: bold;
-    &.resize__move{
+    &.resize__move {
       padding-top: 24px;
     }
     .ft__on-surface {
@@ -52,10 +52,10 @@
       &--cancel {
         background-color: transparent;
         margin-right: 4px;
-        @include m.focus(var(--rc-on-surface));
+        @include m.focus(var(--rc-on-surface-rgb));
       }
       &--text {
-        @include m.focus(var(--rc-primary));
+        @include m.focus(var(--rc-primary-rgb));
       }
     }
   }

@@ -54,7 +54,7 @@ $interval: math.div($bar-h - $iten-h, 2);
           border: none;
         }
         &--focus {
-          @include m.focus(var(--rc-on-surface));
+          @include m.focus(var(--rc-on-surface-rgb));
           &::after {
             border: none;
           }
@@ -62,7 +62,7 @@ $interval: math.div($bar-h - $iten-h, 2);
       }
     }
     .item {
-      @include m.state(var(--rc-on-surface));
+      @include m.state(var(--rc-on-surface-rgb));
       &__icon {
         padding: 0;
         @include icon();
@@ -76,7 +76,7 @@ $interval: math.div($bar-h - $iten-h, 2);
         @include icon();
       }
       &__close {
-        @include m.state(var(--rc-on-surface));
+        @include m.state(var(--rc-on-surface-rgb));
         @include m.svg-parent(18px, 8px);
         margin-right: 8px;
         border-radius: var(--b3-border-radius);
@@ -109,7 +109,7 @@ $interval: math.div($bar-h - $iten-h, 2);
           }
           &--focus {
             &::after {
-              background: rgba(var(--rc-primary));
+              background: var(--rc-primary);
             }
           }
         }

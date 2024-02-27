@@ -29,7 +29,7 @@ $width: $item-w + $interval * 2;
   }
   &__item {
     @include m.svg-parent($item-w, $icon-w);
-    @include m.state(var(--rc-on-surface));
+    @include m.state(var(--rc-on-surface-rgb));
 
     &--active {
       position: relative;
@@ -44,12 +44,12 @@ $width: $item-w + $interval * 2;
       }
 
       &focus {
-        @include m.focus(var(--rc-on-surface), true);
+        @include m.focus(var(--rc-on-surface-rgb), true);
         background-color: transparent !important;
       }
       &,
       body.body--blur & {
-        @include m.focus(var(--rc-on-surface), true);
+        @include m.focus(var(--rc-on-surface-rgb), true);
       }
     }
 

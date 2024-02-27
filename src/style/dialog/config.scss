@@ -75,7 +75,7 @@ $padding-lr: 16px;
     height: calc(100% - 36px);
     padding: 0 16px 24px;
 
-    &[data-name="AI"] .layout-tab-bar{
+    &[data-name='AI'] .layout-tab-bar {
       margin-bottom: 16px;
     }
 
@@ -127,7 +127,7 @@ $padding-lr: 16px;
         background-color: var(--rc-background);
       }
       .counter {
-        @include m.focus(var(--rc-on-surface), true);
+        @include m.focus(var(--rc-on-surface-rgb), true);
         @include m.v-center(25px);
         width: auto;
         font-size: 100%;
@@ -197,7 +197,7 @@ $padding-lr: 16px;
     }
     &__center {
       .b3-button--text:not(#activationCode) {
-        @include m.focus(var(--rc-primary));
+        @include m.focus(var(--rc-primary-rgb));
       }
       &--text {
         .fn__hr--b {
@@ -212,7 +212,7 @@ $padding-lr: 16px;
 }
 
 #activationCode {
-  @include m.state(var(--rc-on-surface));
+  @include m.state(var(--rc-on-surface-rgb));
 }
 
 #configBazaarDownloaded {
@@ -238,7 +238,7 @@ $padding-lr: 16px;
     transform: unset;
     box-shadow: unset;
     background-color: var(--rc-background);
-    border: 1px solid rgb(var(--rc-primary));
+    border: 1px solid var(--rc-primary);
   }
   &--disabled {
     opacity: 0.38;

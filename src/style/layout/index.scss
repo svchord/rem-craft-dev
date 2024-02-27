@@ -66,7 +66,7 @@ body {
 
     > .layout__dockresize {
       &:hover {
-        border-color: rgba(var(--rc-primary));
+        border-color: var(--rc-primary);
       }
       &--lr {
         border-width: 0 2px;

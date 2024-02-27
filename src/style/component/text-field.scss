@@ -7,10 +7,10 @@
   transition: var(--b3-transition);
   border-radius: var(--b3-border-radius);
   &:not(.b3-text-field--text) {
-    @include m.focus(var(--rc-on-surface));
+    @include m.focus(var(--rc-on-surface-rgb));
     height: var(--rc-component-height);
     &:focus {
-      border-color: rgb(var(--rc-primary)) !important;
+      border-color: var(--rc-primary) !important;
       background-color: var(--rc-background);
     }
   }

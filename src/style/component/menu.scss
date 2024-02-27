@@ -10,7 +10,7 @@ $padding: 6px;
 
 @mixin meta {
   font-size: 11px;
-  color: rgba(var(--rc-on-surface));
+  color: var(--rc-on-surface);
 }
 
 .b3-menu {
@@ -28,7 +28,7 @@ $padding: 6px;
     }
 
     &--selected {
-      @include m.focus(var(--rc-on-surface));
+      @include m.focus(var(--rc-on-surface-rgb));
       position: relative;
       &::before {
         @include m.focus-before(25%, 0px);

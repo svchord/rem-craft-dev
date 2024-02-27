@@ -41,7 +41,7 @@
   &__item {
     font-size: 20px;
     @include m.div(32px);
-    @include m.state(var(--rc-on-surface));
+    @include m.state(var(--rc-on-surface-rgb));
     img {
       @include m.svg(20px);
     }
@@ -51,7 +51,7 @@
     padding-top: 8px;
     .emojis__type {
       border-radius: var(--b3-border-radius);
-      @include m.state(var(--rc-on-surface));
+      @include m.state(var(--rc-on-surface-rgb));
     }
   }
 }

@@ -3,8 +3,8 @@
 
 //按钮
 .b3-button {
-  //@include m.focus(var(--rc-on-surface));
-  @include m.focus(var(--rc-primary));
+  //@include m.focus(var(--rc-on-surface-rgb));
+  @include m.focus(var(--rc-primary-rgb));
   border: none;
   box-shadow: unset;
   border-radius: var(--b3-border-radius);
@@ -30,9 +30,9 @@
     box-shadow: unset;
     color: transparent;
     position: relative;
-    background-color: rgba(var(--rc-on-surface), 0.08) !important;
+    background-color: rgba(var(--rc-on-surface-rgb), 0.08) !important;
     > span {
-      background-color: rgba(var(--rc-primary));
+      background-color: var(--rc-primary);
       border-top-right-radius: 0;
       border-bottom-right-radius: 0;
     }
@@ -68,7 +68,7 @@
       height: auto;
       color: var(--rc-on-#{$type}-container);
       background-color: var(--rc-#{$type}-container);
-      &:hover{
+      &:hover {
         background-color: var(--rc-#{$type}-container);
       }
     }

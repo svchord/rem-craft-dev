@@ -42,7 +42,8 @@
   --md-sys-color-on-error-container: #410002;
 }
 :root {
-  --rc-primary: var(--bard-color-primary-rgb);
+  --rc-primary-rgb: var(--bard-color-primary-rgb);
+  --rc-primary: rgb(var(--rc-primary-rgb));
   --rc-on-primary: var(--bard-color-on-primary);
   --rc-primary-container: var(--bard-color-primary-container);
   --rc-on-primary-container: var(--mio-theme-color-on-primary-container);
@@ -74,13 +75,14 @@
   --rc-base: rgb(211, 227, 253);
   --rc-surface: rgb(236, 242, 251);
   --rc-surface-variant: var(--mio-theme-color-surface-variant);
-  --rc-on-surface: var(--bard-color-on-surface-rgb);
+  --rc-on-surface-rgb: var(--bard-color-on-surface-rgb);
+  --rc-on-surface: rgb(var(--rc-on-surface-rgb));
   --rc-on-surface-variant: var(--bard-color-on-surface-variant-rgb);
 
-  --b3-theme-primary: rgba(var(--rc-primary));
-  --b3-theme-primary-light: rgba(var(--rc-primary), 0.1);
-  --b3-theme-primary-lighter: rgba(var(--rc-primary), 0.1);
-  --b3-theme-primary-lightest: rgba(var(--rc-primary), 0.08);
+  --b3-theme-primary: var(--rc-primary);
+  --b3-theme-primary-light: rgba(var(--rc-primary-rgb), 0.1);
+  --b3-theme-primary-lighter: rgba(var(--rc-primary-rgb), 0.1);
+  --b3-theme-primary-lightest: rgba(var(--rc-primary-rgb), 0.08);
   --b3-theme-background: var(--rc-background);
   --b3-theme-background-light: var(--rc-surface-variant);
   --b3-theme-surface: var(--rc-surface);
@@ -92,12 +94,12 @@
   --b3-theme-on-primary: var(--rc-on-primary);
   --b3-theme-on-secondary: var(--rc-on-secondary);
   --b3-theme-on-background: rgba(var(--rc-on-background));
-  --b3-theme-on-surface: rgba(var(--rc-on-surface));
-  --b3-theme-on-surface-light: rgba(var(--rc-on-surface));
+  --b3-theme-on-surface: var(--rc-on-surface);
+  --b3-theme-on-surface-light: var(--rc-on-surface);
   --b3-theme-on-error: var(--rc-on-error);
 
   /* 线条 */
-  --b3-border-color: rgba(var(--rc-on-surface), 0.1);
+  --b3-border-color: rgba(var(--rc-on-surface-rgb), 0.1);
   --b3-border-radius: 4px;
   --b3-border-radius-b: 8px;
   --rc-border-radius-dialog: 16px;
@@ -116,7 +118,7 @@
   --rc-elevation-3: var(--mio-theme-elevation-3);
 
   --rc-scrim: var(--mio-theme-color-scrim-video-container);
-  
+
   /* 动画效果 */
   --rc-timing-function: cubic-bezier(0.2, 0, 0, 1);
   --b3-transition: all 0.2s var(--rc-timing-function) 0ms;

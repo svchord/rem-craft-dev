@@ -14,7 +14,7 @@ $icon-w: dock.$icon-w;
   border: none;
   .toolbar__item {
     @include m.svg-parent($item-w, $icon-w, $item-h);
-    @include m.state(var(--rc-on-surface), true);
+    @include m.state(var(--rc-on-surface-rgb), true);
     margin: 0 dock.$interval dock.$interval;
   }
 

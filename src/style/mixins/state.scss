@@ -11,7 +11,7 @@
     @include base($base, $important);
   }
   &:active {
-    background-color: rgba($base, 0.12) f.is-important($important);
+    background-color: rgba($base, 0.1) f.is-important($important);
   }
 }
 

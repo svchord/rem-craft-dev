@@ -86,6 +86,7 @@
   --b3-theme-surface: var(--rc-surface);
   --b3-theme-surface-lighter: var(--rc-surface-variant);
   --b3-theme-error: var(--rc-error);
+  --b3-theme-success: var(--rc-tertiary);
 
   /* 文字颜色 */
   --b3-theme-on-primary: var(--rc-on-primary);
@@ -115,8 +116,10 @@
   --rc-elevation-3: var(--mio-theme-elevation-3);
 
   --rc-scrim: var(--mio-theme-color-scrim-video-container);
+  
   /* 动画效果 */
   --rc-timing-function: cubic-bezier(0.2, 0, 0, 1);
   --b3-transition: all 0.2s var(--rc-timing-function) 0ms;
   --b3-width-transition: width 0.2s var(--rc-timing-function) 0ms;
+  --b3-color-transition: color 0.2s var(--rc-timing-function) 0ms;
 }

@@ -11,6 +11,7 @@
   --b3-theme-surface-light: rgba(243, 243, 243, 0.86);
   --b3-theme-surface-lighter: #e0e0e0;
   --b3-theme-error: #d23f31;
+  --b3-theme-success: #65b84d;
 
   /* 文字颜色 */
   --b3-theme-on-primary: #fff;
@@ -110,6 +111,7 @@
   /* 动画效果 */
   --b3-transition: all 0.2s cubic-bezier(0, 0, 0.2, 1) 0ms;
   --b3-width-transition: width 0.2s cubic-bezier(0, 0, 0.2, 1) 0ms;
+  --b3-color-transition: color 0.2s cubic-bezier(0, 0, 0.2, 1) 0ms;
 
   /* 下拉菜单 */
   --b3-select-background: url("data:image/svg+xml;utf8,<svg fill='rgba(95, 99, 104, .68)' height='24' viewBox='0 0 24 24' width='24' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/><path d='M0 0h24v24H0z' fill='none'/></svg>")
@@ -183,7 +185,7 @@
   mix-blend-mode: multiply;
 }
 
-.b3-typography div.hljs,
-.protyle-wysiwyg div.hljs {
+.b3-typography .hljs,
+.protyle-wysiwyg .hljs {
   background-color: #f8f9fa;
 }

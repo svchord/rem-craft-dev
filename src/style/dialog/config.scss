@@ -134,6 +134,7 @@ $padding-lr: 16px;
   &-bazaar {
     &__title {
       .b3-button {
+        padding: 0 20px;
         &--outline {
           background-color: transparent;
         }

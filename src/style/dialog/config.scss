@@ -1,3 +1,4 @@
+@use 'sass:math';
 @use '../mixins' as m;
 @use '../component/form-input' as form;
 @use '../component/label' as label;
@@ -18,6 +19,10 @@ $padding-lr: 16px;
     > .b3-tab-bar {
       padding: 0;
       width: 320px;
+      transition: var(--b3-transition);
+      @media (max-width: 750px) {
+        width: auto;
+      }
       .config__tab {
         &-title {
           padding: 24px 16px 16px;
@@ -25,16 +30,23 @@ $padding-lr: 16px;
           font-size: 16px;
           height: $item-h;
           line-height: $item-h;
-
           .b3-list-item__graphic {
+            transition: var(--b3-transition);
             @include m.svg($item-h, 16px, $important: true);
+            @media (max-width: 750px) {
+              @include m.svg($item-h, 20px, $important: true);
+            }
           }
         }
         &-hr {
+          transition: var(--b3-transition);
           margin: 16px;
           border-bottom: 1px solid var(--b3-border-color);
           height: 0;
           background-color: unset;
+          @media (max-width: 750px) {
+            margin: 0 8px 16px 16px;
+          }
         }
       }
       .b3-form__icon {
@@ -44,6 +56,12 @@ $padding-lr: 16px;
       .b3-list-item {
         line-height: $item-h;
         margin: 0 16px 4px;
+
+        transition: var(--b3-transition);
+        @media (max-width: 750px) {
+          @include m.svg-parent($item-h, 14px, $important: true);
+          padding: 0 math.div($item-h - 14px, 2);
+        }
         &__graphic {
           @include m.svg(24px, 14px, $important: true);
         }

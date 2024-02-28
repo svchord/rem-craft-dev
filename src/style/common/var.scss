@@ -78,6 +78,7 @@
   --rc-on-surface-rgb: var(--bard-color-on-surface-rgb);
   --rc-on-surface: rgb(var(--rc-on-surface-rgb));
   --rc-on-surface-variant-rgb: var(--bard-color-on-surface-variant-rgb);
+  --rc-on-surface-variant: rgb(var(--rc-on-surface-variant-rgb));
 
   --b3-theme-primary: var(--rc-primary);
   --b3-theme-primary-light: rgba(var(--rc-primary-rgb), 0.1);

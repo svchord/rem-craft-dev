@@ -16,32 +16,32 @@
 
 body {
   font-size: 13px;
-  // &::before {
-  //   content: ' ';
-  //   border-radius: var(--b3-border-radius-b);
-  //   background-color: transparent;
-  //   box-shadow: var(--rc-card-shadow);
-  //   position: absolute;
-  //   top: top-bar.$height;
-  //   left: dock.$width;
-  //   right: dock.$width;
-  //   bottom: status.$height;
-  // }
-  // &.body--window,
-  // &:has(#dockLeft.fn__none) {
-  //   &::before {
-  //     left: dock.$interval;
-  //   }
-  // }
-  // &.body--window,
-  // &:has(#dockRight.fn__none) {
-  //   &::before {
-  //     right: dock.$interval;
-  //   }
-  // }
-  // &:has(#status.fn__none)::before {
-  //   bottom: dock.$interval;
-  // }
+  &::before {
+    content: ' ';
+    border-radius: var(--b3-border-radius-b);
+    background-color: transparent;
+    box-shadow: var(--rc-card-shadow);
+    position: absolute;
+    top: top-bar.$height;
+    left: dock.$width;
+    right: dock.$width;
+    bottom: status.$height;
+  }
+  &.body--window,
+  &:has(#dockLeft.fn__none) {
+    &::before {
+      left: dock.$interval;
+    }
+  }
+  &.body--window,
+  &:has(#dockRight.fn__none) {
+    &::before {
+      right: dock.$interval;
+    }
+  }
+  &:has(#status.fn__none)::before {
+    bottom: dock.$interval;
+  }
 }
 
 .layout__dockl,

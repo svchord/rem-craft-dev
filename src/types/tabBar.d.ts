@@ -1,0 +1,1 @@
+type direction = 'left' | 'right';

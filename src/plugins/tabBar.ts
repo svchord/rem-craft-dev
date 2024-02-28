@@ -2,32 +2,43 @@ import { numToPx, pxToNum } from '@/util/convert';
 import { setResizeObserver, setMutationObserver } from '@/util/observer';
 import { isDockExist, getLayoutDock, setDockObserver } from '@/util/layout';
 
-const center = document.getElementsByClassName('layout__center')[0];
-const topBar = document.getElementById('toolbar');
-const drag = document.getElementById('drag');
-const macBtnsWidth = 69;
-const winBtnWidth = 46;
+const DOM = {
+  layoutCenter: document.getElementsByClassName('layout__center')[0],
+  topBar: document.getElementById('toolbar'),
+  drag: document.getElementById('drag'),
+};
+
+enum BtnsWidth {
+  mac = 69,
+  win = 46,
+}
 
 class TabBar {
-  constructor(direction) {
+  public direction: direction;
+  public bar: Element | undefined;
+  public layoutDock: Element | undefined;
+  public maxMargin: number | undefined;
+
+  constructor(direction: direction) {
     this.direction = direction;
-    this.bar = this.getBar(center);
+    this.bar = this.getBar(DOM.layoutCenter);
     this.maxMargin = this.getMaxMargin();
     this.layoutDock = getLayoutDock(direction);
     if (this.layoutDock) {
       this.start();
     } else if ('darwin' === window.siyuan.config.system.os) {
-      this.setMargin('left', macBtnsWidth);
+      this.setMargin('left', BtnsWidth.mac);
     } else {
-      this.setMargin('right', winBtnWidth * 4);
+      this.setMargin('right', BtnsWidth.win * 4);
     }
   }
 
-  getBar(parent) {
-    let children = [...parent.children];
-    let isWnd = children.find((e) => {
-      return e.dataset.type === 'wnd';
-    });
+  getBar(parent: Element | undefined): Element | undefined {
+    if (!parent) {
+      return;
+    }
+    const children = [...parent.children];
+    const isWnd = children.find((e) => (e as HTMLElement).dataset.type === 'wnd');
 
     // 定位到编辑窗口
     if (isWnd) {
@@ -36,18 +47,16 @@ class TabBar {
       if (!tabBar.classList.contains('fn__none')) {
         return tabBar;
       }
+      return;
+    }
+    // 未定位到，即分屏情况，递归查询
+    const isSplitScreen = children.find((e) => e.classList.contains('layout__resize--lr'));
+    if (isSplitScreen && this.direction === 'right') {
+      // 左右分屏 且 定位方向为右上角
+      return this.getBar(children.at(-1));
     } else {
-      // 未定位到，即分屏情况
-      let isSplitScreen = children.find((e) => {
-        return e.classList.contains('layout__resize--lr');
-      });
-      if (isSplitScreen && this.direction === 'right') {
-        // 左右分屏 且 定位方向为右上角
-        return this.getBar(children.at(-1));
-      } else {
-        // 上下分屏 或 左右分屏，定位方向为左上角
-        return this.getBar(children[0]);
-      }
+      // 上下分屏 或 左右分屏，定位方向为左上角
+      return this.getBar(children[0]);
     }
   }
 
@@ -55,11 +64,11 @@ class TabBar {
     const dockWidth = 40;
     let margin = 0;
 
-    if (!topBar) {
+    if (!DOM.topBar) {
       return;
     }
-    for (let i = 0; i < topBar.children.length; i++) {
-      const btn = topBar.children.item(i);
+    for (let i = 0; i < DOM.topBar.children.length; i++) {
+      const btn = DOM.topBar.children.item(i);
       if (btn.id === 'drag') {
         if (this.direction === 'left') {
           break;
@@ -73,7 +82,7 @@ class TabBar {
     }
 
     if ('darwin' === window.siyuan.config.system.os) {
-      margin += this.direction === 'left' ? macBtnsWidth : 2;
+      margin += this.direction === 'left' ? BtnsWidth.mac : 2;
     }
 
     margin -= isDockExist(this.direction) ? dockWidth : 0;
@@ -108,17 +117,17 @@ class TabBar {
   resetBar() {
     if (this.bar) {
       this.setMargin(this.direction, 0);
-      this.bar = this.getBar(center);
+      this.bar = this.getBar(DOM.layoutCenter);
       this.resetMargin();
     } else {
-      this.bar = this.getBar(center);
+      this.bar = this.getBar(DOM.layoutCenter);
     }
   }
 
   isEmpty(hasEmpty) {
-    center.style.paddingTop = hasEmpty ? '36px' : '0';
-    drag.style.opacity = hasEmpty ? '1' : '0';
-    center.querySelectorAll('.layout-tab-container').forEach((element) => {
+    DOM.layoutCenter.style.paddingTop = hasEmpty ? '36px' : '0';
+    DOM.drag.style.opacity = hasEmpty ? '1' : '0';
+    DOM.layoutCenter.querySelectorAll('.layout-tab-container').forEach((element) => {
       element.style.borderTopColor = hasEmpty ? 'rgba(var(--border-3))' : 'transparent';
     });
   }
@@ -141,7 +150,7 @@ class TabBar {
       this.maxMargin = this.getMaxMargin();
       this.resetMargin();
     });
-    topBarObserver.observe(topBar, { childList: true, subtree: true });
+    topBarObserver.observe(DOM.topBar, { childList: true, subtree: true });
 
     // 边栏监听
     // 边栏未悬浮的尺寸监听
@@ -168,7 +177,7 @@ class TabBar {
     });
 
     // 编辑区域监听
-    this.isEmpty(center.querySelector('.layout__empty'));
+    this.isEmpty(DOM.layoutCenter.querySelector('.layout__empty'));
     let centerObserver = setMutationObserver('childList', (mutation) => {
       // 增加节点监听
       if (mutation?.addedNodes[0]?.nodeType === 1) {
@@ -180,13 +189,13 @@ class TabBar {
       }
     });
 
-    centerObserver.observe(center, { childList: true, subtree: true });
+    centerObserver.observe(DOM.layoutCenter, { childList: true, subtree: true });
   }
 }
 
 export function tabBarMain() {
-  barLeft = new TabBar('left');
-  barRight = new TabBar('right');
+  const barLeft = new TabBar('left');
+  const barRight = new TabBar('right');
   barLeft.resetMargin();
   barRight.resetMargin();
 }

@@ -9,7 +9,7 @@ export const prefix = 'rc';
  * @param {String} direction - dock栏的方向：left, right
  * @return {Boolean} - 返回dock栏是否存在的布尔值
  */
-export function isDockExist(direction: string) {
+export function isDockExist(direction: direction) {
   const dock = document.getElementById(`dock${fisrtToUpper(direction)}`);
   if (dock) {
     return !dock.classList.contains('fn__none');
@@ -29,8 +29,8 @@ export function setDockObserver(direction, func) {
   }
 }
 
-export function getLayoutDock(direction) {
-  return document.getElementsByClassName(`layout__dock${direction === 'left' ? 'l' : 'r'}`)?.[0];
+export function getLayoutDock(direction: direction): Element | undefined {
+  return document.getElementsByClassName(`layout__dock${direction[0]}`)[0];
 }
 
 export function setWndPadding(direction, value) {

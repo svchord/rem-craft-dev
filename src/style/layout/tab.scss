@@ -33,6 +33,10 @@ $interval: math.div($bar-h - $iten-h, 2);
         overflow: visible;
         border-radius: var(--b3-border-radius);
 
+        &:active {
+          transform: scale(0.95);
+        }
+
         &__text {
           padding: 0 8px 0 $item-pad;
           min-width: 60px;

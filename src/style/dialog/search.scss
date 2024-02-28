@@ -103,29 +103,24 @@ $margin: 10px;
   > .b3-list-item {
     // 未分组
     &[data-type='search-item'] {
-      $padding: 8px;
-      $text-h: 24px;
-      height: auto;
-      display: block;
-      gap: 0;
-      padding: $padding $padding $text-h + $padding;
-
+      gap: 2px;
+      padding: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
       .b3-list-item {
         &__graphic {
           @include m.svg(24px, 12px, $important: true);
-          position: absolute;
+          align-self: flex-start;
         }
         &__text {
-          overflow-y: auto !important;
-          text-overflow: ellipsis !important;
-          -webkit-box-orient: inherit;
-          padding: 0 $padding 0 24px;
+          flex-shrink: 0;
+          flex-basis: calc(100% - 40px);
+          -webkit-line-clamp: 2;
           line-height: 24px;
         }
         &__meta {
           @include m.focus(var(--rc-on-surface-rgb));
           @include m.v-center(24px);
-          float: right;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
@@ -133,9 +128,7 @@ $margin: 10px;
           padding: 0 8px;
           gap: 8px;
           &--ellipsis {
-            display: flex;
             width: auto;
-            //max-width: unset;
           }
         }
       }

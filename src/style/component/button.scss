@@ -3,11 +3,10 @@
 
 //按钮
 .b3-button {
-  //@include m.focus(var(--rc-on-surface-rgb));
   @include m.focus(var(--rc-primary-rgb));
   border: none;
   box-shadow: unset;
-  border-radius: var(--b3-border-radius);
+  border-radius: var(--rc-border-radius-max);
   height: var(--rc-component-height);
   padding: 0 18px;
   gap: 6px;
@@ -24,6 +23,10 @@
   &:hover,
   &:focus {
     box-shadow: unset;
+  }
+
+  &:active {
+    transform: scale(0.95);
   }
 
   &--progress {

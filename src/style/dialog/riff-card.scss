@@ -38,5 +38,8 @@
 .card__action {
   .b3-button {
     height: auto;
+    &.b3-tooltips {
+      border-radius: var(--b3-border-radius-b);
+    }
   }
 }

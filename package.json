@@ -20,20 +20,29 @@
     }
   },
   "devDependencies": {
+    "@rushstack/eslint-patch": "^1.7.2",
     "@tsconfig/node18": "^18.2.2",
+    "@types/node": "^20.11.21",
     "@typescript-eslint/eslint-plugin": "^7.1.0",
     "@typescript-eslint/parser": "^7.1.0",
+    "@vitejs/plugin-vue": "^5.0.4",
+    "@vue/eslint-config-prettier": "^9.0.0",
+    "@vue/eslint-config-typescript": "^12.0.0",
     "@vue/tsconfig": "^0.5.1",
     "commitizen": "^4.3.0",
     "cz-git": "^1.8.0",
     "eslint": "^8.57.0",
+    "eslint-plugin-vue": "^9.22.0",
+    "fast-glob": "^3.3.2",
     "prettier": "^3.2.5",
+    "rollup-plugin-livereload": "^2.0.5",
     "sass": "^1.71.1",
     "standard-version": "^9.5.0",
     "stylelint": "^16.2.1",
     "stylelint-config-standard-scss": "^13.0.0",
     "typescript": "^5.3.3",
     "vite": "^5.1.4",
-    "vite-plugin-static-copy": "^1.0.1"
+    "vite-plugin-static-copy": "^1.0.1",
+    "vite-plugin-zip-pack": "^1.2.1"
   }
 }

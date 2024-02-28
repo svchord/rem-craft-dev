@@ -31,7 +31,7 @@ class TabBar {
 
     // 定位到编辑窗口
     if (isWnd) {
-      let tabBar = isWnd.children[0];
+      const tabBar = isWnd.children[0];
       // 判断是否显示页签栏
       if (!tabBar.classList.contains('fn__none')) {
         return tabBar;

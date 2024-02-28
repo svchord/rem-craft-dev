@@ -6,3 +6,5 @@ async function test() {
   console.log(config);
 }
 test();
+
+window.destroyTheme = () => {};

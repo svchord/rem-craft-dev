@@ -117,5 +117,6 @@ interface Window {
     ws: any;
     languages: any;
     config: any;
+    destroyTheme: () => {};
   };
 }

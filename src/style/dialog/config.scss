@@ -235,9 +235,9 @@ $padding-lr: 16px;
 
 #configBazaarDownloaded {
   padding: 16px 16px 0 0;
-  display: flex;
+  display: grid;
   gap: 16px;
-  flex-direction: column;
+  grid-template-columns: repeat(auto-fill, minmax(342px, 1fr));
   [data-type='plugins-enable'] {
     margin: 0 16px !important;
   }
@@ -251,6 +251,9 @@ $padding-lr: 16px;
   &s {
     padding: 16px 0;
     gap: 16px;
+  }
+  &--current {
+    border: 1px solid var(--rc-primary);
   }
   &:hover {
     transform: unset;

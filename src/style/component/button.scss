@@ -33,8 +33,9 @@
     box-shadow: unset;
     color: transparent;
     position: relative;
-    background-color: rgba(var(--rc-on-surface-rgb), 0.08) !important;
+    border-radius: var(--rc-border-radius-max);
     > span {
+      border-radius: var(--rc-border-radius-max);
       background-color: var(--rc-primary);
       border-top-right-radius: 0;
       border-bottom-right-radius: 0;

@@ -28,7 +28,7 @@ $text-h: 20px;
         top: math.div($pad-tb * 2 + $text-h - $icon-w, 2);
         width: $icon-w;
         height: $icon-w;
-        @include m.add-icon(var(--rc-on-tertiary-container), 'info', 24, 'round');
+        @include m.add-icon(var(--rc-info), 'info', 24, 'round');
       }
 
       a {
@@ -45,17 +45,11 @@ $text-h: 20px;
     &__close {
       display: none;
     }
-    $feat-colors: (
-      'info': 'secondary',
-      'success': 'tertiary',
-      'error': 'error',
-      'warning': 'warning',
-    );
-    @each $feat, $type in $feat-colors {
-      &--#{$feat} {
+    $feat-types: 'info', 'success', 'error', 'warning';
+    @each $type in $feat-types {
+      &--#{$type} {
         .b3-snackbar__content::before {
-          $type-color: var(--rc-#{$type});
-          @include m.add-icon($type-color, $feat, 24, 'round');
+          @include m.add-icon(var(--rc-#{$type}), $type, 24, 'round');
         }
       }
     }

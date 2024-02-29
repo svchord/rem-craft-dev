@@ -69,6 +69,9 @@ class TabBar {
     }
     for (let i = 0; i < DOM.topBar.children.length; i++) {
       const btn = DOM.topBar.children.item(i);
+      if (!btn) {
+        continue;
+      }
       if (btn.id === 'drag') {
         if (this.direction === 'left') {
           break;
@@ -77,7 +80,7 @@ class TabBar {
           continue;
         }
       }
-      let style = window.getComputedStyle(btn);
+      const style = window.getComputedStyle(btn);
       margin += btn.clientWidth + pxToNum(style.marginLeft) + pxToNum(style.marginRight);
     }
 
@@ -89,7 +92,7 @@ class TabBar {
     return margin - 8;
   }
 
-  setMargin(direction, value) {
+  setMargin(direction: direction, value: number) {
     direction === 'left'
       ? (this.bar.style.marginLeft = numToPx(value))
       : (this.bar.style.marginRight = numToPx(value));

@@ -60,15 +60,9 @@
     padding: 24px 16px;
   }
 
-  $feat-colors: (
-    'info': 'secondary',
-    'success': 'tertiary',
-    'error': 'error',
-    'warning': 'warning',
-  );
-
-  @each $feat, $type in $feat-colors {
-    &--#{$feat} {
+  $feat-types: 'info', 'success', 'error', 'warning';
+  @each $type in $feat-types {
+    &--#{$type} {
       height: auto;
       color: var(--rc-on-#{$type}-container);
       background-color: var(--rc-#{$type}-container);

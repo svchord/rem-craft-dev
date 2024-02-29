@@ -58,6 +58,16 @@
   --rc-tertiary-container: var(--bard-color-tertiary-container);
   --rc-on-tertiary-container: var(--mio-theme-color-on-tertiary-container);
 
+  --rc-info: rgb(var(--bard-color-primary-rgb));
+  --rc-on-info: var(--bard-color-on-primary);
+  --rc-info-container: var(--bard-color-primary-container);
+  --rc-on-info-container: var(--mio-theme-color-on-primary-container);
+
+  --rc-success: var(--bard-color-tertiary-60);
+  --rc-on-success: var(--md-sys-color-on-tertiary);
+  --rc-success-container: var(--bard-color-tertiary-container);
+  --rc-on-success-container: var(--mio-theme-color-on-tertiary-container);
+
   --rc-error: var(--bard-color-error);
   --rc-on-error: var(--rc-on-primary);
   --rc-error-container: var(--bard-color-error-container);

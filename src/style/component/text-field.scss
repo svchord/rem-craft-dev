@@ -8,14 +8,12 @@
   border-radius: var(--b3-border-radius);
   &:not(.b3-text-field--text) {
     @include m.focus(var(--rc-on-surface-rgb));
-    height: var(--rc-component-height);
+    &:not(textarea) {
+      height: var(--rc-component-height);
+    }
     &:focus {
       border-color: var(--rc-primary) !important;
       background-color: var(--rc-background);
     }
   }
-}
-
-textarea.b3-text-field {
-  height: auto !important;
 }

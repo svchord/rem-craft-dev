@@ -102,20 +102,20 @@ $interval: math.div($bar-h - $iten-h, 2);
           }
         }
       }
+      .av__header & {
+        box-shadow: unset !important;
+      }
+      .av__header &,
       &--full {
         min-width: unset !important;
         flex: unset;
         width: auto;
         padding: 0 16px;
-        .item {
-          &__text {
-            padding: 0 8px;
-          }
-          &--focus {
-            &::after {
-              background: var(--rc-primary);
-            }
-          }
+        .item__text {
+          padding: 0 8px;
+        }
+        &.item--focus::after {
+          background: var(--rc-primary);
         }
 
         &::after {

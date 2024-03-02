@@ -274,3 +274,42 @@ $padding-lr: 16px;
     }
   }
 }
+
+[data-key='dialog-snippets'] {
+  .b3-dialog {
+    &__container {
+      padding-top: 12px !important;
+    }
+    &__body {
+      position: relative;
+      padding: 0 24px;
+      > .layout-tab-bar {
+        margin-bottom: 12px;
+        border-radius: unset !important;
+        + div {
+          padding: 0 !important;
+          > div {
+            > .fn__flex {
+              position: absolute;
+              right: 40px;
+              top: 12px;
+            }
+          }
+        }
+      }
+      [data-type='css'][data-id],
+      [data-type='js'][data-id] {
+        padding: 0 16px;
+        background-color: var(--rc-background);
+        border-radius: var(--b3-border-radius);
+        margin-bottom: 4px;
+        > textarea {
+          height: 200px !important;
+        }
+        [data-action='remove'] {
+          margin: auto;
+        }
+      }
+    }
+  }
+}

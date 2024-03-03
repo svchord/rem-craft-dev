@@ -72,10 +72,6 @@ $padding-lr: 16px;
         }
       }
     }
-    // 设置菜单特化样式
-    .config__tab-container .b3-label {
-      @include label.label();
-    }
   }
   // 设置项
   &__tab-wrap {
@@ -92,6 +88,10 @@ $padding-lr: 16px;
   &__tab-container {
     height: calc(100% - 36px);
     padding: 0 16px 24px;
+
+    .b3-label:not(.b3-label--inner) {
+      @include label.label();
+    }
 
     &[data-name='AI'] .layout-tab-bar {
       margin-bottom: 16px;

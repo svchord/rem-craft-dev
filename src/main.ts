@@ -6,7 +6,8 @@ async function loadConfig() {
   const config = await res.json();
   console.log(config);
 }
-(async function () {
+
+setTimeout(async () => {
   await loadConfig();
   const LeftBar = new TabBar('Left');
   const RightBar = new TabBar('Right');
@@ -14,4 +15,4 @@ async function loadConfig() {
     LeftBar.disconnect();
     RightBar.disconnect();
   };
-})();
+}, 0);

@@ -10,7 +10,7 @@ export class TabBar {
 
   constructor(direction: Direction) {
     this.direction = direction;
-    this.tabBar = this.getBar(Layout.center);
+    this.tabBar = this.getBar(Layout.center());
     this.maxMargin = this.getMaxMargin();
     this.observe();
   }
@@ -28,11 +28,14 @@ export class TabBar {
       }
       return;
     }
-    if (!UI.topBar || !this.UIDock || !Layout.center) {
+    const topBar = UI.topBar();
+    const center = Layout.center();
+    if (!topBar || !this.UIDock || !center) {
       return;
     }
     // 边栏未悬浮的尺寸监听
     this.dockOb = new MyResizeObserver(this.layoutDock, (entry) => {
+      
       if (entry.target.classList.contains('layout--float')) {
         return;
       }
@@ -45,7 +48,7 @@ export class TabBar {
         return;
       }
       // 顶栏按钮数量变化
-      if (target === UI.topBar || target.classList.contains('toolbar__item')) {
+      if (target === topBar || target.classList.contains('toolbar__item')) {
         this.maxMargin = this.getMaxMargin();
         this.setMargin();
       }
@@ -59,7 +62,7 @@ export class TabBar {
         this.setMargin();
       }
       // 编辑区域监听
-      if (target === Layout.center) {
+      if (target === center) {
         // 增加节点监听
         if (mutation.addedNodes[0]?.nodeType === 1) {
           this.resetBar(mutation.addedNodes[0]);
@@ -70,7 +73,7 @@ export class TabBar {
         }
       }
     });
-    this.mutaionOb.observe(UI.topBar, {
+    this.mutaionOb.observe(topBar, {
       childList: true,
       subtree: true,
       attributes: true,
@@ -78,7 +81,7 @@ export class TabBar {
     });
     this.mutaionOb.observe(this.layoutDock, { attributes: true, attributeFilter: ['class'] });
     this.mutaionOb.observe(this.UIDock, { attributes: true, attributeFilter: ['class'] });
-    this.mutaionOb.observe(Layout.center, { childList: true, subtree: true });
+    this.mutaionOb.observe(center, { childList: true, subtree: true });
   }
 
   disconnect() {
@@ -90,11 +93,11 @@ export class TabBar {
   }
 
   public get layoutDock() {
-    return Layout[`dock${this.direction}`] as HTMLElement | null;
+    return Layout[`dock${this.direction}`]() as HTMLElement | null;
   }
 
   public get UIDock() {
-    return UI[`dock${this.direction}`];
+    return UI[`dock${this.direction}`]();
   }
 
   get isDockExist() {
@@ -131,11 +134,12 @@ export class TabBar {
   getMaxMargin() {
     const dockWidth = 48;
     let margin = 0;
-    if (!UI.topBar) {
+    const topBar = UI.topBar();
+    if (!topBar) {
       return margin;
     }
-    const topBarStyle = window.getComputedStyle(UI.topBar);
-    const children = [...UI.topBar.children] as HTMLElement[];
+    const topBarStyle = window.getComputedStyle(topBar);
+    const children = [...topBar.children] as HTMLElement[];
     for (let i = 0; i < children.length; i++) {
       const btn = children[i];
       if (!btn) {
@@ -171,7 +175,7 @@ export class TabBar {
       width = 0;
     }
     let margin = Math.max(this.maxMargin, width) - width;
-    
+
     if (width < 0) {
       margin = 0;
     }
@@ -188,10 +192,10 @@ export class TabBar {
     }
     if (this.tabBar) {
       this.tabBar.style[`margin${this.direction}`] = '0px';
-      this.tabBar = this.getBar(Layout.center);
+      this.tabBar = this.getBar(Layout.center());
       this.setMargin();
     } else {
-      this.tabBar = this.getBar(Layout.center);
+      this.tabBar = this.getBar(Layout.center());
     }
   }
 }

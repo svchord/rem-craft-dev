@@ -8,7 +8,7 @@ export const UI = {
 export const Layout = {
   center: document.querySelector('.layout__center'),
   dockLeft: document.querySelector('.layout__dockl'),
-  dockRight: document.querySelector('.layout__dockR'),
+  dockRight: document.querySelector('.layout__dockr'),
 };
 
 export enum BtnsWidth {

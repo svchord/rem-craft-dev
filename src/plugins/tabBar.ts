@@ -82,6 +82,9 @@ export class TabBar {
   }
 
   disconnect() {
+    if (this.tabBar) {
+      this.tabBar.style[`margin${this.direction}`] = '0px';
+    }
     this.dockOb?.disconnect();
     this.mutaionOb?.disconnect();
   }
@@ -126,14 +129,15 @@ export class TabBar {
   }
 
   getMaxMargin() {
-    const dockWidth = 40;
+    const dockWidth = 48;
     let margin = 0;
-
     if (!UI.topBar) {
       return margin;
     }
-    for (let i = 0; i < UI.topBar.children.length; i++) {
-      const btn = UI.topBar.children.item(i);
+    const topBarStyle = window.getComputedStyle(UI.topBar);
+    const children = [...UI.topBar.children] as HTMLElement[];
+    for (let i = 0; i < children.length; i++) {
+      const btn = children[i];
       if (!btn) {
         continue;
       }
@@ -145,16 +149,16 @@ export class TabBar {
           continue;
         }
       }
-      const { marginLeft, marginRight } = window.getComputedStyle(btn);
-      margin += btn.clientWidth + parseFloat(marginLeft) + parseFloat(marginRight);
+      const btnStyle = window.getComputedStyle(btn);
+      margin +=
+        parseInt(btnStyle.marginLeft) +
+        btn.offsetWidth +
+        parseInt(btnStyle.marginRight) +
+        parseInt(topBarStyle.gap);
     }
-
-    if ('darwin' === window.siyuan.config.system.os) {
-      margin += this.direction === 'Left' ? BtnsWidth.mac : 2;
-    }
-
+    margin += parseInt(topBarStyle[`padding${this.direction}`]);
     margin -= this.isDockExist ? dockWidth : 0;
-    return margin - 8;
+    return margin;
   }
 
   setMargin(value?: number) {
@@ -167,6 +171,7 @@ export class TabBar {
       width = 0;
     }
     let margin = Math.max(this.maxMargin, width) - width;
+    
     if (width < 0) {
       margin = 0;
     }

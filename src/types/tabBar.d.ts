@@ -1,1 +1,5 @@
-type direction = 'left' | 'right';
+type direction = 'Left' | 'Right';
+
+interface ResizeObserverEntryCallback {
+  (entries: ResizeObserverEntry, observer: ResizeObserver): void;
+}

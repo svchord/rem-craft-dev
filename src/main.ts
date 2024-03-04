@@ -3,16 +3,22 @@ import { TabBar } from './plugins/tabBar';
 
 async function loadConfig() {
   const res = await fetch('/appearance/themes/Rem Craft Dev/config.json');
-  const config = await res.json();
-  console.log(config);
+  return res.json();
 }
 
 setTimeout(async () => {
-  await loadConfig();
-  const LeftBar = new TabBar('Left');
-  const RightBar = new TabBar('Right');
+  const config = await loadConfig();
+  console.log(config);
+  let leftBar: TabBar;
+  let rightBar: TabBar;
+  if (config.tabBar === true) {
+    leftBar = new TabBar('Left');
+    rightBar = new TabBar('Right');
+  }
   window.destroyTheme = () => {
-    LeftBar.disconnect();
-    RightBar.disconnect();
+    if (config.tabBar === true) {
+      leftBar?.disconnect();
+      rightBar?.disconnect();
+    }
   };
 }, 0);

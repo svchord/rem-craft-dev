@@ -7,16 +7,16 @@ async function loadConfig() {
 }
 
 setTimeout(async () => {
-  const config = await loadConfig();
-  console.log(config);
+  const CONFIG = await loadConfig();
+  console.log(CONFIG);
   let leftBar: TabBar;
   let rightBar: TabBar;
-  if (config.tabBar === true) {
+  if (CONFIG.tabBar === true) {
     leftBar = new TabBar('Left');
     rightBar = new TabBar('Right');
   }
   window.destroyTheme = () => {
-    if (config.tabBar === true) {
+    if (CONFIG.tabBar === true) {
       leftBar?.disconnect();
       rightBar?.disconnect();
     }

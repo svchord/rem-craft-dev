@@ -20,11 +20,19 @@ $interval: math.div($bar-h - $iten-h, 2);
     background-color: transparent;
     border-color: var(--b3-border-color);
 
+    body.body--window.body--blur & {
+      opacity: 1;
+    }
+
     .layout__center [data-type='wnd'] > .fn__flex > & {
       background-color: var(--rc-background);
       height: $bar-h;
       padding: 0 $interval - $item-mar;
       border: none;
+
+      &--readonly {
+        padding: 0;
+      }
       .item {
         box-shadow: unset;
         height: 32px;
@@ -144,13 +152,15 @@ $interval: math.div($bar-h - $iten-h, 2);
       }
     }
     &--readonly {
-      padding: 0 !important;
       min-width: 24px * 2 + 8px * 2 - $interval;
       .item {
         @include m.transparent();
         margin: $interval 0 0 !important;
         cursor: unset;
         padding: 0 8px 0 8px - $interval;
+        &::after {
+          opacity: 0;
+        }
       }
       [data-type='more'] {
         @include m.svg-parent(24px, 10px);

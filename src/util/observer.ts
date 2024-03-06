@@ -50,7 +50,7 @@ export class MutationObserverSet {
 
   observe(target: Node, type: MyMutationRecordType, callback: MutationRecordCallback) {
     const ob = new MyMutationObserver(callback);
-    const optionsMap: MyMutationObserverInitMap = {
+    const optionsMap: MutationObserverInitMap = {
       childList: { childList: true, subtree: true },
       class: { attributes: true, attributeFilter: ['class'] },
       all: { attributes: true, attributeFilter: ['class'], childList: true, subtree: true },

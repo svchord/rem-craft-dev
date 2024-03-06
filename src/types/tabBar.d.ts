@@ -10,9 +10,9 @@ interface MutationRecordCallback {
 
 type MyMutationRecordType = 'childList' | 'class' | 'all';
 
-interface MyMutationObserverInitMap {
-  [key: MyMutationRecordType]: MutationObserverInit;
-}
+type MutationObserverInitMap = {
+  [K in MyMutationRecordType]: MutationObserverInit;
+};
 
 interface Window {
   destroyTheme: () => void;

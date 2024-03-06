@@ -1,4 +1,4 @@
-import { MyMutationObserver, MyResizeObserver } from '@/util/observer';
+import { MutationObserverSet, MyResizeObserver } from '@/util/observer';
 import { UI, Layout, BtnsWidth } from '@/const/dom';
 
 export class TabBar {
@@ -6,7 +6,7 @@ export class TabBar {
   public tabBar: HTMLElement | null;
   public maxMargin: number;
   public dockOb: MyResizeObserver | undefined;
-  public mutaionOb: MyMutationObserver | undefined;
+  public mutaionObSet: MutationObserverSet | undefined;
 
   constructor(direction: Direction) {
     this.direction = direction;
@@ -35,61 +35,46 @@ export class TabBar {
     }
     // 边栏未悬浮的尺寸监听
     this.dockOb = new MyResizeObserver(this.layoutDock, (entry) => {
-      
       if (entry.target.classList.contains('layout--float')) {
         return;
       }
       this.setMargin(entry.contentBoxSize[0].inlineSize);
     });
     // 相关DOM变动监听
-    this.mutaionOb = new MyMutationObserver((mutation) => {
-      const { target } = mutation;
-      if (target instanceof HTMLElement === false) {
-        return;
+    this.mutaionObSet = new MutationObserverSet();
+    // 顶栏按钮数量变化
+    this.mutaionObSet.observe(topBar, 'all', () => {
+      this.maxMargin = this.getMaxMargin();
+      this.setMargin();
+    });
+    // 悬浮dock
+    this.mutaionObSet.observe(this.layoutDock, 'class', () => {
+      this.setMargin();
+    });
+    // dock 入口隐藏
+    this.mutaionObSet.observe(this.UIDock, 'class', () => {
+      this.maxMargin = this.getMaxMargin();
+      this.setMargin();
+    });
+    // 编辑区域监听
+    this.mutaionObSet.observe(center, 'childList', (mutation) => {
+      // 增加节点监听
+      if (mutation.addedNodes[0]?.nodeType === 1) {
+        this.resetBar(mutation.addedNodes[0]);
       }
-      // 顶栏按钮数量变化
-      if (target === topBar || target.classList.contains('toolbar__item')) {
-        this.maxMargin = this.getMaxMargin();
-        this.setMargin();
-      }
-      // 悬浮dock
-      if (target === this.layoutDock) {
-        this.setMargin();
-      }
-      // dock 入口隐藏
-      if (target === this.UIDock) {
-        this.maxMargin = this.getMaxMargin();
-        this.setMargin();
-      }
-      // 编辑区域监听
-      if (target === center) {
-        // 增加节点监听
-        if (mutation.addedNodes[0]?.nodeType === 1) {
-          this.resetBar(mutation.addedNodes[0]);
-        }
-        // 删除节点监听
-        if (mutation.removedNodes[0]?.nodeType === 1) {
-          this.resetBar(mutation.removedNodes[0]);
-        }
+      // 删除节点监听
+      if (mutation.removedNodes[0]?.nodeType === 1) {
+        this.resetBar(mutation.removedNodes[0]);
       }
     });
-    this.mutaionOb.observe(topBar, {
-      childList: true,
-      subtree: true,
-      attributes: true,
-      attributeFilter: ['class'],
-    });
-    this.mutaionOb.observe(this.layoutDock, { attributes: true, attributeFilter: ['class'] });
-    this.mutaionOb.observe(this.UIDock, { attributes: true, attributeFilter: ['class'] });
-    this.mutaionOb.observe(center, { childList: true, subtree: true });
   }
 
   disconnect() {
     if (this.tabBar) {
-      this.tabBar.style[`margin${this.direction}`] = '0px';
+      this.tabBar.style.cssText = '';
     }
     this.dockOb?.disconnect();
-    this.mutaionOb?.disconnect();
+    this.mutaionObSet?.disconnect();
   }
 
   public get layoutDock() {

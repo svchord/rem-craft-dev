@@ -40,3 +40,26 @@ export class MyMutationObserver {
     this.ob.disconnect();
   }
 }
+
+export class MutationObserverSet {
+  private obs: MyMutationObserver[];
+
+  constructor() {
+    this.obs = [];
+  }
+
+  observe(target: Node, type: MyMutationRecordType, callback: MutationRecordCallback) {
+    const ob = new MyMutationObserver(callback);
+    const optionsMap: MyMutationObserverInitMap = {
+      childList: { childList: true, subtree: true },
+      class: { attributes: true, attributeFilter: ['class'] },
+      all: { attributes: true, attributeFilter: ['class'], childList: true, subtree: true },
+    };
+    ob.observe(target, optionsMap[type]);
+    this.obs.push(ob);
+  }
+
+  disconnect() {
+    this.obs.forEach((ob) => ob.disconnect());
+  }
+}

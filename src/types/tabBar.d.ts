@@ -8,6 +8,12 @@ interface MutationRecordCallback {
   (mutation: MutationRecord, observer: MutationObserver): void;
 }
 
+type MyMutationRecordType = 'childList' | 'class' | 'all';
+
+interface MyMutationObserverInitMap {
+  [key: MyMutationRecordType]: MutationObserverInit;
+}
+
 interface Window {
   destroyTheme: () => void;
   siyuan: {

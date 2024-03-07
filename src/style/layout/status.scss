@@ -10,17 +10,18 @@ $icon-w: dock.$icon-w;
 .status {
   background-color: var(--rc-base);
   height: $height - dock.$interval;
-  padding: 0;
+  padding: 0 0 0 dock.$interval;
   border: none;
   .toolbar__item {
     @include m.svg-parent($item-w, $icon-w, $item-h);
     @include m.state(var(--rc-on-surface-rgb), true);
-    margin: 0 dock.$interval dock.$interval;
+    margin: 0 dock.$interval dock.$interval 0;
   }
 
   &__msg,
   &__backgroundtask,
   &__counter {
     @include m.v-center($height - dock.$interval * 2);
+    margin-right: dock.$interval;
   }
 }

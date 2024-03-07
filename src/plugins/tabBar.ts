@@ -117,7 +117,6 @@ export class TabBar {
   }
 
   getMaxMargin() {
-    const dockWidth = 48;
     let margin = 0;
     const topBar = UI.topBar();
     if (!topBar) {
@@ -146,7 +145,12 @@ export class TabBar {
         parseInt(topBarStyle.gap);
     }
     margin += parseInt(topBarStyle[`padding${this.direction}`]);
-    margin -= this.isDockExist ? dockWidth : 0;
+    const dockWidth = this.UIDock?.offsetWidth;
+    if (this.isDockExist && dockWidth) {
+      margin -= dockWidth + 6;
+    } else {
+      margin -= 6;
+    }
     return margin;
   }
 
@@ -176,7 +180,7 @@ export class TabBar {
       return;
     }
     if (this.tabBar) {
-      this.tabBar.style[`margin${this.direction}`] = '0px';
+      this.tabBar.style.cssText = '';
       this.tabBar = this.getBar(Layout.center());
       this.setMargin();
     } else {

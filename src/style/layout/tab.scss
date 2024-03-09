@@ -41,7 +41,7 @@ $interval: math.div($bar-h - $iten-h, 2);
         overflow: visible;
         border-radius: var(--b3-border-radius);
 
-        &:active {
+        &:not(.item--readonly):active {
           transform: scale(0.95);
         }
 

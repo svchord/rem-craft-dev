@@ -78,6 +78,17 @@ body {
   }
 }
 
+.layout__dockl{
+  border-top-left-radius: var(--b3-border-radius-b);
+  border-bottom-left-radius: var(--b3-border-radius-b);
+}
+
+.layout__dockr{
+  border-top-right-radius: var(--b3-border-radius-b);
+  border-bottom-right-radius: var(--b3-border-radius-b);
+}
+
+
 @mixin float($direction) {
   .layout__dock#{if($direction=='left','l','r')} {
     $width: dock.$width;

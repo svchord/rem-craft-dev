@@ -95,7 +95,7 @@ function createTab() {
       const children = [...topBar.children] as HTMLElement[];
       for (let i = 0; i < children.length; i++) {
         const btn = children[i];
-        if (!btn) {
+        if (!btn || btn.classList.contains('fn__none')) {
           continue;
         }
         if (btn.id === 'drag') {

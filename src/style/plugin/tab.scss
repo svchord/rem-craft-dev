@@ -7,6 +7,8 @@ $bottom-h: status.$height;
 
 $bar-h: $top-h;
 
+$bar-padding: 5px;
+
 @mixin corner($z-index: 1) {
   &::before,
   &::after {
@@ -59,7 +61,20 @@ body.rc-tab-bar {
       > .layout-tab-bar {
         height: $bar-h;
         background-color: transparent;
+        padding: 0 $bar-padding;
         -webkit-app-region: drag;
+        &:before {
+          content: '';
+          display: block;
+          position: absolute;
+          z-index: 2;
+          top: 8px;
+          bottom: 8px;
+          left: 0;
+          width: 0;
+          height: auto;
+          border-right: 1px solid var(--b3-border-color);
+        }
         .item {
           -webkit-app-region: no-drag;
           margin: 0;
@@ -69,15 +84,20 @@ body.rc-tab-bar {
           &::after {
             right: 0;
           }
+
           &--focus {
             background-color: var(--rc-background);
             box-shadow: var(--rc-card-shadow);
           }
           &--readonly {
-            padding: 0 0 0 6px;
+            padding: 0 8px 0 8px - $bar-padding;
           }
         }
         &--readonly {
+          padding: 0;
+          &::before {
+            opacity: 0;
+          }
           .block__icon {
             -webkit-app-region: no-drag;
           }
@@ -90,8 +110,17 @@ body.rc-tab-bar {
       min-height: 42px;
     }
 
-    .layout__resize:not(.layout__resize--lr) + .fn__flex .layout-tab-bar {
-      background-color: var(--rc-background);
+    .layout__resize--lr {
+      margin-top: $top-h;
+    }
+
+    .layout__resize:not(.layout__resize--lr) + .fn__flex {
+      .layout__resize--lr {
+        margin-top: 0;
+      }
+      .layout-tab-bar {
+        background-color: var(--rc-background);
+      }
     }
   }
   &:has(.layout__empty) {

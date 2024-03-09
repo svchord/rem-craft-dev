@@ -1,5 +1,5 @@
 import '@/style/main.scss';
-import { TabObserver } from './plugins/tabBar';
+import { createTabObserver } from './plugin/tab';
 
 async function loadConfig() {
   const res = await fetch('/appearance/themes/Rem Craft Dev/config.json');
@@ -10,6 +10,7 @@ setTimeout(async () => {
   const CONFIG = await loadConfig();
   const body = document.body;
   console.log(CONFIG);
+  const TabObserver = createTabObserver();
   let leftTabObserver: TabObserver;
   let rightTabObserver: TabObserver;
   if (CONFIG.tabBar === true && !body.classList.contains('body--window')) {

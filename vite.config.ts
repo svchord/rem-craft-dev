@@ -24,14 +24,13 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
-  css: {
-    // 预处理器配置项
-    // preprocessorOptions: {// ..... },
-    devSourcemap: true,
-  },
   build: {
     // 设置入口文件
     emptyOutDir: false,
+    // 打包文件所在目录
+    outDir: isWatch ? 'dev' : 'dist',
+    minify: !isWatch,
+    sourcemap: true,
     rollupOptions: {
       input: 'src/main.ts',
       plugins: isWatch
@@ -62,9 +61,6 @@ export default defineConfig({
         entryFileNames: 'theme.js',
       },
     },
-    // 打包文件所在目录
-    outDir: isWatch ? 'dev' : 'dist',
-    sourcemap: true,
   },
   server: {
     port: 5173,

@@ -242,6 +242,9 @@ $padding-lr: 16px;
   [data-type='plugins-enable'] {
     margin: 0 16px !important;
   }
+  > .fn__hr {
+    display: none;
+  }
 }
 
 .b3-card {

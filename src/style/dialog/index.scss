@@ -42,19 +42,22 @@
   &__action {
     border: none;
     padding: 16px 24px 0;
+    gap: 0;
+    > .fn__space {
+      display: none;
+    }
     .b3-button {
       font-size: 14px;
       padding: 8px 16px;
       line-height: 20px;
       height: auto;
-      width: 100px;
+      width: 80px;
       &--cancel {
         background-color: transparent;
-        margin-right: 4px;
-        @include m.focus(var(--rc-on-surface-rgb));
+        @include m.state(var(--rc-on-surface-rgb));
       }
       &--text {
-        @include m.focus(var(--rc-primary-rgb));
+        @include m.state(var(--rc-primary-rgb));
       }
     }
   }

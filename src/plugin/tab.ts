@@ -33,7 +33,36 @@ function createTab(): TabConstructor {
       this.direction = direction;
       this.maxMargin = this.calMaxMargin();
       this.wnd = this.getWnd(Layout().center());
-      this.setWnd();
+      this.init();
+    }
+
+    /**
+     * 初始化选择器和样式
+     */
+    init() {
+      this.wnd?.classList.add(this.wndClassName);
+      const width = this.calLayoutDockWidth();
+      this.setMargin(width);
+      this.setRadius(width);
+    }
+
+    /**
+     * 清空选择器和样式
+     */
+    clear() {
+      Layout().center()?.classList.remove(this.radiusClassName);
+      this.wnd?.style.removeProperty(this.cssVar);
+      this.wnd?.classList.remove(this.wndClassName);
+      this.wnd?.classList.remove(this.radiusClassName);
+    }
+
+    /**
+     * 重置选择器和样式/
+     */
+    reset() {
+      this.clear();
+      this.wnd = this.getWnd(Layout().center());
+      this.init();
     }
 
     /**
@@ -42,7 +71,7 @@ function createTab(): TabConstructor {
      * @param parent 父元素
      * @returns 目标窗口
      */
-    getWnd(parent: Element | null): HTMLElement | null {
+    getWnd(parent: HTMLElement | null): HTMLElement | null {
       if (!parent) {
         return null;
       }
@@ -68,40 +97,6 @@ function createTab(): TabConstructor {
         // 上下分屏 或 左右分屏，定位方向为左上角
         return this.getWnd(children[0]);
       }
-    }
-
-    /**
-     * 设置目标窗口的选择器和样式
-     */
-    setWnd() {
-      if (!this.wnd) {
-        return;
-      }
-      this.wnd.classList.add(this.wndClassName);
-      const width = this.calLayoutDockWidth();
-      this.setRadius(width);
-      this.setMargin(width);
-    }
-
-    /**
-     * 清空目标窗口的选择器和样式
-     */
-    clearWnd() {
-      if (!this.wnd) {
-        return;
-      }
-      this.wnd.style.removeProperty(this.cssVar);
-      this.wnd.classList.remove(this.wndClassName);
-      this.wnd.classList.remove(this.radiusClassName);
-    }
-
-    /**
-     * 重置目标窗口
-     */
-    resetWnd() {
-      this.clearWnd();
-      this.wnd = this.getWnd(Layout().center());
-      this.setWnd();
     }
 
     /**
@@ -197,14 +192,20 @@ function createTab(): TabConstructor {
      * @param width
      */
     setRadius(value?: number) {
-      if (!this.wnd) {
+      let element;
+      if (this.wnd) {
+        element = this.wnd;
+      } else {
+        element = Layout().center();
+      }
+      if (!element) {
         return;
       }
       const width = value ?? this.calLayoutDockWidth();
       if (width === 0) {
-        this.wnd.classList.add(this.radiusClassName);
+        element.classList.add(this.radiusClassName);
       } else {
-        this.wnd.classList.remove(this.radiusClassName);
+        element.classList.remove(this.radiusClassName);
       }
     }
 
@@ -312,7 +313,7 @@ export function createTabObserver(): TabObserverConstructor {
       const MutationObserverSet = createMutationObserverSet();
       // 相关DOM变动监听
       this.mutaionObSet = new MutationObserverSet();
-      
+
       // 顶栏按钮数量变化
       this.mutaionObSet?.observe(topBar, 'all', mutation => {
         const { target } = mutation;
@@ -352,7 +353,7 @@ export function createTabObserver(): TabObserverConstructor {
         if (!node.classList.contains('layout__resize') && !node.querySelector('.layout__empty')) {
           return;
         }
-        this.tab.resetWnd();
+        this.tab.reset();
       });
     }
 
@@ -361,7 +362,7 @@ export function createTabObserver(): TabObserverConstructor {
      */
     disconnect() {
       if (this.tab) {
-        this.tab.clearWnd();
+        this.tab.clear();
       }
       this.dockOb?.disconnect();
       this.mutaionObSet?.disconnect();

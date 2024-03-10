@@ -176,3 +176,12 @@ body.rc-tab-chrome {
     border-top-right-radius: var(--b3-border-radius-b);
   }
 }
+
+.layout__center {
+  &.rc-tab-radius-left {
+    border-top-left-radius: var(--b3-border-radius-b);
+  }
+  &.rc-tab-radius-right {
+    border-top-right-radius: var(--b3-border-radius-b);
+  }
+}

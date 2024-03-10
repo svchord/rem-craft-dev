@@ -8,8 +8,11 @@ export function UI() {
 
 export function Layout() {
   return {
-    center: () => document.querySelector('.layout__center'),
+    center: () => document.querySelector('.layout__center') as HTMLElement | null,
+    empty: () => document.querySelector('.layout__empty') as HTMLElement | null,
     dock: (direction: Direction) =>
-      document.querySelector(`.layout__dock${direction[0].toLocaleLowerCase()}`),
+      document.querySelector(
+        `.layout__dock${direction[0].toLocaleLowerCase()}`
+      ) as HTMLElement | null,
   };
 }

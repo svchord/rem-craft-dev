@@ -29,27 +29,27 @@ interface Tab {
   maxMargin: number;
 
   /**
+   * 设置选择器和样式
+   */
+  init(): void;
+
+  /**
+   * 清空选择器和样式
+   */
+  clear(): void;
+
+  /**
+   * 重置选择器和样式
+   */
+  reset(): void;
+
+  /**
    * 递归获取目标编辑窗口
    *
    * @param parent 父元素
    * @returns 目标窗口
    */
   getWnd(parent: Element | null): HTMLElement | null;
-
-  /**
-   * 设置目标窗口的选择器和样式
-   */
-  setWnd(): void;
-
-  /**
-   * 清空目标窗口的选择器和样式
-   */
-  clearWnd(): void;
-
-  /**
-   * 重置目标窗口
-   */
-  resetWnd(): void;
 
   /**
    * 返回根据顶栏按钮计算的margin最大值

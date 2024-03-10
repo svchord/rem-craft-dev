@@ -7,7 +7,7 @@ $bottom-h: status.$height;
 
 $bar-h: $top-h;
 
-$bar-padding: 0px;
+$bar-padding: 3px;
 $item-radius: 6px; //var(--b3-border-radius);
 
 body.rc-tab {
@@ -32,7 +32,6 @@ body.rc-tab {
       height: $bar-h;
       background-color: transparent;
       padding: 0 $bar-padding;
-      overflow: visible;
       -webkit-app-region: drag;
 
       .item {

@@ -1,9 +1,11 @@
 @use 'sass:math';
 @use '../mixins' as m;
 
-$width: 750px;
-$padding: max(64px, 50% - math.div($width, 2));
-$item-pad: 3px 2px;
+:root {
+  --rc-wysiwyg-width: 750px;
+}
+
+$padding: max(64px, 50% - calc(var(--rc-wysiwyg-width) / 2));
 
 .protyle {
   &-content {
@@ -66,7 +68,7 @@ $item-pad: 3px 2px;
     }
 
     > [data-type] {
-      padding: $item-pad;
+      padding: 3px 2px;
     }
   }
 

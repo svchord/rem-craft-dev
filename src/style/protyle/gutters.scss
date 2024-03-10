@@ -1,0 +1,29 @@
+@use '../common' as *;
+@use '../mixins' as m;
+
+$w: 24px;
+$svg-w: 12px;
+$h: 28px;
+$mar: 4px;
+
+//块标识按钮
+.protyle-gutters {
+  &[style*='width'] {
+    width: 24px + $mar !important;
+  }
+
+  button {
+    @include m.state(var(--rc-on-surface-rgb));
+    @include m.svg-parent($w, $svg-w, $h);
+    border-radius: var(--b3-border-radius);
+    margin-right: $mar;
+    svg {
+      float: unset;
+    }
+
+    &[data-type='fold'] {
+      @include m.svg-parent($w, 8px, $h, $important: true);
+      margin-right: $mar;
+    }
+  }
+}

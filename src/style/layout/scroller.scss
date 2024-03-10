@@ -13,10 +13,10 @@
 
   &-thumb {
     border-radius: var(--rc-border-radius-max);
-    //box-shadow: inset 0 0 8px 8px var(--rc-surface-variant);
-    //border: solid 4px transparent;
+    box-shadow: inset 0 0 8px 8px var(--b3-scroll-color);
+    border: solid 3px transparent;
     &:hover {
-      //border: solid 1px transparent;
+      border: solid 1px transparent;
     }
   }
 }

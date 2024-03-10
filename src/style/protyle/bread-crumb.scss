@@ -17,9 +17,17 @@ $h: 22px;
     height: $h;
     line-height: $h;
     color: var(--rc-on-surface-variant);
+    &:has(.protyle-breadcrumb__text:empty) {
+      width: 20px;
+      box-sizing: border-box;
+    }
     svg {
       color: var(--rc-on-surface-variant);
       @include m.svg(12px);
     }
+  }
+  &__arrow {
+    @include m.svg(8px);
+    margin: 0 4px;
   }
 }

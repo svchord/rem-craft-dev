@@ -1,0 +1,109 @@
+@use 'sass:math';
+@use '../mixins' as m;
+
+$width: 750px;
+$padding: max(64px, 50% - math.div($width, 2));
+$item-pad: 3px 2px;
+
+.protyle {
+  &-content {
+    .layout__center &[data-fullwidth='true'] {
+      .protyle {
+        &-background {
+          &__img .protyle-icons {
+            right: 96px;
+          }
+        }
+
+        &-title {
+          margin-top: 0 !important;
+        }
+      }
+    }
+
+    .layout__center &:not([data-fullwidth='true']) {
+      overflow-y: scroll;
+
+      .protyle {
+        &-background {
+          &__iconw {
+            left: $padding !important;
+          }
+
+          &__img .protyle-icons {
+            right: $padding;
+          }
+        }
+
+        &-title {
+          // margin-top: 0 !important;
+          margin: 0 $padding !important;
+          width: auto !important;
+        }
+
+        &-wysiwyg {
+          padding-left: $padding !important;
+          padding-right: $padding !important;
+          transition: unset !important;
+          width: 100% !important;
+        }
+      }
+    }
+  }
+
+  &-wysiwyg {
+    .layout__center .protyle-content > & {
+      padding-top: 5px !important;
+      padding-bottom: 30vh !important;
+    }
+
+    [data-node-id][fold='1']:not(.li):not([data-type='NodeHeading']) {
+      font-size: 1em !important;
+    }
+
+    [data-type] {
+      border-radius: var(--b3-border-radius);
+    }
+
+    > [data-type] {
+      padding: $item-pad;
+    }
+  }
+
+  &-scroll {
+    right: 25px !important;
+
+    &__bar {
+      opacity: 0.38;
+      transition: var(--b3-transition);
+      transform: translateX(-7px) rotate(90deg);
+    }
+    &:hover &__bar {
+      opacity: 1;
+    }
+
+    &__up,
+    &__down {
+      right: -0.5px;
+      @include m.svg-parent(24px, 12px);
+      @include m.state(var(--rc-on-surface-rgb));
+      border-radius: var(--b3-border-radius);
+
+      svg {
+        opacity: 0.38;
+      }
+      &:hover svg {
+        opacity: 1;
+      }
+    }
+
+    &__down {
+      top: calc(50% + 120px);
+    }
+  }
+
+  //文本转语音按钮
+  &-speech {
+    border-color: var(--b3-border-color);
+  }
+}

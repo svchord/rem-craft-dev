@@ -7,39 +7,10 @@ $bottom-h: status.$height;
 
 $bar-h: $top-h;
 
-$bar-padding: 5px;
+$bar-padding: 0px;
+$item-radius: 6px; //var(--b3-border-radius);
 
-@mixin corner($z-index: 1) {
-  &::before,
-  &::after {
-    content: '';
-    display: block;
-    position: absolute;
-    top: unset !important;
-    bottom: 0;
-    background-color: transparent;
-    width: $item-radius * 2;
-    height: $item-radius * 2 !important;
-    border-radius: 100%;
-    border: none !important;
-    z-index: $z-index;
-    box-shadow:
-      inset 0 0 0 1px get($border, 3),
-      0 0 0 $item-radius * 4 get($bg, 'page', 1);
-  }
-
-  &::before {
-    left: -$item-radius * 2 !important;
-    clip-path: inset(50% 0 - $item-radius 0 50%);
-  }
-
-  &::after {
-    right: -$item-radius * 2 !important;
-    clip-path: inset(50% 50% 0 0 - $item-radius);
-  }
-}
-
-body.rc-tab-bar {
+body.rc-tab {
   // top-bar
   #toolbar {
     margin-bottom: -$top-h;
@@ -57,57 +28,46 @@ body.rc-tab-bar {
 
   .layout__center {
     margin-top: -$top-h;
-    [data-type='wnd'] > .fn__flex:first-child {
-      > .layout-tab-bar {
-        height: $bar-h;
-        background-color: transparent;
-        padding: 0 $bar-padding;
-        -webkit-app-region: drag;
-        &:before {
-          content: '';
-          display: block;
-          position: absolute;
-          z-index: 2;
-          top: 8px;
-          bottom: 8px;
-          left: 0;
-          width: 0;
-          height: auto;
-          border-right: 1px solid var(--b3-border-color);
-        }
-        .item {
-          -webkit-app-region: no-drag;
-          margin: 0;
-          &:active {
-            transform: unset;
-          }
-          &::after {
-            right: 0;
-          }
+    [data-type='wnd'] > .fn__flex:first-child > .layout-tab-bar {
+      height: $bar-h;
+      background-color: transparent;
+      padding: 0 $bar-padding;
+      overflow: visible;
+      -webkit-app-region: drag;
 
-          &--focus {
-            background-color: var(--rc-background);
-            box-shadow: var(--rc-card-shadow);
-          }
-          &--readonly {
-            padding: 0 8px 0 8px - $bar-padding;
-          }
+      .item {
+        -webkit-app-region: no-drag;
+        margin: 0;
+
+        &:active {
+          transform: unset;
+        }
+        &::after {
+          right: 0;
+        }
+
+        &--focus {
+          background-color: var(--rc-background);
+          box-shadow: var(--rc-card-shadow);
         }
         &--readonly {
-          padding: 0;
-          &::before {
-            opacity: 0;
-          }
-          .block__icon {
-            -webkit-app-region: no-drag;
-          }
+          padding: 0 8px 0 8px - $bar-padding;
+        }
+      }
+      &--readonly {
+        padding: 0;
+        &::before {
+          opacity: 0;
+        }
+        .block__icon {
+          -webkit-app-region: no-drag;
         }
       }
     }
 
     .protyle > .protyle-breadcrumb {
       margin: 0;
-      min-height: 42px;
+      min-height: 36px;
     }
 
     .layout__resize--lr {
@@ -117,9 +77,6 @@ body.rc-tab-bar {
     .layout__resize:not(.layout__resize--lr) + .fn__flex {
       .layout__resize--lr {
         margin-top: 0;
-      }
-      .layout-tab-bar {
-        background-color: var(--rc-background);
       }
     }
   }
@@ -133,9 +90,79 @@ body.rc-tab-bar {
   }
 }
 
+@mixin corner($z-index: 1) {
+  &::before,
+  &::after {
+    content: '';
+    display: block;
+    position: absolute;
+    top: unset !important;
+    bottom: 0;
+    background-color: transparent;
+    width: $item-radius * 2;
+    height: $item-radius * 2 !important;
+    border-radius: 100%;
+    border: none !important;
+    z-index: $z-index;
+    box-shadow:
+      inset 0px 0px 0.1px rgba(0, 0, 0, 0.008),
+      inset 0px 0px 0.3px rgba(0, 0, 0, 0.012),
+      inset 0px 0px 0.5px rgba(0, 0, 0, 0.015),
+      inset 0px 0px 0.7px rgba(0, 0, 0, 0.018),
+      inset 0px 0px 1px rgba(0, 0, 0, 0.02),
+      inset 0px 0px 1.4px rgba(0, 0, 0, 0.022),
+      inset 0px 0px 2px rgba(0, 0, 0, 0.025),
+      inset 0px 0px 2.9px rgba(0, 0, 0, 0.028),
+      inset 0px 0px 4.5px rgba(0, 0, 0, 0.032),
+      inset 0px 0px 8px rgba(0, 0, 0, 0.04),
+      0 0 0 $item-radius * 4 var(--rc-background);
+  }
+
+  &::before {
+    left: -$item-radius * 2 !important;
+    clip-path: inset(50% 0 - $item-radius 0 50%);
+  }
+
+  &::after {
+    right: -$item-radius * 2 !important;
+    clip-path: inset(50% 50% 0 0 - $item-radius);
+  }
+}
+
+body.rc-tab-chrome {
+  .layout__center {
+    $bar-padding: $item-radius;
+    [data-type='wnd'] > .fn__flex:first-child > .layout-tab-bar {
+      padding: 0 $bar-padding;
+      &:before {
+        content: '';
+        display: block;
+        position: absolute;
+        z-index: 2;
+        top: 12px;
+        bottom: 4px;
+        left: 0;
+        width: 0;
+        height: auto;
+        border-right: 1px solid var(--b3-border-color);
+      }
+      .item {
+        align-self: end;
+        transition: unset;
+        &--focus {
+          @include corner();
+        }
+        &--readonly {
+          padding: 0 8px 0 8px - $bar-padding;
+        }
+      }
+    }
+  }
+}
+
 .rc-wnd-left {
   > .fn__flex:first-child {
-    margin-left: var(--rc-tabBar-marginLeft);
+    margin-left: var(--rc-tab-margin-left);
   }
   &.rc-tab-radius-left > .layout-tab-container {
     border-top-left-radius: var(--b3-border-radius-b);
@@ -144,7 +171,7 @@ body.rc-tab-bar {
 
 .rc-wnd-right {
   > .fn__flex:first-child {
-    margin-right: var(--rc-tabBar-marginRight);
+    margin-right: var(--rc-tab-margin-right);
   }
   &.rc-tab-radius-right > .layout-tab-container {
     border-top-right-radius: var(--b3-border-radius-b);

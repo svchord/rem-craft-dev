@@ -116,9 +116,7 @@ function createTab() {
       margin += parseInt(topBarStyle[`padding${this.direction}`]);
       const dockWidth = UI().dock(this.direction)?.offsetWidth;
       if (this.isDockExist && dockWidth) {
-        margin -= dockWidth + 6;
-      } else {
-        margin -= 6;
+        margin -= dockWidth;
       }
       return margin;
     }
@@ -195,7 +193,7 @@ function createTab() {
     }
 
     public get cssVar() {
-      return `--rc-tabBar-margin${this.direction}`;
+      return `--rc-tab-margin-${this.direction.toLocaleLowerCase()}`;
     }
   };
 }

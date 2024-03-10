@@ -7,22 +7,30 @@ async function loadConfig() {
 }
 
 setTimeout(async () => {
-  const CONFIG = await loadConfig();
+  const config = await loadConfig();
   const body = document.body;
-  console.log(CONFIG);
+  console.log(config);
+
+  const { tab } = config;
   const TabObserver = createTabObserver();
   let leftTabObserver: TabObserver;
   let rightTabObserver: TabObserver;
-  if (CONFIG.tabBar === true && !body.classList.contains('body--window')) {
+  if (tab.switch && !body.classList.contains('body--window')) {
     leftTabObserver = new TabObserver('Left');
     rightTabObserver = new TabObserver('Right');
-    body.classList.add('rc-tab-bar');
+    body.classList.add('rc-tab');
+    if (tab.chromeStyle) {
+      body.classList.add('rc-tab-chrome');
+    }
   }
   window.destroyTheme = () => {
-    if (CONFIG.tabBar === true && !body.classList.contains('body--window')) {
+    if (tab.switch && !body.classList.contains('body--window')) {
       leftTabObserver?.disconnect();
       rightTabObserver?.disconnect();
-      body.classList.remove('rc-tab-bar');
+      body.classList.remove('rc-tab');
+      if (tab.chromeStyle) {
+        body.classList.remove('rc-tab-chrome');
+      }
     }
   };
 }, 0);

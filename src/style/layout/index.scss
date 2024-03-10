@@ -6,7 +6,7 @@
 @use 'tab';
 @use 'top-bar';
 
-#layouts {
+body:not(.body--window) #layouts {
   background-color: var(--rc-base);
   > .fn__flex:first-child {
     border-radius: var(--b3-border-radius-b);
@@ -14,33 +14,39 @@
   }
 }
 
+body.body--window {
+  background-color: var(--rc-base);
+  #layouts {
+    margin-bottom: dock.$interval;
+  }
+  .layout-tab-bar--readonly[style*='padding-right'] {
+    padding-right: 184px !important;
+  }
+}
+
 body {
   font-size: 13px;
-  &::before {
-    content: ' ';
-    border-radius: var(--b3-border-radius-b);
-    background-color: transparent;
-    box-shadow: var(--rc-card-shadow);
-    position: absolute;
-    top: top-bar.$height;
-    left: dock.$width;
-    right: dock.$width;
-    bottom: status.$height;
-  }
-  &.body--window,
-  &:has(#dockLeft.fn__none) {
+  &:not(.body--window) {
     &::before {
+      content: ' ';
+      border-radius: var(--b3-border-radius-b);
+      background-color: transparent;
+      box-shadow: var(--rc-card-shadow);
+      position: absolute;
+      top: top-bar.$height;
+      left: dock.$width;
+      right: dock.$width;
+      bottom: status.$height;
+    }
+    &:has(#dockLeft.fn__none) ::before {
       left: dock.$interval;
     }
-  }
-  &.body--window,
-  &:has(#dockRight.fn__none) {
-    &::before {
+    &:has(#dockRight.fn__none)::before {
       right: dock.$interval;
     }
-  }
-  &:has(#status.fn__none)::before {
-    bottom: dock.$interval;
+    &:has(#status.fn__none)::before {
+      bottom: dock.$interval;
+    }
   }
 }
 
@@ -79,16 +85,15 @@ body {
   }
 }
 
-.layout__dockl{
+.layout__dockl {
   border-top-left-radius: var(--b3-border-radius-b);
   border-bottom-left-radius: var(--b3-border-radius-b);
 }
 
-.layout__dockr{
+.layout__dockr {
   border-top-right-radius: var(--b3-border-radius-b);
   border-bottom-right-radius: var(--b3-border-radius-b);
 }
-
 
 @mixin float($direction) {
   .layout__dock#{if($direction=='left','l','r')} {

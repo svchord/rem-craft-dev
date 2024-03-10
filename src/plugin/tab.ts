@@ -1,10 +1,32 @@
 import { createMutationObserverSet, createMyResizeObserver } from '@/util/observer';
 import { UI, Layout } from '@/const/dom';
 
-function createTab() {
-  return class Tab {
+/**
+ * Tab 类的工厂函数
+ *
+ * @returns Tab 类
+ */
+function createTab(): TabConstructor {
+  return class T implements Tab {
+    /**
+     * 当前方向
+     *
+     * @type {Direction}
+     */
     public direction: Direction;
+
+    /**
+     * 当前 Tab 的编辑窗口
+     *
+     * @type {(HTMLElement | null)}
+     */
     public wnd: HTMLElement | null;
+
+    /**
+     * 当前 Tab 的最大 margin
+     *
+     * @type {number}
+     */
     public maxMargin: number;
 
     constructor(direction: Direction) {
@@ -16,6 +38,7 @@ function createTab() {
 
     /**
      * 递归获取目标编辑窗口
+     *
      * @param parent 父元素
      * @returns 目标窗口
      */
@@ -24,7 +47,7 @@ function createTab() {
         return null;
       }
       const children = [...parent.children] as HTMLElement[];
-      const wnd = children.find((e) => e.dataset.type === 'wnd');
+      const wnd = children.find(e => e.dataset.type === 'wnd');
 
       // 定位到编辑窗口
       if (wnd) {
@@ -37,7 +60,7 @@ function createTab() {
         }
       }
       // 未定位到，即分屏情况，递归查询
-      const isLRSplitScreen = children.find((e) => e.classList.contains('layout__resize--lr'));
+      const isLRSplitScreen = children.find(e => e.classList.contains('layout__resize--lr'));
       if (isLRSplitScreen && this.direction === 'Right') {
         // 左右分屏 且 定位方向为右上角
         return this.getWnd(children.at(-1) as HTMLElement);
@@ -83,6 +106,7 @@ function createTab() {
 
     /**
      * 返回根据顶栏按钮计算的margin最大值
+     *
      * @returns margin最大值
      */
     calMaxMargin(): number {
@@ -130,6 +154,7 @@ function createTab() {
 
     /**
      * 返回计算得到的dock栏可视宽度
+     *
      * @returns dock栏可视宽度
      */
     calLayoutDockWidth(): number {
@@ -149,6 +174,7 @@ function createTab() {
      * 根据传参 value
      * 或者 margin 最大值和 dock 栏可视宽度
      * 设置当前 margin
+     *
      * @param value
      */
     setMargin(value?: number) {
@@ -164,7 +190,10 @@ function createTab() {
     }
 
     /**
-     * 根据可视宽度设置圆角
+     * 根据传参 value
+     * 或者 dock 栏可视宽度
+     * 设置当前编辑窗口圆角
+     *
      * @param width
      */
     setRadius(value?: number) {
@@ -179,30 +208,78 @@ function createTab() {
       }
     }
 
+    /**
+     * 当前方向的 dock 入口栏是否显示
+     *
+     * @readonly
+     */
     public get isDockExist() {
       const dock = UI().dock(this.direction);
       return dock && !dock.classList.contains('fn__none');
     }
 
+    /**
+     * 当前方向的编辑窗口选择器
+     *
+     * @readonly
+     */
     public get wndClassName() {
       return `rc-wnd-${this.direction.toLocaleLowerCase()}`;
     }
 
+    /**
+     * 当前方向的编辑窗口圆角选择器
+     *
+     * @readonly
+     */
     public get radiusClassName() {
       return `rc-tab-radius-${this.direction.toLocaleLowerCase()}`;
     }
 
+    /**
+     * 当前方向的css变量名
+     *
+     * @readonly
+     */
     public get cssVar() {
       return `--rc-tab-margin-${this.direction.toLocaleLowerCase()}`;
     }
   };
 }
 
-export function createTabObserver() {
-  return class TabObserver {
-    public tab: Tab;
+/**
+ * TabObserver 类的工厂函数
+ *
+ * @returns TabObserver 类
+ */
+export function createTabObserver(): TabObserverConstructor {
+  return class TO implements TabObserver {
+    /**
+     * 当前方向
+     *
+     * @type {Direction}
+     */
     public direction: Direction;
+
+    /**
+     * 当前方向的 Tab
+     *
+     * @type {Tab}
+     */
+    public tab: Tab;
+
+    /**
+     * 当前方向的 dock 栏尺寸监听器
+     *
+     * @type {(MyResizeObserver | undefined)}
+     */
     public dockOb: MyResizeObserver | undefined;
+
+    /**
+     * 当前 Tab 相关 Dom 的监听器集合
+     *
+     * @type {(MutationObserverSet | undefined)}
+     */
     public mutaionObSet: MutationObserverSet | undefined;
 
     constructor(direction: Direction) {
@@ -225,7 +302,7 @@ export function createTabObserver() {
       }
       const MyResizeObserver = createMyResizeObserver();
       // 边栏未悬浮的尺寸监听
-      this.dockOb = new MyResizeObserver(layoutDock, (entry) => {
+      this.dockOb = new MyResizeObserver(layoutDock, entry => {
         if (entry.target.classList.contains('layout--float')) {
           return;
         }
@@ -235,8 +312,9 @@ export function createTabObserver() {
       const MutationObserverSet = createMutationObserverSet();
       // 相关DOM变动监听
       this.mutaionObSet = new MutationObserverSet();
+      
       // 顶栏按钮数量变化
-      this.mutaionObSet.observe(topBar, 'all', (mutation) => {
+      this.mutaionObSet?.observe(topBar, 'all', mutation => {
         const { target } = mutation;
         if (target instanceof HTMLElement === false) {
           return;
@@ -248,17 +326,17 @@ export function createTabObserver() {
         this.tab.setMargin();
       });
       // 悬浮dock
-      this.mutaionObSet.observe(layoutDock, 'class', () => {
+      this.mutaionObSet?.observe(layoutDock, 'class', () => {
         this.tab.setRadius();
         this.tab.setMargin();
       });
       // dock 入口隐藏
-      this.mutaionObSet.observe(UIDock, 'class', () => {
+      this.mutaionObSet?.observe(UIDock, 'class', () => {
         this.tab.recalMaxMargin();
         this.tab.setMargin();
       });
       // 编辑区域监听
-      this.mutaionObSet.observe(center, 'childList', (mutation) => {
+      this.mutaionObSet?.observe(center, 'childList', mutation => {
         const { addedNodes, removedNodes } = mutation;
         if (!addedNodes.length && !removedNodes.length) {
           return;

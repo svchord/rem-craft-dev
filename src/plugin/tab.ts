@@ -7,8 +7,12 @@ import { UI, Layout } from '@/const/dom';
  * @returns Tab 类
  */
 function createTab() {
-  const leftCssVar = '--rc-tab-margin-left';
-  const rightCssVar = '--rc-tab-margin-right';
+  enum CSS_VAR {
+    marginLeft = '--rc-tab-margin-left',
+    marginRight = '--rc-tab-margin-right',
+    radiusLeft = '--rc-tab-radius-left',
+    radiusRight = '--rc-tab-radius-right',
+  }
   return class Tab {
     public wnds: HTMLElement[] | [];
 
@@ -22,14 +26,22 @@ function createTab() {
         this.wnds = this.getWnds();
         this.wnds.forEach(wnd => wnd.classList.add('rc-wnd'));
         this.setMargin();
+        this.setRadius();
       });
     }
 
     clear() {
+      const center = Layout().center();
+      if (center) {
+        center.style.removeProperty(CSS_VAR.radiusLeft);
+        center.style.removeProperty(CSS_VAR.radiusRight);
+      }
       this.wnds.forEach(wnd => {
         wnd.classList.remove('rc-wnd');
-        wnd.style.removeProperty(leftCssVar);
-        wnd.style.removeProperty(rightCssVar);
+        wnd.style.removeProperty(CSS_VAR.marginLeft);
+        wnd.style.removeProperty(CSS_VAR.marginRight);
+        wnd.style.removeProperty(CSS_VAR.radiusLeft);
+        wnd.style.removeProperty(CSS_VAR.radiusRight);
       });
     }
 
@@ -60,8 +72,8 @@ function createTab() {
         const wndRect = wnd.getBoundingClientRect();
         const left = Math.max(wndRect.left, dragRect.left) - wndRect.left;
         const right = Math.max(wndRect.right, dragRect.right) - dragRect.right;
-        wnd.style.setProperty(leftCssVar, `${left}px`);
-        wnd.style.setProperty(rightCssVar, `${right}px`);
+        wnd.style.setProperty(CSS_VAR.marginLeft, `${left}px`);
+        wnd.style.setProperty(CSS_VAR.marginRight, `${right}px`);
       }
     }
 
@@ -69,8 +81,24 @@ function createTab() {
       const center = Layout().center();
       const empty = Layout().empty();
       if (center && empty) {
+        this.setElementRadius(center);
         return;
       }
+      this.wnds.forEach(wnd => this.setElementRadius(wnd));
+    }
+
+    setElementRadius(elment: HTMLElement) {
+      const parentRect = Layout().center()?.parentElement?.getBoundingClientRect();
+      if (!parentRect) {
+        return;
+      }
+      const rect = elment.getBoundingClientRect();
+      const leftRadius =
+        Math.abs(rect.left - parentRect.left) < 1 ? 'var(--b3-border-radius-b)' : '0';
+      const rightRadius =
+        Math.abs(rect.right - parentRect.right) < 1 ? 'var(--b3-border-radius-b)' : '0';
+      elment.style.setProperty(CSS_VAR.radiusLeft, leftRadius);
+      elment.style.setProperty(CSS_VAR.radiusRight, rightRadius);
     }
   };
 }
@@ -117,10 +145,12 @@ export function createTabObserver() {
       const MyResizeObserver = createMyResizeObserver();
       this.centerOb = new MyResizeObserver(center, () => {
         this.tab.setMargin();
+        this.tab.setRadius();
       });
       // 相关DOM变动监听
       const MutationObserverSet = createMutationObserverSet();
       this.mutaionObSet = new MutationObserverSet();
+      // 顶栏元素变更
       this.mutaionObSet?.observe(topBar, 'all', mutation => {
         const { target } = mutation;
         if (target instanceof HTMLElement === false) {
@@ -129,6 +159,7 @@ export function createTabObserver() {
         if (!target.classList.contains('toolbar__item')) {
           return;
         }
+        this.tab.setMargin();
       });
       // 分屏 || 空白页 监听判断
       this.mutaionObSet?.observe(center, 'childList', mutation => {
@@ -146,6 +177,8 @@ export function createTabObserver() {
         if (!node.classList.contains('layout__resize') && !node.querySelector('.layout__empty')) {
           return;
         }
+        console.log(node);
+
         this.tab.reset();
       });
     }

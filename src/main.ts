@@ -13,11 +13,9 @@ setTimeout(async () => {
 
   const { tab } = config;
   const TabObserver = createTabObserver();
-  let leftTabObserver: TabObserver;
-  let rightTabObserver: TabObserver;
+  let tabObserver;
   if (tab.switch && !body.classList.contains('body--window')) {
-    leftTabObserver = new TabObserver('Left');
-    rightTabObserver = new TabObserver('Right');
+    tabObserver = new TabObserver();
     body.classList.add('rc-tab');
     if (tab.chromeStyle) {
       body.classList.add('rc-tab-chrome');
@@ -25,8 +23,7 @@ setTimeout(async () => {
   }
   window.destroyTheme = () => {
     if (tab.switch && !body.classList.contains('body--window')) {
-      leftTabObserver?.disconnect();
-      rightTabObserver?.disconnect();
+      tabObserver?.disconnect();
       body.classList.remove('rc-tab');
       if (tab.chromeStyle) {
         body.classList.remove('rc-tab-chrome');

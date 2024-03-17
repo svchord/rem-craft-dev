@@ -76,12 +76,8 @@ $padding: max(64px, 50% - calc(var(--rc-wysiwyg-width) / 2));
     right: 25px !important;
 
     &__bar {
-      opacity: 0.38;
       transition: var(--b3-transition);
       transform: translateX(-7px) rotate(90deg);
-    }
-    &:hover &__bar {
-      opacity: 1;
     }
 
     &__up,
@@ -92,7 +88,7 @@ $padding: max(64px, 50% - calc(var(--rc-wysiwyg-width) / 2));
       border-radius: var(--b3-border-radius);
 
       svg {
-        opacity: 0.38;
+        opacity: 0.6;
       }
       &:hover svg {
         opacity: 1;

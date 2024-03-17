@@ -19,47 +19,44 @@ body.rc-tab {
     }
   }
 
-  .dock--vertical {
-    padding-top: $top-h;
-  }
+  .dock--vertical,
   #layouts > .fn__flex:first-child {
     padding-top: $top-h;
   }
 
   .layout__center {
     margin-top: -$top-h;
-    [data-type='wnd'] > .fn__flex:first-child > .layout-tab-bar {
-      height: $bar-h;
-      background-color: transparent;
-      padding: 0 $bar-padding;
-      -webkit-app-region: drag;
+    will-change: width;
+    [data-type='wnd'] > .fn__flex:first-child {
+      // transition: padding 200ms var(--rc-timing-function);
+      > .layout-tab-bar {
+        height: $bar-h;
+        padding: 0 $bar-padding;
 
-      .item {
-        -webkit-app-region: no-drag;
-        margin: 0;
+        .item {
+          margin: 0;
 
-        &:active {
-          transform: unset;
-        }
-        &::after {
-          right: 0;
-        }
+          &:active {
+            transform: unset;
+          }
+          &::after {
+            right: 0;
+          }
 
-        &--focus {
-          background-color: var(--rc-background);
-          box-shadow: var(--rc-card-shadow);
+          &--focus {
+            background-color: var(--rc-background);
+            box-shadow: var(--rc-card-shadow);
+          }
+          &--readonly {
+            padding: 0 8px 0 8px - $bar-padding;
+            margin-top: 4px !important;
+          }
         }
         &--readonly {
-          padding: 0 8px 0 8px - $bar-padding;
-        }
-      }
-      &--readonly {
-        padding: 0;
-        &::before {
-          opacity: 0;
-        }
-        .block__icon {
-          -webkit-app-region: no-drag;
+          padding: 0;
+          &::before {
+            opacity: 0;
+          }
         }
       }
     }
@@ -89,7 +86,7 @@ body.rc-tab {
   }
 }
 
-@mixin corner($z-index: 1) {
+@mixin corner($z-index: 2) {
   &::before,
   &::after {
     content: '';
@@ -131,49 +128,61 @@ body.rc-tab {
 body.rc-tab-chrome {
   .layout__center {
     $bar-padding: $item-radius;
-    [data-type='wnd'] > .fn__flex:first-child > .layout-tab-bar {
-      padding: 0 $bar-padding;
-      &:before {
-        content: '';
-        display: block;
-        position: absolute;
-        z-index: 2;
-        top: 12px;
-        bottom: 4px;
-        left: 0;
-        width: 0;
-        height: auto;
-        border-right: 1px solid var(--b3-border-color);
-      }
-      .item {
-        align-self: end;
-        transition: unset;
-        &--focus {
-          @include corner();
+    [data-type='wnd'] > .fn__flex:first-child {
+      > .layout-tab-bar {
+        padding: 0 $bar-padding;
+        background-color: transparent;
+        &:before {
+          content: '';
+          display: block;
+          position: absolute;
+          z-index: 2;
+          top: 12px;
+          bottom: 4px;
+          left: 0;
+          width: 0;
+          height: auto;
+          border-right: 1px solid var(--b3-border-color);
+        }
+        .item {
+          align-self: end;
+          transition: unset;
+          &--focus {
+            @include corner();
+          }
+          &--readonly {
+            padding: 0 8px 0 0;
+          }
         }
         &--readonly {
-          padding: 0 8px 0 8px - $bar-padding;
+          padding: 0;
         }
       }
     }
   }
 }
 
-.rc-wnd-left {
+.rc-wnd {
   > .fn__flex:first-child {
     margin-left: var(--rc-tab-margin-left);
-  }
-  &.rc-tab-radius-left > .layout-tab-container {
-    border-top-left-radius: var(--b3-border-radius-b);
-  }
-}
-
-.rc-wnd-right {
-  > .fn__flex:first-child {
     margin-right: var(--rc-tab-margin-right);
+    > .layout-tab-bar {
+      background-color: transparent;
+      -webkit-app-region: drag;
+      .item {
+        -webkit-app-region: no-drag;
+        &--readonly {
+          -webkit-app-region: drag;
+          .block__icon {
+            -webkit-app-region: no-drag;
+          }
+        }
+      }
+    }
   }
-  &.rc-tab-radius-right > .layout-tab-container {
-    border-top-right-radius: var(--b3-border-radius-b);
+  > .layout-tab-container {
+    border-top-left-radius: var(--rc-tab-radius);
+    border-top-right-radius: var(--rc-tab-radius);
   }
 }
 

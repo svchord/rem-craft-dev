@@ -58,7 +58,6 @@ body {
   top: top-bar.$height;
   bottom: status.$height;
   border: transparent;
-  will-change: width;
 
   .layout-tab-container {
     background-color: transparent;

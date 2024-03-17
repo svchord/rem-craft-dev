@@ -6,244 +6,71 @@ import { UI, Layout } from '@/const/dom';
  *
  * @returns Tab 类
  */
-function createTab(): TabConstructor {
-  return class T implements Tab {
-    /**
-     * 当前方向
-     *
-     * @type {Direction}
-     */
-    public direction: Direction;
+function createTab() {
+  const leftCssVar = '--rc-tab-margin-left';
+  const rightCssVar = '--rc-tab-margin-right';
+  return class Tab {
+    public wnds: HTMLElement[] | [];
 
-    /**
-     * 当前 Tab 的编辑窗口
-     *
-     * @type {(HTMLElement | null)}
-     */
-    public wnd: HTMLElement | null;
-
-    /**
-     * 当前 Tab 的最大 margin
-     *
-     * @type {number}
-     */
-    public maxMargin: number;
-
-    constructor(direction: Direction) {
-      this.direction = direction;
-      this.maxMargin = this.calMaxMargin();
-      this.wnd = this.getWnd(Layout().center());
+    constructor() {
+      this.wnds = [];
       this.init();
     }
 
-    /**
-     * 初始化选择器和样式
-     */
     init() {
-      this.wnd?.classList.add(this.wndClassName);
-      const width = this.calLayoutDockWidth();
-      this.setMargin(width);
-      this.setRadius(width);
+      requestAnimationFrame(() => {
+        this.wnds = this.getWnds();
+        this.wnds.forEach(wnd => wnd.classList.add('rc-wnd'));
+        this.setMargin();
+      });
     }
 
-    /**
-     * 清空选择器和样式
-     */
     clear() {
-      Layout().center()?.classList.remove(this.radiusClassName);
-      this.wnd?.style.removeProperty(this.cssVar);
-      this.wnd?.classList.remove(this.wndClassName);
-      this.wnd?.classList.remove(this.radiusClassName);
+      this.wnds.forEach(wnd => {
+        wnd.classList.remove('rc-wnd');
+        wnd.style.removeProperty(leftCssVar);
+        wnd.style.removeProperty(rightCssVar);
+      });
     }
 
-    /**
-     * 重置选择器和样式/
-     */
     reset() {
       this.clear();
-      this.wnd = this.getWnd(Layout().center());
       this.init();
     }
 
-    /**
-     * 递归获取目标编辑窗口
-     *
-     * @param parent 父元素
-     * @returns 目标窗口
-     */
-    getWnd(parent: HTMLElement | null): HTMLElement | null {
-      if (!parent) {
-        return null;
+    getWnds(): HTMLElement[] | [] {
+      const center = Layout().center();
+      const topBarRect = UI().topBar()?.getBoundingClientRect();
+      if (!center || !topBarRect) {
+        return [];
       }
-      const children = [...parent.children] as HTMLElement[];
-      const wnd = children.find(e => e.dataset.type === 'wnd');
-
-      // 定位到编辑窗口
-      if (wnd) {
-        const tabBar = wnd.children[0] as HTMLElement;
-        // 判断是否显示页签栏
-        if (!tabBar.classList.contains('fn__none')) {
-          return wnd;
-        } else {
-          return null;
-        }
-      }
-      // 未定位到，即分屏情况，递归查询
-      const isLRSplitScreen = children.find(e => e.classList.contains('layout__resize--lr'));
-      if (isLRSplitScreen && this.direction === 'Right') {
-        // 左右分屏 且 定位方向为右上角
-        return this.getWnd(children.at(-1) as HTMLElement);
-      } else {
-        // 上下分屏 或 左右分屏，定位方向为左上角
-        return this.getWnd(children[0]);
-      }
+      const wnds = [...center.querySelectorAll('[data-type="wnd"]')] as HTMLElement[];
+      return wnds.filter(wnd => wnd.getBoundingClientRect().top < topBarRect.bottom);
     }
 
-    /**
-     * 返回根据顶栏按钮计算的margin最大值
-     *
-     * @returns margin最大值
-     */
-    calMaxMargin(): number {
-      let margin = 0;
-      const topBar = UI().topBar();
-      if (!topBar) {
-        return margin;
-      }
-      const topBarStyle = window.getComputedStyle(topBar);
-      const children = [...topBar.children] as HTMLElement[];
-      for (let i = 0; i < children.length; i++) {
-        const btn = children[i];
-        if (!btn || btn.classList.contains('fn__none')) {
-          continue;
-        }
-        if (btn.id === 'drag') {
-          if (this.direction === 'Left') {
-            break;
-          } else {
-            margin = 0;
-            continue;
-          }
-        }
-        const btnStyle = window.getComputedStyle(btn);
-        margin +=
-          parseInt(btnStyle.marginLeft) +
-          btn.offsetWidth +
-          parseInt(btnStyle.marginRight) +
-          parseInt(topBarStyle.gap);
-      }
-      margin += parseInt(topBarStyle[`padding${this.direction}`]);
-      const dockWidth = UI().dock(this.direction)?.offsetWidth;
-      if (this.isDockExist && dockWidth) {
-        margin -= dockWidth;
-      }
-      return margin;
-    }
-
-    /**
-     * 重新计算margin最大值
-     */
-    recalMaxMargin() {
-      this.maxMargin = this.calMaxMargin();
-    }
-
-    /**
-     * 返回计算得到的dock栏可视宽度
-     *
-     * @returns dock栏可视宽度
-     */
-    calLayoutDockWidth(): number {
-      const layoutDock = Layout().dock(this.direction) as HTMLElement;
-      if (!layoutDock) {
-        return 0;
-      }
-      let width = layoutDock.offsetWidth;
-      // 悬浮 dock 宽度 = 0
-      if (layoutDock.classList.contains('layout--float')) {
-        width = 0;
-      }
-      return width;
-    }
-
-    /**
-     * 根据传参 value
-     * 或者 margin 最大值和 dock 栏可视宽度
-     * 设置当前 margin
-     *
-     * @param value
-     */
-    setMargin(value?: number) {
-      if (!this.wnd) {
+    setMargin() {
+      if (!this.wnds.length) {
         return;
       }
-      const width = value ?? this.calLayoutDockWidth();
-      let margin = Math.max(this.maxMargin, width) - width;
-      if (width < 0) {
-        margin = 0;
-      }
-      this.wnd.style.setProperty(this.cssVar, `${margin}px`);
-    }
-
-    /**
-     * 根据传参 value
-     * 或者 dock 栏可视宽度
-     * 设置当前编辑窗口圆角
-     *
-     * @param width
-     */
-    setRadius(value?: number) {
-      let element;
-      if (this.wnd) {
-        element = this.wnd;
-      } else {
-        element = Layout().center();
-      }
-      if (!element) {
+      const dragRect = UI().drag()?.getBoundingClientRect();
+      if (!dragRect) {
         return;
       }
-      const width = value ?? this.calLayoutDockWidth();
-      if (width === 0) {
-        element.classList.add(this.radiusClassName);
-      } else {
-        element.classList.remove(this.radiusClassName);
+      for (const wnd of this.wnds) {
+        const wndRect = wnd.getBoundingClientRect();
+        const left = Math.max(wndRect.left, dragRect.left) - wndRect.left;
+        const right = Math.max(wndRect.right, dragRect.right) - dragRect.right;
+        wnd.style.setProperty(leftCssVar, `${left}px`);
+        wnd.style.setProperty(rightCssVar, `${right}px`);
       }
     }
 
-    /**
-     * 当前方向的 dock 入口栏是否显示
-     *
-     * @readonly
-     */
-    public get isDockExist() {
-      const dock = UI().dock(this.direction);
-      return dock && !dock.classList.contains('fn__none');
-    }
-
-    /**
-     * 当前方向的编辑窗口选择器
-     *
-     * @readonly
-     */
-    public get wndClassName() {
-      return `rc-wnd-${this.direction.toLocaleLowerCase()}`;
-    }
-
-    /**
-     * 当前方向的编辑窗口圆角选择器
-     *
-     * @readonly
-     */
-    public get radiusClassName() {
-      return `rc-tab-radius-${this.direction.toLocaleLowerCase()}`;
-    }
-
-    /**
-     * 当前方向的css变量名
-     *
-     * @readonly
-     */
-    public get cssVar() {
-      return `--rc-tab-margin-${this.direction.toLocaleLowerCase()}`;
+    setRadius() {
+      const center = Layout().center();
+      const empty = Layout().empty();
+      if (center && empty) {
+        return;
+      }
     }
   };
 }
@@ -253,28 +80,16 @@ function createTab(): TabConstructor {
  *
  * @returns TabObserver 类
  */
-export function createTabObserver(): TabObserverConstructor {
-  return class TO implements TabObserver {
-    /**
-     * 当前方向
-     *
-     * @type {Direction}
-     */
-    public direction: Direction;
-
-    /**
-     * 当前方向的 Tab
-     *
-     * @type {Tab}
-     */
-    public tab: Tab;
+export function createTabObserver() {
+  return class TabObserver {
+    public tab;
 
     /**
      * 当前方向的 dock 栏尺寸监听器
      *
      * @type {(MyResizeObserver | undefined)}
      */
-    public dockOb: MyResizeObserver | undefined;
+    public centerOb: MyResizeObserver | undefined;
 
     /**
      * 当前 Tab 相关 Dom 的监听器集合
@@ -283,10 +98,9 @@ export function createTabObserver(): TabObserverConstructor {
      */
     public mutaionObSet: MutationObserverSet | undefined;
 
-    constructor(direction: Direction) {
-      this.direction = direction;
+    constructor() {
       const Tab = createTab();
-      this.tab = new Tab(direction);
+      this.tab = new Tab();
       this.observe();
     }
 
@@ -294,27 +108,19 @@ export function createTabObserver(): TabObserverConstructor {
      * 监听相关dom元素，并修改tab状态
      */
     observe() {
-      const layoutDock = Layout().dock(this.direction);
-      const UIDock = UI().dock(this.direction);
       const topBar = UI().topBar();
       const center = Layout().center();
-      if (!layoutDock || !topBar || !UIDock || !center) {
+      if (!topBar || !center) {
         return;
       }
+      // 编辑区域的尺寸监听
       const MyResizeObserver = createMyResizeObserver();
-      // 边栏未悬浮的尺寸监听
-      this.dockOb = new MyResizeObserver(layoutDock, entry => {
-        if (entry.target.classList.contains('layout--float')) {
-          return;
-        }
-        this.tab.setRadius(entry.contentBoxSize[0].inlineSize);
-        this.tab.setMargin(entry.contentBoxSize[0].inlineSize);
+      this.centerOb = new MyResizeObserver(center, () => {
+        this.tab.setMargin();
       });
-      const MutationObserverSet = createMutationObserverSet();
       // 相关DOM变动监听
+      const MutationObserverSet = createMutationObserverSet();
       this.mutaionObSet = new MutationObserverSet();
-
-      // 顶栏按钮数量变化
       this.mutaionObSet?.observe(topBar, 'all', mutation => {
         const { target } = mutation;
         if (target instanceof HTMLElement === false) {
@@ -323,20 +129,8 @@ export function createTabObserver(): TabObserverConstructor {
         if (!target.classList.contains('toolbar__item')) {
           return;
         }
-        this.tab.recalMaxMargin();
-        this.tab.setMargin();
       });
-      // 悬浮dock
-      this.mutaionObSet?.observe(layoutDock, 'class', () => {
-        this.tab.setRadius();
-        this.tab.setMargin();
-      });
-      // dock 入口隐藏
-      this.mutaionObSet?.observe(UIDock, 'class', () => {
-        this.tab.recalMaxMargin();
-        this.tab.setMargin();
-      });
-      // 编辑区域监听
+      // 分屏 || 空白页 监听判断
       this.mutaionObSet?.observe(center, 'childList', mutation => {
         const { addedNodes, removedNodes } = mutation;
         if (!addedNodes.length && !removedNodes.length) {
@@ -349,7 +143,6 @@ export function createTabObserver(): TabObserverConstructor {
         if (node instanceof HTMLElement === false) {
           return;
         }
-        // 分屏 || 空白页 监听判断
         if (!node.classList.contains('layout__resize') && !node.querySelector('.layout__empty')) {
           return;
         }
@@ -364,7 +157,7 @@ export function createTabObserver(): TabObserverConstructor {
       if (this.tab) {
         this.tab.clear();
       }
-      this.dockOb?.disconnect();
+      this.centerOb?.disconnect();
       this.mutaionObSet?.disconnect();
     }
   };

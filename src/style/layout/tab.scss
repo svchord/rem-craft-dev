@@ -2,11 +2,11 @@
 @use '../mixins' as m;
 
 $bar-h: 42px;
-$iten-h: 32px;
+$item-h: 32px;
 $item-pad: 8px;
 $item-mar: 3px;
 
-$interval: math.div($bar-h - $iten-h, 2);
+$interval: math.div($bar-h - $item-h, 2);
 
 @mixin icon {
   margin-left: $item-pad;
@@ -35,7 +35,7 @@ $interval: math.div($bar-h - $iten-h, 2);
       }
       .item {
         box-shadow: unset;
-        height: 32px;
+        height: $item-h;
         min-height: 0;
         margin: 0 $item-mar;
         overflow: visible;

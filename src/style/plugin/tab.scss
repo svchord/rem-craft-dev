@@ -171,8 +171,8 @@ body.rc-tab-chrome {
     border-top-right-radius: var(--rc-tab-radius-right);
   }
   > .fn__flex:first-child {
-    margin-left: var(--rc-tab-margin-left);
-    margin-right: var(--rc-tab-margin-right);
+    padding-left: var(--rc-tab-padding-left);
+    padding-right: var(--rc-tab-padding-right);
     > .layout-tab-bar {
       background-color: transparent;
       -webkit-app-region: drag;

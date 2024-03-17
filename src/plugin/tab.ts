@@ -8,8 +8,8 @@ import { UI, Layout } from '@/const/dom';
  */
 function createTab() {
   enum CSS_VAR {
-    marginLeft = '--rc-tab-margin-left',
-    marginRight = '--rc-tab-margin-right',
+    paddingLeft = '--rc-tab-padding-left',
+    paddingRight = '--rc-tab-padding-right',
     radiusLeft = '--rc-tab-radius-left',
     radiusRight = '--rc-tab-radius-right',
   }
@@ -38,8 +38,8 @@ function createTab() {
       }
       this.wnds.forEach(wnd => {
         wnd.classList.remove('rc-wnd');
-        wnd.style.removeProperty(CSS_VAR.marginLeft);
-        wnd.style.removeProperty(CSS_VAR.marginRight);
+        wnd.style.removeProperty(CSS_VAR.paddingLeft);
+        wnd.style.removeProperty(CSS_VAR.paddingRight);
         wnd.style.removeProperty(CSS_VAR.radiusLeft);
         wnd.style.removeProperty(CSS_VAR.radiusRight);
       });
@@ -72,19 +72,18 @@ function createTab() {
         const wndRect = wnd.getBoundingClientRect();
         const left = Math.max(wndRect.left, dragRect.left) - wndRect.left;
         const right = Math.max(wndRect.right, dragRect.right) - dragRect.right;
-        wnd.style.setProperty(CSS_VAR.marginLeft, `${left}px`);
-        wnd.style.setProperty(CSS_VAR.marginRight, `${right}px`);
+        wnd.style.setProperty(CSS_VAR.paddingLeft, `${left}px`);
+        wnd.style.setProperty(CSS_VAR.paddingRight, `${right}px`);
       }
     }
 
     setRadius() {
+      this.wnds.forEach(wnd => this.setElementRadius(wnd));
       const center = Layout().center();
       const empty = Layout().empty();
       if (center && empty) {
         this.setElementRadius(center);
-        return;
       }
-      this.wnds.forEach(wnd => this.setElementRadius(wnd));
     }
 
     setElementRadius(elment: HTMLElement) {
@@ -93,12 +92,11 @@ function createTab() {
         return;
       }
       const rect = elment.getBoundingClientRect();
-      const leftRadius =
-        Math.abs(rect.left - parentRect.left) < 1 ? 'var(--b3-border-radius-b)' : '0';
-      const rightRadius =
-        Math.abs(rect.right - parentRect.right) < 1 ? 'var(--b3-border-radius-b)' : '0';
-      elment.style.setProperty(CSS_VAR.radiusLeft, leftRadius);
-      elment.style.setProperty(CSS_VAR.radiusRight, rightRadius);
+      function radius(intervarl: number) {
+        return Math.abs(intervarl) < 1 ? 'var(--b3-border-radius-b)' : '0';
+      }
+      elment.style.setProperty(CSS_VAR.radiusLeft, radius(rect.left - parentRect.left));
+      elment.style.setProperty(CSS_VAR.radiusRight, radius(rect.right - parentRect.right));
     }
   };
 }
@@ -113,14 +111,14 @@ export function createTabObserver() {
     public tab;
 
     /**
-     * 当前方向的 dock 栏尺寸监听器
+     * 编辑区域尺寸监听器
      *
      * @type {(MyResizeObserver | undefined)}
      */
     public centerOb: MyResizeObserver | undefined;
 
     /**
-     * 当前 Tab 相关 Dom 的监听器集合
+     * 当前Tab相关Dom的Mutation监听器集合
      *
      * @type {(MutationObserverSet | undefined)}
      */
@@ -177,8 +175,6 @@ export function createTabObserver() {
         if (!node.classList.contains('layout__resize') && !node.querySelector('.layout__empty')) {
           return;
         }
-        console.log(node);
-
         this.tab.reset();
       });
     }

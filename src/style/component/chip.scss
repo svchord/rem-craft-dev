@@ -1,4 +1,10 @@
+@use 'sass:math';
 @use '../mixins' as m;
+
+$height: 28px;
+$close-w: 14px;
+$interval: math.div($height - $close-w, 2);
+$padding: 12px;
 
 .b3-chip {
   &s {
@@ -8,9 +14,34 @@
       margin: auto 6px;
     }
   }
+  &--pointer {
+    padding: 4px $padding;
+    height: $height;
+    box-shadow: var(--rc-button-shadow);
+    position: relative;
+    &:hover {
+      padding-right: $interval + $close-w + $padding;
+    }
+  }
   &:not(.b3-chip--pointer) {
     height: var(--rc-component-height);
     padding: 0 15px;
+  }
+  &__close {
+    @include m.svg($close-w);
+    position: absolute;
+    opacity: 0;
+    right: $padding;
+    top: $interval;
+  }
+  &--current {
+    background-color: unset;
+  }
+  &:hover &__close {
+    opacity: 0.7;
+    &:hover {
+      opacity: 1;
+    }
   }
   svg:not(.b3-chip__close) {
     @include m.svg(13px);

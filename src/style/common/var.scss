@@ -89,10 +89,11 @@
   --rc-on-surface: rgb(var(--rc-on-surface-rgb));
   --rc-on-surface-variant-rgb: var(--bard-color-on-surface-variant-rgb);
   --rc-on-surface-variant: rgb(var(--rc-on-surface-variant-rgb));
+  --rc-on-meta: rgba(var(--rc-on-surface-rgb), 0.6);
 
   --b3-theme-primary: var(--rc-primary);
-  --b3-theme-primary-light: rgba(var(--rc-primary-rgb), 0.1);
-  --b3-theme-primary-lighter: rgba(var(--rc-primary-rgb), 0.1);
+  --b3-theme-primary-light: rgba(var(--rc-primary-rgb), 0.12);
+  --b3-theme-primary-lighter: rgba(var(--rc-primary-rgb), 0.12);
   --b3-theme-primary-lightest: rgba(var(--rc-primary-rgb), 0.08);
   --b3-theme-background: var(--rc-background);
   --b3-theme-background-light: var(--rc-surface-variant);
@@ -110,7 +111,7 @@
   --b3-theme-on-error: var(--rc-on-error);
 
   /* 线条 */
-  --b3-border-color: rgba(var(--rc-on-surface-rgb), 0.1);
+  --b3-border-color: rgba(var(--rc-on-surface-rgb), 0.12);
   --b3-border-radius: 4px;
   --b3-border-radius-b: 8px;
   --rc-border-radius-dialog: 16px;
@@ -119,6 +120,7 @@
 
   --rc-component-height: 30px;
 
+  --rc-button-shadow: rgb(15 15 15 / 10%) 0px 0px 0px 1px, rgb(15 15 15 / 10%) 0px 2px 4px;
   --rc-card-shadow: 0px 0px 0.1px rgba(0, 0, 0, 0.008), 0px 0px 0.3px rgba(0, 0, 0, 0.012),
     0px 0px 0.5px rgba(0, 0, 0, 0.015), 0px 0px 0.7px rgba(0, 0, 0, 0.018),
     0px 0px 1px rgba(0, 0, 0, 0.02), 0px 0px 1.4px rgba(0, 0, 0, 0.022),

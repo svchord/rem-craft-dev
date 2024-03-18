@@ -1,5 +1,5 @@
 @use 'sass:math';
-@use '../common' as *;
+@use '../mixins' as m;
 @use 'icons';
 
 $icon-top: 64px;
@@ -12,15 +12,17 @@ $btns-h: $btn-top + $btn-h;
 $btn-top-l: 32px;
 
 // 按钮组
-@mixin btns($h: $btn-h, $type: 'placeholder', $fz: 14px) {
+@mixin btns($h: $btn-h, $fz: 14px, $type: 'meta') {
   height: $h;
-  transition: get($transition, 'fade');
+  transition: var(--b3-transition);
+  background-color: var(--rc-background);
+  border-radius: var(--b3-border-radius);
   .protyle-icon {
-    @include item('page');
-    @include component();
-    @include v-center($h);
-    @include icons.btn-text($h, $type, $fz, 12px);
-    color: get($text, $type);
+    @include m.state(var(--rc-on-surface-rgb));
+    @include m.v-center($h);
+    @include icons.btn-text($h, $fz, 12px, $type);
+    color: var(--rc-on-#{$type});
+    background-color: var(--rc-background);
     font-size: $fz;
     padding: 0 8px;
   }
@@ -43,9 +45,8 @@ $btn-top-l: 32px;
     .protyle-icons {
       @include btns();
       margin: $btn-top 0 0 -1px;
-
-      .protyle-icon:nth-child(2)::after {
-        content: '随机图标';
+      .protyle-icon {
+        border-radius: var(--b3-border-radius);
       }
     }
   }
@@ -97,8 +98,8 @@ $btn-top-l: 32px;
   //题头图
   &__img {
     .protyle-icons {
-      @include btns(26px, 'secondary', 12px);
-      box-shadow: rgb(15 15 15 / 10%) 0px 0px 0px 1px, rgb(15 15 15 / 10%) 0px 2px 4px;
+      @include btns(26px, 12px, 'surface');
+      box-shadow: var(--rc-button-shadow);
 
       // 题头图按钮
       .protyle-icon {
@@ -116,10 +117,10 @@ $btn-top-l: 32px;
         }
 
         &:not(:last-child) {
-          border-right: $fn-border;
+          border-right: 1px solid var(--b3-border-color);
         }
 
-        &:nth-child(4)::after {
+        &[data-type='position']::after {
           content: '调整';
         }
       }
@@ -135,11 +136,12 @@ $btn-top-l: 32px;
         height: $h;
         background: rgba(0, 0, 0, 0.4);
         opacity: 1 !important;
+        right: auto !important;
 
         .protyle-icon {
-          @include v-center($h);
+          @include m.v-center($h);
           background-color: transparent;
-          color: get($text, 'anti');
+          color: var(--rc-on-primary);
           padding: 0em 18px;
 
           &:hover {
@@ -152,62 +154,35 @@ $btn-top-l: 32px;
     &:hover .protyle-icons {
       opacity: 1 !important;
     }
+
+    &::before {
+      content: '';
+      display: block;
+      width: -webkit-fill-available;
+      position: absolute;
+      top: 60%;
+      bottom: 0;
+      right: 0;
+      background: linear-gradient(
+        to top,
+        white 2%,
+        rgba(255, 255, 255, 0.97) 10%,
+        rgba(255, 255, 255, 0.9) 18%,
+        rgba(255, 255, 255, 0.75) 33%,
+        rgba(255, 255, 255, 0.05) 92%,
+        transparent 99%
+      );
+      pointer-events: none;
+    }
   }
 
   //题头emoji
   &__icon {
-    @include emoji-icon($icon-h, 54px, $icon-h);
-    border-radius: get($radius, 'base');
+    @include m.svg($icon-h);
+    font-size: 54px;
+    padding: 0;
+    @include m.state(var(--rc-on-surface-rgb));
+    border-radius: var(--b3-border-radius);
     margin-left: 3px;
-
-    &:hover {
-      background-color: rgba(var(--gray-5), 0.4);
-    }
-
-    &:active {
-      background-color: rgba(var(--gray-5), 0.8);
-    }
-  }
-
-  // 文档标签
-  &__tags {
-    .item {
-      @include component('small');
-      padding: 4px 12px;
-      border-radius: get($radius, 'max');
-      transition: padding opacity get($transition-duration, 'base') get($transition-function, 'fast');
-      box-shadow: get($shadow, 1);
-
-      $w: get($component-size, 'exsmall');
-      $spacing: math.div(get($component-size, 'small') - $w, 2);
-
-      &:hover {
-        padding-right: $w + $spacing;
-      }
-
-      svg {
-        @include svg($w, 8px);
-        top: $spacing;
-        right: $spacing;
-        background-color: transparent !important;
-      }
-
-      $types: (
-              0: 'success',
-              1: 'info',
-              2: 'warning',
-              3: 'error',
-      );
-
-      @each $i, $type in $types {
-        &--#{$i}:hover {
-          color: get($color, $type, 'base');
-
-          svg {
-            color: get($color, $type, 'base');
-          }
-        }
-      }
-    }
   }
 }

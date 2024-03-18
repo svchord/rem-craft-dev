@@ -1,9 +1,8 @@
+@use 'sass:math';
+@use '../mixins' as m;
 
-@use "sass:math";
-@use "../common" as *;
-
-@mixin action($type: "base") {
-  $btns-radius: get($radius, $type);
+@mixin action($type: 'base') {
+  $btns-radius: var(--b3-border-radius);
 
   &--first {
     border-top-left-radius: $btns-radius;
@@ -20,21 +19,21 @@
   }
 }
 
-@mixin btn-text($h, $type, $fz, $svg-w: 10px) {
+@mixin btn-text($h, $fz, $svg-w: 10px, $type) {
   display: inline-flex;
   width: auto;
 
   svg {
-    @include svg($svg-w);
+    @include m.svg($svg-w);
     margin: auto 0;
     margin-right: 6px;
   }
 
   &::after {
-    @include reset-style();
-    @include v-center($h);
+    @include m.reset-style();
+    @include m.v-center($h);
     display: inline-flex;
-    color: get($text, $type);
+    color: var(--rc-on-#{$type});
     font-size: $fz;
     position: unset;
     z-index: 0;
@@ -45,9 +44,8 @@
 .protyle-wysiwyg {
   .protyle-icon {
     @include action();
-    @include item("base");
-    @include svg-div(25px, 11px);
-    @include color("secondary");
+    @include m.svg-parent(25px, 11px);
+    color: var(--rc-on-surface);
     padding-top: 0;
     padding-bottom: 0;
 
@@ -61,6 +59,6 @@
   }
 }
 
-.protyle-wysiwyg[contenteditable="true"] .render-node:hover > .protyle-icons {
+.protyle-wysiwyg[contenteditable='true'] .render-node:hover > .protyle-icons {
   opacity: 1;
 }

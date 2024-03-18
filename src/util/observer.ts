@@ -3,8 +3,8 @@
  *
  * @returns MyResizeObserver 类
  */
-export function createMyResizeObserver(): MyResizeObserverConstructor {
-  return class MyObserver implements MyResizeObserver {
+export function createMyResizeObserver() {
+  return class MyResizeObserver {
     /**
      * 内部包装的 ResizeObserver
      */
@@ -49,8 +49,8 @@ export function createMyResizeObserver(): MyResizeObserverConstructor {
  *
  * @returns MyMutationObserver 类
  */
-export function createMyMutationObserver(): MyMutationObserverConstructor {
-  return class MyObserver implements MyMutationObserver {
+export function createMyMutationObserver() {
+  return class MyMutationObserver {
     /**
      * 内部包装的 MutationObserver
      */
@@ -96,12 +96,13 @@ export function createMyMutationObserver(): MyMutationObserverConstructor {
  *
  * @returns MutationObserverSet 类
  */
-export function createMutationObserverSet(): MyMutationObserverSetConstructor {
-  return class MySet implements MutationObserverSet {
+export function createMutationObserverSet() {
+  const MyMutationObserver = createMyMutationObserver();
+  return class MutationObserverSet {
     /**
      * 内部包装的 MyMutationObserver 集合
      */
-    public obs: MyMutationObserver[];
+    public obs: InstanceType<typeof MyMutationObserver>[];
 
     constructor() {
       this.obs = [];
@@ -115,7 +116,6 @@ export function createMutationObserverSet(): MyMutationObserverSetConstructor {
      * @param callback
      */
     observe(target: Node, type: MyMutationRecordType, callback: MutationRecordCallback) {
-      const MyMutationObserver = createMyMutationObserver();
       const ob = new MyMutationObserver(callback);
       const optionsMap: MutationObserverInitMap = {
         childList: { childList: true, subtree: true },

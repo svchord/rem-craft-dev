@@ -13,7 +13,7 @@ setTimeout(async () => {
 
   const { tab } = config;
   const TabObserver = createTabObserver();
-  let tabObserver;
+  let tabObserver: InstanceType<typeof TabObserver>;
   if (tab.switch && !body.classList.contains('body--window')) {
     tabObserver = new TabObserver();
     body.classList.add('rc-tab');

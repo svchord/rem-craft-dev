@@ -25,7 +25,7 @@ function createTab() {
       requestAnimationFrame(() => {
         this.wnds = this.getWnds();
         this.wnds.forEach(wnd => wnd.classList.add('rc-wnd'));
-        this.setMargin();
+        this.setPadding();
         this.setRadius();
       });
     }
@@ -60,7 +60,7 @@ function createTab() {
       return wnds.filter(wnd => wnd.getBoundingClientRect().top < topBarRect.bottom);
     }
 
-    setMargin() {
+    setPadding() {
       if (!this.wnds.length) {
         return;
       }
@@ -107,25 +107,32 @@ function createTab() {
  * @returns TabObserver 类
  */
 export function createTabObserver() {
+  const Tab = createTab();
+  const MyResizeObserver = createMyResizeObserver();
+  const MutationObserverSet = createMutationObserverSet();
   return class TabObserver {
-    public tab;
+    /**
+     * 编辑区域窗口
+     *
+     * @type {InstanceType<typeof Tab>}
+     */
+    public tab: InstanceType<typeof Tab>;
 
     /**
      * 编辑区域尺寸监听器
      *
-     * @type {(MyResizeObserver | undefined)}
+     * @type {(InstanceType<typeof MyResizeObserver> | undefined)}
      */
-    public centerOb: MyResizeObserver | undefined;
+    public centerOb: InstanceType<typeof MyResizeObserver> | undefined;
 
     /**
      * 当前Tab相关Dom的Mutation监听器集合
      *
-     * @type {(MutationObserverSet | undefined)}
+     * @type {(InstanceType<typeof MutationObserverSet> | undefined)}
      */
-    public mutaionObSet: MutationObserverSet | undefined;
+    public mutaionObSet: InstanceType<typeof MutationObserverSet> | undefined;
 
     constructor() {
-      const Tab = createTab();
       this.tab = new Tab();
       this.observe();
     }
@@ -140,13 +147,11 @@ export function createTabObserver() {
         return;
       }
       // 编辑区域的尺寸监听
-      const MyResizeObserver = createMyResizeObserver();
       this.centerOb = new MyResizeObserver(center, () => {
-        this.tab.setMargin();
+        this.tab.setPadding();
         this.tab.setRadius();
       });
       // 相关DOM变动监听
-      const MutationObserverSet = createMutationObserverSet();
       this.mutaionObSet = new MutationObserverSet();
       // 顶栏元素变更
       this.mutaionObSet?.observe(topBar, 'all', mutation => {
@@ -157,7 +162,7 @@ export function createTabObserver() {
         if (!target.classList.contains('toolbar__item')) {
           return;
         }
-        this.tab.setMargin();
+        this.tab.setPadding();
       });
       // 分屏 || 空白页 监听判断
       this.mutaionObSet?.observe(center, 'childList', mutation => {

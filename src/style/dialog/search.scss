@@ -12,6 +12,9 @@ $margin: 10px;
   .b3-dialog__container {
     padding: 0 !important;
   }
+  .b3-dialog__body > .fn__flex-column {
+    border-radius: var(--rc-border-radius-dialog) !important;
+  }
 }
 .search {
   &__history-icon {

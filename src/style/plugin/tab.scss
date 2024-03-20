@@ -26,7 +26,7 @@ body.rc-tab {
 
   .layout__center {
     margin-top: -$top-h;
-    will-change: width;
+    // will-change: width;
     border-top-left-radius: var(--rc-tab-radius-left);
     border-top-right-radius: var(--rc-tab-radius-right);
 

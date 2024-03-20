@@ -250,7 +250,7 @@ $padding-lr: 16px;
 .b3-card {
   box-shadow: unset;
   background-color: var(--rc-background);
-  border: 1px solid transparent;
+  border: 1px solid var(--rc-background);
   margin: 0;
   &s {
     padding: 16px 0;

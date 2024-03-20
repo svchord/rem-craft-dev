@@ -4,22 +4,23 @@
 :root {
   // 阴影
   --b3-dialog-shadow: var(--rc-elevation-2);
-  --b3-menu-background: rgba(236, 242, 251, 0.9);
+  --b3-menu-background: rgba(236, 242, 251, 0.8);
 }
 
-$padding: 6px;
+$padding: 8px;
 
 @mixin meta {
   font-size: 11px;
-  color: var(--rc-on-surface);
+  color: var(--rc-on-meta);
 }
 
 @mixin menu() {
   padding: $padding;
-  // padding: 0;
   border: none;
+  padding: 0;
+  background-color: transparent;
   overflow: hidden;
-  // background-color: transparent;
+  @include backdrop();
 }
 
 @mixin backdrop() {
@@ -39,7 +40,6 @@ $padding: 6px;
 
 .b3-menu {
   @include menu();
-  @include backdrop();
   &__item {
     @include list.item();
     margin-bottom: 2px;
@@ -51,6 +51,9 @@ $padding: 6px;
 
     &s {
       padding: 0;
+      background-color: transparent;
+      padding: $padding;
+      background-color: var(--b3-menu-background);
     }
 
     &--selected {
@@ -62,8 +65,18 @@ $padding: 6px;
     }
     &--readonly {
       @include m.transparent();
-      @include meta();
-      line-height: 1.675;
+      > .b3-menu__label {
+        @include meta();
+        line-height: 1.675;
+      }
+      .b3-list-item__text {
+        font-size: 13px;
+        color: var(--rc-on-surface);
+      }
+    }
+
+    &--custom {
+      padding: 0;
     }
   }
   &__icon {
@@ -76,7 +89,7 @@ $padding: 6px;
   }
   &__submenu {
     @include menu();
-    @include backdrop();
+    // margin-left: 5px;
   }
   // 分割线
   &__separator {
@@ -87,5 +100,27 @@ $padding: 6px;
   // 菜单项快捷键
   &__accelerator {
     @include meta();
+  }
+
+  .b3-list {
+    padding: 0;
+    margin: 0;
+    &-item:last-child {
+      margin: 0;
+    }
+  }
+
+  &:has(#preview) {
+    .b3-menu__label .fn__flex:has(> .block__icon) {
+      margin: 0 0 8px !important;
+      .block__icon {
+        align-self: center;
+      }
+    }
+  }
+
+  #preview {
+    margin-left: 16px;
+    border-radius: var(--b3-border-radius);
   }
 }

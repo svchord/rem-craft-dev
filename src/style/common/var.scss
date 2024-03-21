@@ -41,6 +41,15 @@
   --md-sys-color-error-container: #ffdad6;
   --md-sys-color-on-error-container: #410002;
 }
+
+:root {
+  --rc-base: rgb(211, 227, 253);
+  --rc-base: #d3e3fd;
+  --rc-surface-rgb: 240 244 249;
+  --rc-surface: rgb(var(--rc-surface-rgb));
+  --rc-background: var(--bard-color-primary-background);
+}
+
 :root {
   --rc-primary-rgb: var(--bard-color-primary-rgb);
   --rc-primary: rgb(var(--rc-primary-rgb));
@@ -78,12 +87,9 @@
   --rc-warning-container: rgb(253, 226, 147);
   --rc-on-warning-container: #1d1d00;
 
-  --rc-background: var(--bard-color-primary-background);
   --rc-on-background: var(--bard-color-on-surface-rgb);
   --rc-inverse-background: var(--bard-color-inverse-primary-background);
 
-  --rc-base: rgb(211, 227, 253);
-  --rc-surface: rgb(236, 242, 251);
   --rc-surface-variant: var(--mio-theme-color-surface-variant);
   --rc-on-surface-rgb: var(--bard-color-on-surface-rgb);
   --rc-on-surface: rgb(var(--rc-on-surface-rgb));

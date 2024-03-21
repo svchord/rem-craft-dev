@@ -1,0 +1,30 @@
+@use 'sass:math';
+@use '../mixins' as m;
+@use 'wysiwyg';
+
+//文档标题
+.protyle-title {
+  &__icon {
+    left: -32px;
+    @include m.svg-parent(32px, 14px);
+    color: var(--rc-on-meta);
+    svg {
+      float: unset;
+      display: block;
+    }
+    &:hover {
+      color: var(--rc-on-surface);
+    }
+  }
+
+  &__input {
+    font-weight: 700;
+    line-height: 42px;
+    font-size: 32px;
+    padding: wysiwyg.$block-padding;
+
+    &:empty:after {
+      opacity: 0.38;
+    }
+  }
+}

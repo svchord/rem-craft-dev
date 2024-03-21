@@ -4,7 +4,7 @@
 :root {
   // 阴影
   --b3-dialog-shadow: var(--rc-elevation-2);
-  --b3-menu-background: rgba(236, 242, 251, 0.8);
+  --b3-menu-background: rgb(var(--rc-surface-rgb) / 0.8);
 }
 
 $padding: 8px;

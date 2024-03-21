@@ -7,6 +7,8 @@
 
 $padding: max(64px, 50% - calc(var(--rc-wysiwyg-width) / 2));
 
+$block-padding: 3px 2px;
+
 .protyle {
   &-content {
     .layout__center &[data-fullwidth='true'] {
@@ -68,7 +70,7 @@ $padding: max(64px, 50% - calc(var(--rc-wysiwyg-width) / 2));
     }
 
     > [data-type] {
-      padding: 3px 2px;
+      padding: $block-padding;
     }
   }
 

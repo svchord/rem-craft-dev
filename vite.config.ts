@@ -29,7 +29,7 @@ export default defineConfig({
     emptyOutDir: false,
     // 打包文件所在目录
     outDir: isWatch ? 'dev' : 'dist',
-    minify: !isWatch,
+    minify: true,
     sourcemap: true,
     rollupOptions: {
       input: 'src/main.ts',
@@ -55,7 +55,7 @@ export default defineConfig({
           ]
         : [zipPack({ inDir: './dist', outDir: './', outFileName: 'package.zip' })],
       output: {
-        assetFileNames: (assetInfo) => {
+        assetFileNames: assetInfo => {
           return assetInfo.name?.endsWith('.css') ? 'theme.css' : 'assets/[name][extname]';
         },
         entryFileNames: 'theme.js',

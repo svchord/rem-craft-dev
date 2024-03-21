@@ -14,7 +14,7 @@ $btn-top-l: 32px;
 // 按钮组
 @mixin btns($h: $btn-h, $fz: 14px, $type: 'meta') {
   height: $h;
-  transition: var(--b3-transition);
+  transition: unset;
   background-color: var(--rc-background);
   border-radius: var(--b3-border-radius);
   .protyle-icon {
@@ -160,7 +160,7 @@ $btn-top-l: 32px;
       display: block;
       width: -webkit-fill-available;
       position: absolute;
-      top: 50%;
+      top: 10%;
       bottom: 0;
       right: 0;
       background: linear-gradient(

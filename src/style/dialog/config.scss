@@ -234,7 +234,7 @@ $padding-lr: 16px;
   @include m.state(var(--rc-on-surface-rgb));
 }
 
-#configBazaarDownloaded {
+[data-type='downloaded'] .config-bazaar__content {
   padding: 16px 16px 0 0;
   display: grid;
   gap: 16px;

@@ -38,6 +38,9 @@
   &__content {
     background-color: transparent !important;
     padding: 0 24px;
+    &.b3-typography {
+      padding: 0 48px;
+    }
   }
   &__action {
     border: none;

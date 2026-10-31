@@ -1,0 +1,30 @@
+/* L0 调色板：只有数值，没有语义。换皮肤只覆盖这一层。
+   色值统一写成 "R G B" 三通道，方便任何地方用 rgb(var(--x) / α) 调透明度。 */
+:root {
+  --rc-brand-1: 224 235 255;
+  --rc-brand-6: 61 135 255;
+  --rc-brand-8: 0 82 217;
+  --rc-brand-10: 0 60 180;
+
+  --rc-neutral-1: 255 255 255;
+  --rc-neutral-2: 246 246 246;
+  --rc-neutral-3: 224 224 224;
+  --rc-neutral-5: 160 160 160;
+  --rc-neutral-7: 95 99 104;
+  --rc-neutral-9: 32 32 36;
+
+  --rc-radius-base: 6px;
+  --rc-radius-large: 12px;
+  --rc-space-1: 4px;
+  --rc-space-2: 8px;
+  --rc-space-3: 12px;
+}
+
+:root[data-theme-mode='dark'] {
+  --rc-neutral-1: 28 29 32;
+  --rc-neutral-2: 38 39 43;
+  --rc-neutral-3: 60 62 68;
+  --rc-neutral-5: 120 123 130;
+  --rc-neutral-7: 176 179 186;
+  --rc-neutral-9: 236 237 240;
+}

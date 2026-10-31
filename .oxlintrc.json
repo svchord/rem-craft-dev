@@ -1,0 +1,9 @@
+{
+  "plugins": ["typescript", "import"],
+  "env": {
+    "browser": true,
+    "es2023": true,
+    "node": true
+  },
+  "rules": {}
+}

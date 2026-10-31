@@ -1,0 +1,13 @@
+/* L1 语义层：组件只允许引用这一层的变量。 */
+:root {
+  --rc-bg-page: var(--rc-neutral-2);
+  --rc-bg-base: var(--rc-neutral-1);
+  --rc-bg-surface: var(--rc-neutral-2);
+  --rc-text-primary: var(--rc-neutral-9);
+  --rc-text-secondary: var(--rc-neutral-7);
+  --rc-text-placeholder: var(--rc-neutral-5);
+  --rc-border-1: var(--rc-neutral-3);
+  --rc-border-2: var(--rc-neutral-5);
+  --rc-brand-base: var(--rc-brand-8);
+  --rc-brand-soft: var(--rc-brand-6);
+}

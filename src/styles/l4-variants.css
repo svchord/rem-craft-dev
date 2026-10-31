@@ -1,0 +1,20 @@
+/* L4 变体层：只做选择器包裹，不新增色值。
+   可用的钩子：data-theme-mode / data-frontend / data-backend / data-ui-density /
+   文档级 .protyle[custom-*] / 块级 [custom-*]。 */
+[data-theme-mode='dark'] .b3-menu__item {
+  color: rgb(var(--b3-theme-on-surface));
+}
+
+[data-ui-density='compact'] .b3-menu__item {
+  @apply py-1;
+}
+
+/* 文档级：在「文档属性」里加自定义属性 custom-rc-width=wide 即可生效 */
+.protyle[custom-rc-width='wide'] .protyle-wysiwyg {
+  max-width: 96ch;
+}
+
+/* 块级：在「块属性」里加 custom-rc-flat=true */
+[custom-rc-flat='true'] {
+  border-radius: 0;
+}

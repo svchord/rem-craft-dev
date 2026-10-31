@@ -1,0 +1,8 @@
+/* 分层顺序即构建顺序：L0 → L1 → L2 → L3 → L4
+   注意：产物最终会作为一个 CSS 文件被思源以 <link> 加载，
+   所有覆盖规则必须保持 unlayered（思源 base.css 未使用 @layer）。 */
+@import './l0-tokens.css';
+@import './l1-semantic.css';
+@import './l2-bridge.css';
+@import './l3-components.css';
+@import './l4-variants.css';

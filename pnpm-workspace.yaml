@@ -1,0 +1,4 @@
+# pnpm 11 的安装脚本白名单：本依赖树里只有 @parcel/watcher（可选 native watcher）带 postinstall，
+# 主题构建用不到它，显式禁用可避免每次 install 报 ERR_PNPM_IGNORED_BUILDS。
+allowBuilds:
+  '@parcel/watcher': false

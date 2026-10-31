@@ -1,0 +1,17 @@
+/* L2 桥接层：把语义层映射到思源内置的 --b3-* 变量。
+   思源升级只会影响这一层，组件层保持稳定。 */
+:root {
+  --b3-theme-primary: rgb(var(--rc-brand-base));
+  --b3-theme-primary-light: rgb(var(--rc-brand-base) / 0.54);
+  --b3-theme-primary-lighter: rgb(var(--rc-brand-base) / 0.38);
+  --b3-theme-primary-lightest: rgb(var(--rc-brand-base) / 0.12);
+
+  --b3-theme-background: rgb(var(--rc-bg-page));
+  --b3-theme-surface: rgb(var(--rc-bg-surface));
+  --b3-theme-on-background: rgb(var(--rc-text-primary));
+  --b3-theme-on-surface: rgb(var(--rc-text-secondary));
+  --b3-theme-on-surface-light: rgb(var(--rc-text-placeholder));
+
+  --b3-border-color: rgb(var(--rc-border-1));
+  --b3-border-radius: var(--rc-radius-base);
+}

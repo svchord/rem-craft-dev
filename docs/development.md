@@ -74,7 +74,7 @@ rem-craft-dev/
 | `pnpm inspect [选择器] [--shot]` | 读取真实 DOM 计算样式 + 命中规则（可选截图）                             |
 | `pnpm audit`                     | 一次性完整体检：新开浏览器扫描选择器命中率（回归用）                     |
 
-> 发版：合并到 `main` 后由 **release-please** 自动创建 Release PR（版本号 + CHANGELOG，并同步 `public/theme.json`），合并后自动打包 `package.zip` 并发布；不再需要手动改版本。
+> 发版：合并到 `main` 后由 **semantic-release** 全自动完成——按 Conventional Commits 计算版本、更新 `package.json` 与 `public/theme.json`、写 `CHANGELOG.md`、打 tag、构建并上传 `package.zip`。无需手动操作，也不需要 Release PR。
 
 ## 4. 开发流程
 

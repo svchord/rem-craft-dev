@@ -63,52 +63,71 @@ rem-craft-dev/
 
 ## 3. 命令
 
-| 命令                        | 作用                                                                |
-| --------------------------- | ------------------------------------------------------------------- |
-| `pnpm dev`                  | 类型检查后进入 watch，产物写 `dev/`                                 |
-| `pnpm build`                | clean → 清单校验 → 类型检查 → 构建 → 产物校验，并生成 `package.zip` |
-| `pnpm check`                | 清单 + 格式 + 类型 + 单测                                           |
-| `pnpm lint` / `pnpm format` | oxlint / oxfmt                                                      |
-| `pnpm make-link`            | 把 `dev/` 软链到 `<workspace>/data/themes/<theme.json name>`        |
-| `pnpm audit`                | 用无头浏览器打开思源前端，扫描主题选择器命中率、计算变量并截图      |
-| `pnpm dev:hmr`              | 一键开发：Vite HMR，改样式保存即生效（无需手动刷新）                |
-| `pnpm make-install`         | 构建后把 `dist/` 复制到主题目录（覆盖软链，用于稳定体验）           |
-| `pnpm update-version`       | 交互式 bump `package.json` 与 `public/theme.json` 版本              |
+| 命令                             | 作用                                                                     |
+| -------------------------------- | ------------------------------------------------------------------------ |
+| `pnpm dev`                       | **唯一开发命令**：Vite dev + 可见浏览器 + 自动 HMR（替代 build --watch） |
+| `pnpm build`                     | clean → 清单校验 → 类型检查 → 构建 → 产物校验，并生成 `package.zip`      |
+| `pnpm check`                     | 清单 + 格式 + 类型 + 单测                                                |
+| `pnpm lint` / `pnpm format`      | oxlint / oxfmt                                                           |
+| `pnpm make-link`                 | 把 `dev/` 软链到 `<workspace>/data/themes/<theme.name>`（只需一次）      |
+| `pnpm make-install`              | 构建后把 `dist/` 复制到主题目录（正式体验用）                            |
+| `pnpm update-version`            | 交互式 bump `package.json` 与 `public/theme.json` 版本                   |
+| `pnpm inspect [选择器] [--shot]` | 读取真实 DOM 计算样式 + 命中规则（可选截图）                             |
+| `pnpm audit`                     | 一次性完整体检：新开浏览器扫描选择器命中率（回归用）                     |
 
 ## 4. 开发流程
 
 ```bash
 pnpm install
-pnpm dev            # 终端 A：watch 构建
-pnpm make-link      # 终端 B：建立链接（只需一次）
-# 思源 → 设置 → 外观 → 主题选「Rem Craft Dev」
+pnpm dev            # 一条命令：起 Vite + 打开可见浏览器（自动 HMR）
+pnpm make-link      # 只需一次：把 dev/ 软链到主题目录
+# 首次还需在思源里选一次「Rem Craft Dev」
 ```
 
-- 改完 CSS 需手动刷新（`Ctrl+R` / 重新切换主题）；想保存即生效可看 `pnpm audit` 相关流程。
+- 默认 `pnpm dev` 只做重建，改完需手动刷新；想保存即生效用 §4.2 的片段方案。
 - 思源未启动时，`make-link` 会自动读取 `~/.config/siyuan/workspace.json` 兜底；也可显式指定：
   `SIYUAN_THEME_DIR="D:\Document\siyuan\data\themes" pnpm make-link`。
 - 若工作区开了 API token，脚本会自动从 `conf/conf.json` 读取（也可用 `SIYUAN_TOKEN` 覆盖）。
 
-## 4.1 实时预览与测量（浏览器，推荐）
-
-不需要调试端口、不需要重启思源、不碰你的桌面会话。原理：kernel 自己就把前端托管在 `http://127.0.0.1:<port>/stage/build/desktop/`，用无头浏览器打开即可。
+## 4.1 一条命令开发（`pnpm dev`）
 
 ```bash
-pnpm dev     # 终端 A：watch 构建 dev/theme.css
-pnpm audit   # 随时：无头浏览器打开前端，扫描选择器 + 截图
+pnpm dev        # 起 Vite dev server + 可见浏览器窗口 + 自动注入 HMR
 ```
 
-`pnpm audit` 自动从 `port.json`（PID → 端口）定位 kernel 端口，不用手填。实测输出：
+它做四件事：启动 Vite（5273）、打开可见浏览器窗口（思源前端）、**自动注入 HMR 客户端**、暴露 CDP 端口（9444）。
+
+实测日志：
 
 ```text
-[audit] kernel port: 58535
-[audit] frontend=browser-desktop mode=light theme=Rem Craft Dev themeJS=false
-[audit] themeStyle=/appearance/themes/Rem Craft Dev/theme.css?v=3.0.0
-[audit] --rc-brand-8=0 82 217  --b3-theme-primary=rgb(0 82 217)
-[audit] css=./dev/theme.css selectors=9 hit=1 miss=8
+[dev] vite ready: http://127.0.0.1:5273
+[dev] opened: http://127.0.0.1:58535/stage/build/desktop/?r=...
+[dev] HMR injected: ok
 ```
 
-**未命中不等于失效**：`.b3-menu__item` 要菜单打开、`[data-theme-mode='dark']` 要暗色模式、`custom-rc-*` 要先在属性面板设置。这个命令的价值是「按 UI 条件筛出可疑选择器」，而不是直接判死刑。
+改 `src/styles/**` 后约 300ms 浏览器自动生效，不用刷新，也不用代码片段。
+
+## 4.2 查看渲染结果（`pnpm inspect`）
+
+```bash
+pnpm inspect .protyle-wysiwyg        # 读计算样式 + 命中规则
+pnpm inspect .protyle-wysiwyg --shot # 附带截图 inspect.png
+pnpm audit                           # 一次性体检：选择器命中率 hit/miss（回归用）
+```
+
+`inspect` 输出真实计算样式与命中规则来源。实测（临时加 `.protyle-wysiwyg { max-width: 900px }`）：
+
+```text
+[inspect] theme=Rem Craft Dev hmr=true
+=== .protyle-wysiwyg (匹配 1) ===
+  color: rgb(32, 32, 36)
+  font-size: 22px
+  max-width: 900px          <- 规则确实生效
+  -- 命中规则 (9 条，其中主题相关 1) --
+    [(inline <style>)] .protyle-wysiwyg { max-width: 900px }
+```
+
+`audit` 与 `inspect` 的区别：`audit` 每次新开浏览器，额外对**所有选择器**做命中扫描，输出 `miss` 清单，适合思源升级后回归。
 
 ## 5. 已知坑（本机实测）
 

@@ -27,3 +27,6 @@ coverage
 *.sw?
 
 package.zip
+audit-browser.png
+inspect.png
+.rc-cdp-ws

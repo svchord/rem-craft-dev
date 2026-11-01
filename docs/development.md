@@ -71,9 +71,10 @@ rem-craft-dev/
 | `pnpm lint` / `pnpm format`      | oxlint / oxfmt                                                           |
 | `pnpm make-link`                 | 把 `dev/` 软链到 `<workspace>/data/themes/<theme.name>`（只需一次）      |
 | `pnpm make-install`              | 构建后把 `dist/` 复制到主题目录（正式体验用）                            |
-| `pnpm update-version`            | 交互式 bump `package.json` 与 `public/theme.json` 版本                   |
 | `pnpm inspect [选择器] [--shot]` | 读取真实 DOM 计算样式 + 命中规则（可选截图）                             |
 | `pnpm audit`                     | 一次性完整体检：新开浏览器扫描选择器命中率（回归用）                     |
+
+> 发版：合并到 `main` 后由 **release-please** 自动创建 Release PR（版本号 + CHANGELOG，并同步 `public/theme.json`），合并后自动打包 `package.zip` 并发布；不再需要手动改版本。
 
 ## 4. 开发流程
 

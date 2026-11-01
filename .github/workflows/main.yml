@@ -25,7 +25,7 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
 
       - name: Install dependencies
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
 
       # 构建会依次执行 clean → check:manifest → type-check → vite build → check:dist，
       # 并在 dist/ 之外生成 package.zip

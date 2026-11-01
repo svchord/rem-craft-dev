@@ -85,6 +85,7 @@ pnpm make-link      # 只需一次：把 dev/ 软链到主题目录
 # 首次还需在思源里选一次「Rem Craft Dev」
 ```
 
+- `pnpm dev` 需要思源正在运行（要读取 kernel 端口）；思源未启动时会提示设置 `SIYUAN_PORT`。
 - 默认 `pnpm dev` 只做重建，改完需手动刷新；想保存即生效用 §4.2 的片段方案。
 - 思源未启动时，`make-link` 会自动读取 `~/.config/siyuan/workspace.json` 兜底；也可显式指定：
   `SIYUAN_THEME_DIR="D:\Document\siyuan\data\themes" pnpm make-link`。

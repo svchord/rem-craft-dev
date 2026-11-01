@@ -1,3 +1,10 @@
+## [3.0.1](https://github.com/svchord/rem-craft-dev/compare/v3.0.0...v3.0.1) (2026-11-01)
+
+
+### Bug Fixes
+
+* **docs:** 说明 pnpm dev 需要思源正在运行 ([1a78c97](https://github.com/svchord/rem-craft-dev/commit/1a78c97c20648c6e97bad4f016dde595f9d50581))
+
 # Changelog
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.

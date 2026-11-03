@@ -231,62 +231,97 @@ foundation/semantic.css 是主题与插件之间唯一的耦合点。
 
 规则：**只增不改**。新增角色 → 版本不变（向后兼容）；改名或删除 → 版本 +1，插件检测到不匹配则降级为「只切属性、不写内联变量」。
 
-### 6.2 刻度（canonical scale）
+### 6.2 刻度：M3 tone 13 档
 
-所有色阶统一为 **11 阶：50 / 100 / 200 / 300 / 400 / 500 / 600 / 700 / 800 / 900 / 950**（Tailwind 刻度）。
-
-| 色族     | 变量前缀                                                              | 用途             |
-| -------- | --------------------------------------------------------------------- | ---------------- |
-| 品牌     | `--rc-brand-*`                                                        | 主色             |
-| 中性     | `--rc-neutral-*`                                                      | 背景、文字、边框 |
-| 中性变体 | `--rc-neutral-variant-*`                                              | 次要边框、分隔线 |
-| 状态     | `--rc-success-*` / `--rc-warning-*` / `--rc-danger-*` / `--rc-info-*` | 语义状态         |
-
-#### 为什么刻度用 Tailwind 而不是 M3 tone
-
-刻度是**存储格式**，不是设计哲学。选 Tailwind 11 阶的原因：与 UnoCSS `presetWind3` 原生一致（`bg-brand-600` 直接可用）、与 shadcn 1:1、11 阶粒度足够。
-
-#### 种子色生成怎么接（关键）
-
-Material 的种子功能（seed → 整套 scheme）**在刻度层之上工作**，不冲突：
+色阶直接采用 **Material 3 的 tone 刻度**，不做压缩映射：
 
 ```
-seed color
-   ↓ material-color-utilities（构建时或插件运行时）
-HCT tone 0–100 色带（每个角色一条）
-   ↓ 采样映射到 11 阶
---rc-brand-50 … --rc-brand-950
-   ↓
-语义角色 --rc-brand-base / --rc-bg-surface …
+tone:  0   5   10  20  30  40  50  60  70  80  90  95  100
 ```
 
-映射表（tone → 阶）：
+| 色族     | 变量前缀                      | 用途         |
+| -------- | ----------------------------- | ------------ |
+| 品牌     | `--rc-brand-{tone}`           | 主色         |
+| 次要     | `--rc-secondary-{tone}`       | 次要色       |
+| 第三     | `--rc-tertiary-{tone}`        | 强调色       |
+| 中性     | `--rc-neutral-{tone}`         | 背景、文字   |
+| 中性变体 | `--rc-neutral-variant-{tone}` | 边框、分隔线 |
+| 错误     | `--rc-error-{tone}`           | 危险状态     |
 
-| M3 tone | 11 阶 |
-| ------- | ----- |
-| 98      | 50    |
-| 95      | 50    |
-| 90      | 100   |
-| 80      | 200   |
-| 70      | 300   |
-| 60      | 400   |
-| 50      | 500   |
-| 40      | 600   |
-| 30      | 700   |
-| 20      | 800   |
-| 10      | 900   |
-| 5       | 950   |
+状态色（success / warning / info）没有 M3 原生 tone 带，用同样 13 档手工定义，保持结构一致。
 
-两种生成路径：
+#### 为什么不用 Tailwind 11 阶
 
-| 路径   | 时机                              | 产物     | 适用             |
-| ------ | --------------------------------- | -------- | ---------------- |
-| 构建时 | `pnpm gen:palette --seed #6750a4` | 静态 CSS | 内置配色包       |
-| 运行时 | 插件调用同一套 API                | 内联变量 | 用户自定义种子色 |
+| 维度                  | Tailwind 50–950        | M3 tone 0–100                                               |
+| --------------------- | ---------------------- | ----------------------------------------------------------- |
+| 与种子生成对接        | 需要压缩映射，丢失档位 | **无损直用**                                                |
+| 构建时 / 运行时一致性 | 要维护映射表           | 同一份 tone 值                                              |
+| M3 语义               | `brand-600` 含义不明   | `brand-40` = 亮色主色，`brand-80` = 暗色主色（M3 既有规则） |
+| UnoCSS 接入           | 原生                   | 约 20 行配置（见下）                                        |
 
-两条路径**共用同一份映射函数**（`scripts/palette/m3-to-scale.mjs`），保证构建时与运行时结果一致。
+#### UnoCSS 接入（实测可行）
 
-如果以后想直接用 M3 的 tone 命名（`--rc-primary-40`），只需新增一层别名，不需要重构刻度。
+```js
+// uno.config.ts
+const tone = (name) =>
+  Object.fromEntries(
+    [0, 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 95, 100].map((t) => [t, `oklch(var(--rc-${name}-${t}) / <alpha-value>)`])
+  );
+
+export default defineConfig({
+  theme: {
+    colors: {
+      brand: tone('brand'),
+      neutral: tone('neutral'),
+      surface: `oklch(var(--rc-bg-surface) / <alpha-value>)`,
+    },
+  },
+});
+```
+
+生成结果（实测）：
+
+```css
+.bg-brand-40/50 { background-color: oklch(var(--rc-brand-40) / 0.5); }
+.text-brand-90/25 { color: oklch(var(--rc-brand-90) / 0.25); }
+```
+
+#### 种子色生成：什么时候需要转换脚本
+
+`material-color-utilities` 输出的是 **ARGB 整数 / hex**，而变量要存 **OKLCH 三通道**（不带函数）。中间需要一次转换。
+
+| 场景                                      | 需要脚本吗                  |
+| ----------------------------------------- | --------------------------- |
+| 手写色板，直接写 OKLCH 三通道             | ❌ 不需要                   |
+| 用 M3 种子算法生成                        | ✅ 需要 `argb → oklch` 转换 |
+| 直接采用 shadcn / Tailwind v4 的 OKLCH 值 | ❌ 不需要（已是三通道）     |
+
+转换脚本（`scripts/palette/argb-to-oklch.mjs`，约 40 行）：
+
+```js
+import { hexFromArgb } from '@material/material-color-utilities';
+import { converter } from 'culori';
+
+const toOklch = converter('oklch');
+
+/** ARGB 整数 → "L C H" 三通道字符串 */
+export function argbToTriplet(argb) {
+  const { l, c, h } = toOklch(hexFromArgb(argb));
+  return `${l.toFixed(4)} ${c.toFixed(4)} ${(h ?? 0).toFixed(2)}`;
+}
+```
+
+**构建时与插件运行时共用同一份**，保证结果一致。
+
+#### 变量格式的硬性要求（实测）
+
+| 变量内容                         | `bg-brand/50` 生成结果     | 可用 |
+| -------------------------------- | -------------------------- | ---- |
+| `0.52 0.16 264`（三通道）        | `oklch(var(--x) / 0.5)`    | ✅   |
+| `#6750a4`（hex）                 | `rgb(103 80 164 / 0.5)`    | ✅   |
+| `oklch(0.52 0.16 264)`（完整值） | `var(--x)`，**透明度丢失** | ❌   |
+
+**规则：变量只存数值，不存完整函数。**
 
 ### 6.3 颜色角色
 
@@ -504,17 +539,77 @@ if (!version) {
 
 ### 8.3 移动端策略
 
-**不单独做移动端风格**，而是在同一套风格内做布局适配：
+#### 事实（查思源源码 + 打包产物核实）
 
-| 做法                    | 说明                                                         |
-| ----------------------- | ------------------------------------------------------------ |
-| `variants/mobile.css`   | `:root[data-frontend='mobile']` 下的间距、字号、触摸目标调整 |
-| 触摸目标 ≥ 44px         | `--rc-touch-min: 44px`，移动端覆盖                           |
-| 不新增 `styles/mobile/` | 避免每套风格都维护两份                                       |
+`data-frontend` **只有三个值**，没有 `mobile`：
 
-理由：思源移动端 DOM 与桌面差异大，但**设计语言应保持一致**；Material 本身就是响应式体系，用同一套令牌 + 尺寸适配即可，不需要第二套配方。
+```js
+// app/src/util/compatibility.ts
+const N$ = () =>
+  window.navigator.userAgent.startsWith('SiYuan/')
+    ? hasNoToolbar()
+      ? 'desktop-window'
+      : 'desktop'
+    : 'browser-desktop';
+```
 
-若将来移动端差异确实过大，再评估是否拆独立风格目录。
+移动端是**独立构建入口**：
+
+| 入口 | URL                     | 特征                               |
+| ---- | ----------------------- | ---------------------------------- |
+| 桌面 | `/stage/build/desktop/` | 无 `#mobileTopBar`                 |
+| 移动 | `/stage/build/mobile/`  | **有 `#mobileTopBar`**（实测确认） |
+
+移动端判定的可靠依据：
+
+| 依据                   | 取值                                                               | 可靠性     |
+| ---------------------- | ------------------------------------------------------------------ | ---------- |
+| `data-backend`         | `ios` / `android` / `harmony` / `docker` / `win` / `mac` / `linux` | ⭐ 推荐    |
+| `body` class           | `body--ios` / `body--android` / `body--harmony`                    | 可用       |
+| `window.siyuan.mobile` | 移动端才存在                                                       | 仅 JS 可用 |
+
+`data-backend` 的来源：
+
+```js
+// jz() = container 或 os
+// container: docker / ios / android / harmony
+// os: win / mac / linux / ...
+documentElement.setAttribute('data-backend', jz());
+```
+
+#### 适配策略
+
+| 做法                    | 说明                                           |
+| ----------------------- | ---------------------------------------------- |
+| `variants/mobile.css`   | 用 `data-backend` 命中，调整间距/字号/触摸目标 |
+| 触摸目标                | `--rc-touch-min: 44px`，仅移动端覆盖           |
+| 不新增 `styles/mobile/` | 避免每套风格维护两份                           |
+
+```css
+/* variants/mobile.css */
+:root[data-backend='ios'],
+:root[data-backend='android'],
+:root[data-backend='harmony'] {
+  --rc-touch-min: 44px;
+  --rc-tab-height: 40px;
+  --rc-space-2: 6px;
+}
+```
+
+#### 只有 Material 做移动端，其他风格屏蔽
+
+`styles/fluent/`、`styles/shadcn/` 的规则全部限定在桌面：
+
+```css
+/* styles/fluent/dock.css */
+@media (hover: hover) and (pointer: fine) {
+  :root[data-rc-style='fluent'] .dock__item { … }
+}
+```
+
+移动端是 `pointer: coarse`，规则自然不生效，回落思源默认样式——**一行媒体查询解决，不需要枚举 `data-backend`**。
+
+Material 风格不加这层限制，配合 `variants/mobile.css` 正常适配。
 
 ### 8.4 水波纹实现（需插件）
 
@@ -597,35 +692,38 @@ pnpm build
 
 ## 11. 从零实施顺序
 
-| 步骤 | 内容                                                                   | 验收                      |
-| ---- | ---------------------------------------------------------------------- | ------------------------- |
-| 1    | 清空 `src/styles/`，建立新目录骨架                                     | `pnpm build` 产出空壳 CSS |
-| 2    | `foundation/scale.css` + `semantic.css` + `bridge.css`（OKLCH 三通道） | 变量在页面上可读          |
-| 3    | `contract/tokens.json` + 契约守卫测试 A6/A10                           | 测试能拦住缺角色          |
-| 4    | `palettes/material.css`                                                | 默认配色生效              |
-| 5    | `base/skeleton.css`（含 `.rc-ripple` 预留）                            | 基础布局正确              |
-| 6    | `styles/material/`（按区域逐个）                                       | 默认风格完整              |
-| 7    | `variants/`（dark / density / mobile / features / document）           | 变体生效                  |
-| 8    | 测试 A1–A10 全绿                                                       | `pnpm check` 通过         |
-| 9    | `scripts/palette/m3-to-scale.mjs` + 生成脚本                           | 种子色可生成配色          |
-| 10   | `palettes/shadcn.css` + `styles/shadcn/`                               | 切换验证                  |
-| 11   | `palettes/fluent.css` + `styles/fluent/`                               | 切换验证                  |
-| 12   | 文档与体积复核                                                         | 预算内                    |
+| 步骤 | 内容                                                         | 验收                      |
+| ---- | ------------------------------------------------------------ | ------------------------- |
+| 1    | 清空 `src/styles/`，建立新目录骨架                           | `pnpm build` 产出空壳 CSS |
+| 2    | `foundation/scale.css`（M3 tone 13 档，OKLCH 三通道）        | 变量在页面上可读          |
+| 3    | `foundation/semantic.css` + `bridge.css`                     | 语义角色与 `--b3-*` 生效  |
+| 4    | `contract/tokens.json` + 守卫测试 A6/A10                     | 测试能拦住缺角色          |
+| 5    | `palettes/material.css`                                      | 默认配色生效              |
+| 6    | `base/skeleton.css`（含 `.rc-ripple` 预留）                  | 基础布局正确              |
+| 7    | `styles/material/`（按区域逐个）                             | 默认风格完整              |
+| 8    | `variants/`（dark / density / mobile / features / document） | 变体生效                  |
+| 9    | 测试 A1–A10 全绿                                             | `pnpm check` 通过         |
+| 10   | `scripts/palette/argb-to-oklch.mjs` + 生成脚本               | 种子色可生成配色          |
+| 11   | `palettes/shadcn.css` + `styles/shadcn/`（仅桌面）           | 切换验证                  |
+| 12   | `palettes/fluent.css` + `styles/fluent/`（仅桌面）           | 切换验证                  |
+| 13   | 文档与体积复核                                               | 预算内                    |
 
 ---
 
 ## 12. 已定决策
 
-| 议题           | 决策                                                        |
-| -------------- | ----------------------------------------------------------- |
-| Cupertino 风格 | 暂缓（无官方 Web 参考，只有 HIG 文档）                      |
-| 刻度层         | Tailwind 11 阶（50–950）；M3 种子色通过 tone→阶映射接入     |
-| 语义层         | 参考 M3 的「配对」思路，命名自研（`soft` 而非 `container`） |
-| 色彩格式       | **OKLCH 三通道**（已实测 UnoCSS 透明度工具类可用）          |
-| 移动端         | 不单独做风格，用 `variants/mobile.css` 布局适配             |
-| 功能开关       | 见 §8.2，清单未定稿，结构先落地                             |
-| 插件契约       | 过渡期 `file:` 本地依赖，稳定后发 `@rem-craft/contract`     |
-| 水波纹         | 插件实现（pointerdown + CSS 动画），主题侧预留              |
+| 议题           | 决策                                                                            |
+| -------------- | ------------------------------------------------------------------------------- |
+| Cupertino 风格 | 暂缓（Apple 无官方 Web 组件库，只有 HIG 文档）                                  |
+| 刻度层         | **M3 tone 13 档（0/5/10/…/100）**，无损对接种子生成                             |
+| 语义层         | 参考 M3 的「配对」思路（前景/背景成对），命名自研                               |
+| 色彩格式       | **OKLCH 三通道**（变量只存数值，不存完整函数）                                  |
+| UnoCSS 接入    | tone 色阶约 20 行配置，`bg-brand-40/50` 实测可用                                |
+| 移动端判定     | `data-backend ∈ {ios, android, harmony}`；`data-frontend` 无 mobile             |
+| 移动端适配     | 只有 Material 做；其他风格用 `@media (hover:hover) and (pointer:fine)` 限定桌面 |
+| 功能开关       | 见 §8.2，清单未定稿，结构先落地                                                 |
+| 插件契约       | 过渡期 `file:` 本地依赖，稳定后发 `@rem-craft/contract`                         |
+| 水波纹         | 插件实现（pointerdown + CSS 动画），主题侧预留                                  |
 
 ---
 

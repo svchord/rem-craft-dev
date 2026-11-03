@@ -336,7 +336,59 @@ export function argbToTriplet(argb) {
 | 状态   | `--rc-{success,warning,danger,info}-base` / `-soft` / `-on-soft`                                                                              |
 | 状态层 | `--rc-state-hover` `--rc-state-focus` `--rc-state-pressed` `--rc-state-drag`（透明度数值）                                                    |
 
-角色与刻度的关系：角色是**语义别名**，指向某个 tone。例如亮色主题下 `--rc-brand-base: var(--rc-brand-40)`，暗色主题下改为 `var(--rc-brand-80)`。
+#### 设计来源
+
+语义层参考 **Material 3 的「角色配对」思想**（每个前景色都有一条配对的背景色，如 `primary` / `on-primary`），命名采用 **shadcn 的直觉词汇**（`foreground`、`muted`、`ring`）。
+
+| 我们的角色            | M3 对应                  | shadcn 对应            |
+| --------------------- | ------------------------ | ---------------------- |
+| `--rc-brand-base`     | `primary`                | `primary`              |
+| `--rc-text-on-brand`  | `on-primary`             | `primary-foreground`   |
+| `--rc-brand-soft`     | `primary-container`      | `secondary` / `accent` |
+| `--rc-brand-on-soft`  | `on-primary-container`   | `secondary-foreground` |
+| `--rc-bg-base`        | `surface`                | `background`           |
+| `--rc-bg-surface`     | `surface-container`      | `card`                 |
+| `--rc-bg-raised`      | `surface-container-high` | `popover`              |
+| `--rc-bg-sunken`      | `surface-container-low`  | `muted`                |
+| `--rc-text-primary`   | `on-surface`             | `foreground`           |
+| `--rc-text-secondary` | `on-surface-variant`     | `muted-foreground`     |
+| `--rc-border-subtle`  | `outline-variant`        | `border`               |
+| `--rc-border-strong`  | `outline`                | `input`                |
+| `--rc-border-focus`   | `outline`（focus）       | `ring`                 |
+| `--rc-danger-base`    | `error`                  | `destructive`          |
+
+**为什么不直接用 M3 命名**：
+
+- `container` 在 CSS 里与容器查询（`@container`）语义冲突；
+- `on-*` 前缀在中文语境不直观；
+- `primary-container` 这类名字无法表达「浅色背景块」的直觉。
+
+**为什么不直接用 shadcn 命名**：
+
+- shadcn 只有约 20 个角色，表达不了 `raised` / `sunken` / `scrim` 这些层级；
+- 没有「状态层」（hover / pressed 透明度）概念。
+
+结论：**M3 的完整度 + shadcn 的直觉性 = 自研命名**。
+
+#### 角色与刻度的关系
+
+角色是**语义别名**，指向某个 tone。同一个角色在明暗模式下指向不同 tone：
+
+```css
+/* 亮色 */
+:root {
+  --rc-brand-base: var(--rc-brand-40);
+  --rc-text-primary: var(--rc-neutral-10);
+}
+
+/* 暗色 */
+:root[data-theme-mode='dark'] {
+  --rc-brand-base: var(--rc-brand-80);
+  --rc-text-primary: var(--rc-neutral-90);
+}
+```
+
+这是 M3 的既有规则（亮色主色 tone 40、暗色主色 tone 80），不需要重新发明。
 
 ### 6.4 形状 / 间距 / 字体 / 动效
 
@@ -352,18 +404,71 @@ export function argbToTriplet(argb) {
 
 ### 6.5 色彩格式：OKLCH 三通道
 
-统一存 `L C H` 三通道（不带函数）：
+#### 「变量」指什么
+
+指 **CSS 自定义属性（CSS Custom Properties）**，即 `--rc-*` 这些 `:root` 上声明的键值对：
+
+```css
+:root {
+  --rc-brand-40: 0.55 0.18 264;
+}
+```
+
+与 Sass 变量的区别：
+
+|                | CSS 变量                       | Sass 变量            |
+| -------------- | ------------------------------ | -------------------- |
+| 生效时机       | **运行时**（浏览器解析）       | 编译时（构建后消失） |
+| 能否被覆盖     | ✅ 层叠覆盖                    | ❌                   |
+| 能否被 JS 读写 | ✅ `element.style.setProperty` | ❌                   |
+| 用途           | **运行时换肤的基础**           | 构建期常量           |
+
+本架构中「配色可运行时切换」「插件可写内联变量」全部依赖 CSS 变量的这一特性。
+
+#### 存储格式
+
+统一存 `L C H` **三通道数值**（不带函数名）：
 
 ```css
 :root {
   --rc-brand-40: 0.55 0.18 264;
   --rc-bg-surface: 0.98 0.01 300;
 }
-
-/* 使用 */
-color: oklch(var(--rc-brand-40));
-background: oklch(var(--rc-brand-40) / 0.5);
 ```
+
+#### 为什么必须只存数值（实测）
+
+OKLCH **本身完全支持透明度**，`oklch(0.55 0.18 264 / 0.5)` 是合法的。问题出在 UnoCSS 生成透明度工具类时，要把 `<alpha-value>` 插进颜色模板。
+
+三种写法实测结果：
+
+| 变量存什么                         | UnoCSS 颜色模板                   | `bg-brand/50` 生成结果                       | 有效 |
+| ---------------------------------- | --------------------------------- | -------------------------------------------- | ---- |
+| `0.55 0.18 264`（三通道）          | `oklch(var(--x) / <alpha-value>)` | `oklch(var(--rc-brand-40) / 0.5)`            | ✅   |
+| `oklch(0.55 0.18 264)`（完整函数） | 同上                              | 展开为 `oklch(oklch(…) / 0.5)`，**嵌套非法** | ❌   |
+| `oklch(0.55 0.18 264)`（完整函数） | `var(--x)`                        | `var(--rc-brand-40)`，`/50` 被丢弃           | ❌   |
+
+结论：**函数必须由使用处提供，变量里只放能重新组装的裸数值。**
+
+#### 使用方式
+
+```css
+/* 不透明 */
+color: oklch(var(--rc-brand-40));
+
+/* 半透明 */
+background: oklch(var(--rc-brand-40) / 0.5);
+
+/* UnoCSS 工具类（模板已含 oklch()） */
+/* uno.config: brand: 'oklch(var(--rc-brand-40) / <alpha-value>)' */
+/* 得到 bg-brand-40/50 → oklch(var(--rc-brand-40) / 0.5) */
+```
+
+**代价**：变量值不能直接当颜色用。`color: var(--rc-brand-40)` 是无效的，必须包一层 `oklch()`。
+
+> RGB 三通道方案同理：`--x: 103 80 164` + `rgb(var(--x) / 0.5)`。
+
+#### 为什么选 OKLCH 而非 RGB
 
 | 维度       | RGB 三通道                 | OKLCH 三通道                        |
 | ---------- | -------------------------- | ----------------------------------- |

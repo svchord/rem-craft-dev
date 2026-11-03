@@ -71,7 +71,7 @@
 ## 3. 分层
 
 ```
-┌─ 0  刻度（scale）        原始数值：色阶 50–950、间距、圆角、字体、动效
+┌─ 0  刻度（scale）        原始数值：M3 tone 0–100、间距、圆角、字体、动效
 │
 ├─ 1  语义（semantic）     契约层：--rc-bg-surface 等，组件唯一可读的变量
 │      ↑ 由 palette 覆盖取值
@@ -137,14 +137,14 @@ src/
   variants/
     dark.css                    # [data-theme-mode=dark]
     density.css                 # [data-ui-density=compact]
-    mobile.css                  # [data-frontend=mobile] 布局适配
+    mobile.css                  # [data-backend=ios|android|harmony] 布局适配
     features.css                # 功能开关 data-rc-<feature>
     document.css                # [custom-rc-*] 文档级属性
 contract/
   tokens.json                   # 契约包（过渡期在主题仓库，稳定后发 npm）
 scripts/
   palette/
-    m3-to-scale.mjs             # tone → 11 阶映射（构建时/插件运行时共用）
+    argb-to-oklch.mjs           # ARGB/hex → OKLCH 三通道（构建时/插件运行时共用）
     gen-palette.mjs             # 生成 palettes/*.css
 ```
 
@@ -250,14 +250,15 @@ tone:  0   5   10  20  30  40  50  60  70  80  90  95  100
 
 状态色（success / warning / info）没有 M3 原生 tone 带，用同样 13 档手工定义，保持结构一致。
 
-#### 为什么不用 Tailwind 11 阶
+#### 刻度选择的依据
 
-| 维度                  | Tailwind 50–950        | M3 tone 0–100                                               |
-| --------------------- | ---------------------- | ----------------------------------------------------------- |
-| 与种子生成对接        | 需要压缩映射，丢失档位 | **无损直用**                                                |
-| 构建时 / 运行时一致性 | 要维护映射表           | 同一份 tone 值                                              |
-| M3 语义               | `brand-600` 含义不明   | `brand-40` = 亮色主色，`brand-80` = 暗色主色（M3 既有规则） |
-| UnoCSS 接入           | 原生                   | 约 20 行配置（见下）                                        |
+M3 的 tone 就是 HCT 色彩空间里的**感知亮度**（L*），与 OKLCH 的 L 通道同源。这意味着：
+
+- tone 值与 OKLCH 三通道可以直接换算，不需要额外的映射表；
+- 种子色算法输出的就是 tone，落到变量上无损；
+- `--rc-brand-40` 在亮色主题是主色、`--rc-brand-80` 在暗色主题是主色，这是 M3 的既有规则，不需要我们发明。
+
+（Tailwind 的 50–950 是设计惯例刻度，非感知均匀，用作存储会引入一次有损映射，故不采用。）
 
 #### UnoCSS 接入（实测可行）
 

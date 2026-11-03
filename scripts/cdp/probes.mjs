@@ -122,17 +122,21 @@ export async function probeTokens(page, names) {
 
 /**
  * 主题契约体检：确认主题确实挂载、契约版本、两轴属性与变体属性。
- * 这是 `pnpm audit` 的头部数据，也是判断「测的到底是不是本主题」的唯一依据。
+ * 这是 `pnpm run audit:theme` 的头部数据，也是判断「测的到底是不是本主题」的唯一依据。
  */
 export async function probeEnvironment(page, session) {
   const head = await page.evaluate(() => {
     const config = window.siyuan?.config?.appearance;
     const themeLink = document.getElementById('themeStyle');
     const root = document.documentElement;
+    // `pnpm dev` 不挂载主题，而是用 Vite 的 import() 注入 CSS；此时 themeStyle 仍指向宿主题，
+    // 光看 href 会把「正在开发的本主题」误判成未挂载。__RC_DEV_HMR__ 是注入成功的标记。
+    const hmr = Boolean(window.__RC_DEV_HMR__);
     return {
       theme: config?.themeLight,
       mode: config?.mode,
       href: themeLink?.getAttribute('href') || null,
+      hmr,
       frontend: root.getAttribute('data-frontend'),
       themeMode: root.getAttribute('data-theme-mode'),
       density: root.getAttribute('data-ui-density'),
@@ -162,6 +166,45 @@ export async function probeEnvironment(page, session) {
 }
 
 /**
+ * 按顶层逗号切分选择器列表。
+ *
+ * 不能用 `split(',')`：属性选择器与 :is()/:not() 里都可以合法出现逗号
+ * （`[data-x="a,b"]`、`:is(.a,.b)`），切开后会变成永远 miss 的假选择器。
+ * 引号内的逗号同样要保护。
+ */
+function splitSelectorList(raw) {
+  const parts = [];
+  let current = '';
+  let depth = 0;
+  let quote = '';
+
+  for (const char of raw) {
+    if (quote) {
+      current += char;
+      if (char === quote) quote = '';
+      continue;
+    }
+    if (char === '"' || char === "'") {
+      quote = char;
+      current += char;
+      continue;
+    }
+    if (char === '(' || char === '[') depth += 1;
+    else if (char === ')' || char === ']') depth = Math.max(0, depth - 1);
+
+    if (char === ',' && depth === 0) {
+      parts.push(current);
+      current = '';
+      continue;
+    }
+    current += char;
+  }
+
+  parts.push(current);
+  return parts;
+}
+
+/**
  * 从样式表源码里抽出所有选择器。
  *
  * 用源码而不是 CSSOM：思源的样式表经 `link` 加载，跨域下 CSSOM 读不到规则；
@@ -169,13 +212,20 @@ export async function probeEnvironment(page, session) {
  */
 export function parseSelectors(css) {
   const withoutComments = css.replace(/\/\*[\s\S]*?\*\//g, '');
+  // @keyframes 块里是 from/to/百分比关键帧，不是选择器。整块剔除，
+  // 否则主题一旦加动画，命中率统计就会冒出 from、0% 这类永远 miss 的假条目。
+  const withoutKeyframes = withoutComments.replace(/@(?:-\w+-)?keyframes\b[^{]*\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}/g, '');
+
   const selectors = [];
-  for (const match of withoutComments.matchAll(/([^{}]+)\{/g)) {
+  for (const match of withoutKeyframes.matchAll(/([^{}]+)\{/g)) {
     const raw = match[1].trim();
     if (!raw || raw.startsWith('@')) continue;
-    for (const part of raw.split(',')) {
+    for (const part of splitSelectorList(raw)) {
       const selector = part.trim();
-      if (selector) selectors.push(selector);
+      if (!selector) continue;
+      // 兜底：百分比只可能出现在关键帧里，残留即说明上面的整块剔除没覆盖到。
+      if (/^\d+(?:\.\d+)?%$/.test(selector)) continue;
+      selectors.push(selector);
     }
   }
   return [...new Set(selectors)];

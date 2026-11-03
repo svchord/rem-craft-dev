@@ -1,15 +1,15 @@
 /**
  * 主题契约体检：思源升级后确认「主题挂得上、令牌解析得出、选择器命中」。
  *
- * 注意：`pnpm audit` 是 pnpm 内置的安全审计命令，会盖掉同名脚本，
- * 本工具必须用 `pnpm run audit`（或直接 node 调用）才能跑起来。
+ * 命令名是 `audit:theme` 而不是 `audit`：`pnpm audit` 是 pnpm 内置的安全审计命令，
+ * 会盖掉 package.json 里的同名脚本（实测输出 "No known vulnerabilities found"）。
  *
- *   pnpm run audit                      # 缺省读 ./dev/theme.css，回退 ./dist/theme.css
- *   pnpm run audit ./dist/theme.css     # 指定产物
- *   pnpm run audit --json               # 结构化输出，便于 CI 消费
- *   pnpm run audit --viewport 1280x764@2
- *   pnpm run audit --attach             # 复用 pnpm dev 的浏览器，窗口尺寸实测
- *   pnpm run audit --do mode:dark       # 先把页面驱动到某状态再体检（可重复）
+ *   pnpm audit:theme                      # 缺省读 ./dev/theme.css，回退 ./dist/theme.css
+ *   pnpm audit:theme ./dist/theme.css     # 指定产物
+ *   pnpm audit:theme --json               # 结构化输出，便于 CI 消费
+ *   pnpm audit:theme --viewport 1280x764@2
+ *   pnpm audit:theme --attach             # 复用 pnpm dev 的浏览器，窗口尺寸实测
+ *   pnpm audit:theme --do mode:dark       # 先把页面驱动到某状态再体检（可重复）
  *
  * 与 pnpm inspect 的分工：inspect 看单个选择器的计算样式（细节），
  * audit 只看契约整体是否成立（回归），因此输出是清单 + 一行结论。
@@ -125,7 +125,13 @@ function readThemeName() {
 /** 目录名与 manifest 的 name 一致；比较时忽略大小写与空格/连字符的写法差异。 */
 const normalizeThemeName = (name) => name.toLowerCase().replace(/[\s_-]+/g, '');
 
-function judgeMount(href, themeName) {
+function judgeMount(href, themeName, hmr = false) {
+  // `pnpm dev` 走 Vite import() 注入，themeStyle 仍是宿主题；此时令牌来自本主题源码，
+  // 按 href 判定会把「正在开发的本主题」误报成未挂载，所以 HMR 标记优先。
+  if (hmr) {
+    return { ok: true, exact: true, loaded: '(pnpm dev HMR 注入)', reason: null, viaHmr: true };
+  }
+
   if (!href) {
     return { ok: false, exact: false, loaded: null, reason: '页面里没有 themeStyle（用的是内置 daylight/midnight）' };
   }
@@ -351,7 +357,7 @@ async function main() {
     const selectorHits = await probeSelectorHits(session.page, probeableSelectors);
 
     const themeName = readThemeName();
-    const mount = judgeMount(environment.href, themeName);
+    const mount = judgeMount(environment.href, themeName, environment.hmr);
     const missing = rcDefined.filter((name) => !tokenValues[name]);
     const darkOnly = missing.filter((name) => definitions.get(name).every((selector) => DARK_ONLY.test(selector)));
     const unexpectedMissing = missing.filter((name) => !darkOnly.includes(name));

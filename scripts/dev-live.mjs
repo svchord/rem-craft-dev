@@ -1,7 +1,7 @@
 /**
  * 一条命令替代 vite build --watch：
  *   Vite dev server（HMR）+ 可见浏览器（思源前端）+ 自动注入 HMR 客户端
- *   浏览器由 puppeteer-core 启动，同时开放 CDP 端口给 pnpm inspect 使用。
+ *   浏览器由 puppeteer-core 启动，WebSocket 端点写进 .rc-cdp-ws 供 pnpm inspect --attach 复用。
  *
  *   pnpm dev              可见窗口
  *   pnpm dev --headless   无头
@@ -14,7 +14,6 @@ import puppeteer from 'puppeteer-core';
 import { findChrome, findKernelPort, frontendUrl } from './cdp/siyuan.mjs';
 
 const VITE_PORT = Number(process.env.RC_VITE_PORT || 5273);
-const CDP_PORT = Number(process.env.RC_CDP_PORT || 9444);
 const headless = process.argv.includes('--headless');
 
 let browser = null;

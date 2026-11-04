@@ -4,16 +4,31 @@
  * 本模块是纯函数（读文件 + 字符串比较），不碰浏览器，因此可以在单测里直接验证
  * 「期望值怎么写、不符怎么报」，不需要思源在跑。
  *
+ * 两种审计模式（用例用 mode 选，缺省 static）：
+ *
+ *   static  把 CSS 注入 iframe 沙箱再量。快、稳、不受宿主主题影响，适合
+ *           「令牌解析对不对」「组件配方算出来是什么」这类纯级联问题。
+ *
+ *   live    在真实页面上先跑 actions 驱动状态，再就地量。适合只有交互才出现的
+ *           东西：:hover、展开的菜单、点击后的选中态、激活的插件面板。
+ *           静态沙箱永远测不到这些——思源升级后 CSS 选择器还在但 DOM 结构变了，
+ *           静态断言照样绿，实际交互已经烂了。
+ *
  * 用例形状：
  *   {
  *     name: '...',                 必填
+ *     mode: 'live',                可选，缺省 static
  *     frontend: 'mobile',          可选，缺省 desktop（桌面/移动是两个独立构建）
  *     viewport: '390x844@3',       可选，覆盖文件级与默认值
- *     attributes: { 'data-backend': 'ios' },   可选，沙箱根属性（变体靠它生效）
+ *     attributes: { 'data-backend': 'ios' },   可选，沙箱根属性（仅 static）
+ *     actions: ['hover:.b3-menu__item'],       可选，驱动状态（仅 live）
  *     tokens: { '--rc-radius-base': '6px' },
  *     selectors: { mustHit: [...], mustMiss: [...] },
  *     probes: [{ label, html, target, expect: { 'padding-top': '8px' } }]
  *   }
+ *
+ * probes.html 只用于 static 模式（在沙箱里插标记）；live 模式必须给 target，
+ * 直接量页面上的真实元素。
  *
  * 取值写法：
  *   "6px"            精确匹配（比较前 trim）
@@ -43,11 +58,21 @@ function assertCase(testCase, index) {
   const at = '用例 #' + (index + 1);
   if (!testCase || typeof testCase !== 'object') throw new Error(at + ' 必须是对象');
   if (!testCase.name || typeof testCase.name !== 'string') throw new Error(at + ' 缺少 name');
+  if (testCase.mode !== undefined && !['static', 'live'].includes(testCase.mode)) {
+    throw new Error(at + ' 的 mode 只能是 static / live');
+  }
   if (testCase.frontend !== undefined && !['desktop', 'mobile'].includes(testCase.frontend)) {
     throw new Error(at + ' 的 frontend 只能是 desktop / mobile');
   }
   if (testCase.attributes !== undefined && (typeof testCase.attributes !== 'object' || testCase.attributes === null)) {
     throw new Error(at + '（' + testCase.name + '）的 attributes 必须是对象');
+  }
+  if (testCase.actions !== undefined && !Array.isArray(testCase.actions)) {
+    throw new Error(at + '（' + testCase.name + '）的 actions 必须是数组');
+  }
+  // live 用例靠 actions 进入状态，没给 actions 就只是在量初始页面，容易误以为是交互断言。
+  if (testCase.mode === 'live' && !(testCase.actions ?? []).length) {
+    throw new Error(at + '（' + testCase.name + '）是 live 用例，必须给 actions 说明要驱动到什么状态');
   }
   for (const key of ['tokens', 'selectors']) {
     if (testCase[key] !== undefined && (typeof testCase[key] !== 'object' || testCase[key] === null)) {
@@ -57,7 +82,12 @@ function assertCase(testCase, index) {
   for (const probe of testCase.probes ?? []) {
     if (!probe || typeof probe !== 'object') throw new Error(at + ' 的 probes 项必须是对象');
     if (!probe.label) throw new Error(at + ' 的 probes 项缺少 label');
-    if (!probe.html) throw new Error(at + ' 的 probe ' + probe.label + ' 缺少 html');
+    // static 在沙箱里插 html，live 直接量页面上的真实元素——后者必须有 target。
+    if (testCase.mode === 'live') {
+      if (!probe.target) throw new Error(at + ' 的 live probe ' + probe.label + ' 缺少 target');
+    } else if (!probe.html) {
+      throw new Error(at + ' 的 probe ' + probe.label + ' 缺少 html');
+    }
     if (!probe.expect || typeof probe.expect !== 'object') {
       throw new Error(at + ' 的 probe ' + probe.label + ' 缺少 expect');
     }
@@ -158,9 +188,11 @@ export function evaluateCase(testCase, actual) {
 export function toBaselineCase(testCase, actual) {
   return {
     name: testCase.name,
+    ...(testCase.mode ? { mode: testCase.mode } : {}),
     ...(testCase.frontend ? { frontend: testCase.frontend } : {}),
     ...(testCase.viewport ? { viewport: testCase.viewport } : {}),
     ...(testCase.attributes ? { attributes: testCase.attributes } : {}),
+    ...(testCase.actions?.length ? { actions: testCase.actions } : {}),
     tokens: Object.fromEntries(Object.keys(testCase.tokens ?? {}).map((name) => [name, actual.tokens?.[name] ?? ''])),
     ...(testCase.selectors
       ? {
@@ -176,7 +208,8 @@ export function toBaselineCase(testCase, actual) {
             const measured = (actual.probes ?? []).find((item) => item.label === probe.label);
             return {
               label: probe.label,
-              html: probe.html,
+              // live 用例没有 html（量的是页面上的真实元素），不要凭空造一个。
+              ...(probe.html ? { html: probe.html } : {}),
               ...(probe.target ? { target: probe.target } : {}),
               expect: Object.fromEntries(
                 Object.keys(probe.expect).map((prop) => [prop, measured?.styles?.[prop] ?? ''])

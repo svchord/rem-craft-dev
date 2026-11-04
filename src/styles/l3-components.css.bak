@@ -1,0 +1,16 @@
+/* L3 组件层：@apply 由 UnoCSS 构建期展开，产物是普通 CSS。
+   禁止出现字面色值，只允许 var(--rc-*) / var(--b3-*)。
+   注意：--b3-* 由 l2-bridge 桥成**完整色值**（rgb(...)），所以这里直接 var()，
+   不能再包一层 rgb()——rgb(rgb(...)) 是非法值，整条声明会被丢弃。 */
+.b3-menu__item {
+  @apply flex items-center gap-2 px-3 py-2 rounded-base;
+  color: var(--b3-theme-on-surface);
+}
+
+.b3-menu__item:hover {
+  @apply bg-surface;
+}
+
+.b3-menu__separator {
+  border-top: 1px solid var(--b3-border-color);
+}

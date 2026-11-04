@@ -254,6 +254,7 @@ describe('cdp layering', () => {
     'siyuan.mjs',
     'theme.mjs',
     'targets.mjs',
+    'actions.mjs',
     'expectations.mjs',
     'sandbox.mjs',
     ...cliFiles,
@@ -272,7 +273,7 @@ describe('cdp layering', () => {
   });
 
   it('keeps probes.mjs and sandbox.mjs free of console output', () => {
-    for (const file of ['probes.mjs', 'sandbox.mjs', 'expectations.mjs', 'theme.mjs', 'targets.mjs']) {
+    for (const file of ['probes.mjs', 'sandbox.mjs', 'expectations.mjs', 'theme.mjs', 'targets.mjs', 'actions.mjs']) {
       expect(stripComments(readCdp(file)), file + ' 只返回数据，打印交给 CLI 层').not.toMatch(/console\.\w+/);
     }
   });
@@ -282,6 +283,21 @@ describe('cdp layering', () => {
     expect(source, 'verify 必须复用 session.mjs 的浏览器生命周期').toMatch(/from\s+['"]\.\/session\.mjs['"]/);
     expect(source, 'verify 必须复用 probes.mjs 的探针').toMatch(/from\s+['"]\.\/probes\.mjs['"]/);
     expect(source, 'verify 不得自己碰 puppeteer').not.toMatch(/puppeteer/);
+  });
+
+  it('measures on the real page, not in an isolated iframe', () => {
+    // iframe 隔离的前提（宿主主题干扰）已被「dev 让思源真正选中本主题」解决，
+    // 而 iframe 会漏掉 base.css：实测 line-height 在 iframe 里是 normal、
+    // 真实页面是 28px。默认必须量真实页面。
+    const source = stripComments(readCdp('verify.mjs'));
+    expect(source, 'verify 不得再走 measureIsolated（量不到 base.css 与交互态）').not.toMatch(/measureIsolated/);
+  });
+
+  it('has verify drive interactions through actions.mjs', () => {
+    // 交互是主题/插件真正容易坏的地方：选择器还在但 DOM 结构变了，
+    // 静态断言照样绿，实际已经烂了。
+    const source = stripComments(readCdp('verify.mjs'));
+    expect(source, 'verify 必须复用 actions.mjs 驱动交互').toMatch(/from\s+['"]\.\/actions\.mjs['"]/);
   });
 
   it('keeps target-specific knowledge out of verify', () => {

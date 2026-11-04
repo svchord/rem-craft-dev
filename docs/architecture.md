@@ -781,13 +781,13 @@ pnpm build
 
 只保留三件事对应的工具，外加一个人工入口：
 
-| 工具                 | 用途                                                        |
-| -------------------- | ----------------------------------------------------------- |
-| `pnpm dev`           | 构建 watch + 可见浏览器 + 让思源重载主题（F5 后仍是本主题） |
-| `pnpm watch:theme`   | 监听源码，改动后自动跑 `verify:theme` 并把不符项打在终端    |
-| `pnpm verify:theme`  | 渲染回归：隔离沙箱里量真实渲染，与 `expectations.json` 比对 |
-| `pnpm open:theme`    | 人工审计：打开桌面 + 移动端页面（可截图），自己看效果       |
-| `pnpm verify:plugin` | 同一套审计跑在已装插件上（CSS 从页面读）                    |
+| 工具                 | 用途                                                              |
+| -------------------- | ----------------------------------------------------------------- |
+| `pnpm dev`           | 构建 watch + 可见浏览器 + 让思源重载主题（F5 后仍是本主题）       |
+| `pnpm watch:theme`   | 监听源码，改动后自动跑 `verify:theme` 并把不符项打在终端          |
+| `pnpm verify:theme`  | 渲染回归：真实页面上量渲染（含交互），与 `expectations.json` 比对 |
+| `pnpm open:theme`    | 人工审计：打开桌面 + 移动端页面（可截图），自己看效果             |
+| `pnpm verify:plugin` | 同一套审计跑在已装插件上（CSS 从页面读）                          |
 
 日常闭环：`pnpm dev` 与 `pnpm watch:theme` 各开一个终端，改 `src/styles/**` 后页面立刻变、
 终端立刻报「渲染是否符合基线」。`open:theme` 留给只有眼睛能判断的事（间距协调、暗色对比度、
@@ -823,9 +823,40 @@ pnpm build
 而真实级联里本主题是**替代**宿主主题，两者在 `--b3-*` 上结果不同——注入方式下
 `--b3-theme-background` 读到宿主的 `#feffff`，切主题后才是本主题的 `rgb(246 246 246)`。
 
-**为什么 `verify:theme` 仍在隔离沙箱里量**：开发时若临时切到别的主题（或本主题未挂载），
-主文档读数会反映那个主题。沙箱只注入 `dev/theme.css`，保证回归结果与「此刻宿主选了什么」
-无关，同时也能一次覆盖多个变体（dark / density / 移动端 backend）而不必真的切来切去。
+**为什么在真实页面上量，而不是 iframe 隔离**：早期用 iframe 是为了挡住宿主主题
+（Neo 1.1MB、上万条规则）的覆盖。但 `pnpm dev` 现在经 kernel API 让思源真正选中本主题，
+宿主主题根本不参与级联——隔离的前提消失了。而 iframe 只注入被测 CSS，会漏掉思源
+`base.css` 与运行时样式：实测同一元素 `line-height` 在 iframe 里是 `normal`、
+真实页面是 `28px`。
+
+所以探针插进主文档（`position:fixed` 放到视口外），拿到的是与生产完全一致的级联：
+`base.css` + 本主题 + 插件样式 + 运行时样式。变体（dark / density / 移动端 backend）
+用 `actions` 驱动 `<html>` 属性，测完 `reset`。
+
+#### 交互审计
+
+纯静态断言有个盲区：**思源升级后 CSS 选择器还在、但 DOM 结构变了，静态断言照样绿，
+实际交互已经烂了**。所以基线用例支持驱动真实交互再量：
+
+```json
+{
+  "name": "交互：右键菜单打开后菜单项样式生效",
+  "actions": ["contextmenu:.b3-list-item", "wait:600"],
+  "probes": [{ "label": "menu-item", "target": ".b3-menu__item", "expect": { "display": "flex" } }]
+}
+```
+
+可用动作（`scripts/cdp/actions.mjs`）：`click` / `hover` / `press` / `focus` / `type` /
+`move` / `wait` / `contextmenu` / `dock` / `attr` / `reset`。
+
+实测确认的四个事实：
+
+| 事实                                                                         | 影响                                                                |
+| ---------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| `.b3-menu__item` 在菜单打开前**根本不存在**（实测 0 个）                     | 菜单类断言必须先 `contextmenu` 或 `dock`                            |
+| JS 派发 `contextmenu` 事件不触发菜单（仍是 0 个）                            | 必须用真实鼠标右键，见 `contextmenu` 动作                           |
+| 真实指针移动能驱动 `:hover`                                                  | `hover` 是唯一能测伪类的方式                                        |
+| hover 后背景是 `rgba(0,0,0,0.075)`（来自 base.css），不是主题的 `bg-surface` | 主题 hover 规则被 base.css 覆盖——这本身就是靠交互审计发现的真实问题 |
 
 #### 移动端
 

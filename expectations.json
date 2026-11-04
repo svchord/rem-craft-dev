@@ -114,6 +114,51 @@
       ]
     },
     {
+      "name": "交互：悬停停靠栏图标变色",
+      "mode": "live",
+      "actions": ["hover:.dock__item"],
+      "probes": [
+        {
+          "label": "dock-item-hover",
+          "target": ".dock__item:hover",
+          "expect": {
+            "color": "rgb(160, 160, 160)"
+          }
+        }
+      ]
+    },
+    {
+      "name": "交互：右键菜单打开后菜单项样式生效",
+      "mode": "live",
+      "actions": ["contextmenu:.b3-list-item", "wait:600"],
+      "probes": [
+        {
+          "label": "menu-item",
+          "target": ".b3-menu__item",
+          "expect": {
+            "display": "flex",
+            "border-radius": "6px",
+            "color": "rgb(95, 99, 104)"
+          }
+        }
+      ]
+    },
+    {
+      "name": "交互：展开菜单后菜单项样式生效",
+      "mode": "live",
+      "actions": ["click:.dock__item[data-type='file']", "wait:800"],
+      "probes": [
+        {
+          "label": "dock-item",
+          "target": ".dock__item[data-type='file']",
+          "expect": {
+            "display": "flex",
+            "border-radius": "6px"
+          }
+        }
+      ]
+    },
+    {
       "name": "移动端 ios：触摸目标不小于 44px",
       "frontend": "mobile",
       "viewport": "390x844@3",

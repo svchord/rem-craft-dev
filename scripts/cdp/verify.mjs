@@ -24,9 +24,10 @@
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { createSession, parseViewport } from './session.mjs';
-import { probeEnvironment } from './probes.mjs';
+import { probeEnvironment, probeLive } from './probes.mjs';
+import { runActions, snapshotRoot } from './actions.mjs';
 import { evaluateCase, parseExpectations, toBaselineCase } from './expectations.mjs';
-import { findProblemsIn, measureIsolated } from './sandbox.mjs';
+import { findProblemsIn } from './sandbox.mjs';
 import { pluginTarget, themeTarget } from './targets.mjs';
 import { judgeMount, readThemeName } from './theme.mjs';
 
@@ -82,10 +83,26 @@ function parseArgs(argv) {
   };
 }
 
-function formatChecks(name, checks) {
+function formatChecks(result) {
   const lines = [];
-  const failed = checks.filter((check) => !check.ok);
-  lines.push(PREFIX + (failed.length ? '✗ ' : '✓ ') + name + '（' + checks.length + ' 项）');
+  const failed = result.checks.filter((check) => !check.ok);
+  // live 用例要把「驱动了什么状态」写进标题：同一元素在不同状态下值不同，
+  // 不写状态就不知道这条断言测的是哪个交互。
+  const state = result.actions?.length ? ' 动作=' + result.actions.join(' → ') : '';
+  lines.push(
+    PREFIX +
+      (failed.length ? '✗ ' : '✓ ') +
+      '[' +
+      result.frontend +
+      '/' +
+      result.mode +
+      '] ' +
+      result.name +
+      '（' +
+      result.checks.length +
+      ' 项）' +
+      state
+  );
   for (const check of failed) {
     lines.push(PREFIX + '    不符 ' + check.label);
     lines.push(PREFIX + '      期望 ' + JSON.stringify(check.expected));
@@ -194,11 +211,35 @@ async function main() {
         );
       }
 
+      const rootSnapshot = await snapshotRoot(session.page);
+
       for (const testCase of cases) {
-        const actual = await measureIsolated(session.page, sheets, {
+        const selectorList = [
+          ...new Set([...(testCase.selectors?.mustHit ?? []), ...(testCase.selectors?.mustMiss ?? [])]),
+        ];
+
+        // 两种用例走同一条测量路径：都在真实页面上量。
+        // 区别只是 live 用例先用 actions 把页面推到目标状态（hover/菜单/面板），
+        // static 用例用 attributes 设 <html> 属性（暗色/密度变体）。
+        // 早先用 iframe 隔离是为了挡宿主主题，但 dev 已让思源真正选中本主题，
+        // 隔离的前提消失，而 iframe 会漏掉 base.css 的影响。
+        let actionLog = [];
+        if ((testCase.actions ?? []).length || testCase.attributes) {
+          const setup = ['reset'];
+          for (const [name, value] of Object.entries(testCase.attributes ?? {})) {
+            setup.push('attr:' + name + '=' + value);
+          }
+          setup.push(...(testCase.actions ?? []));
+          actionLog = (await runActions({ page: session.page, rootSnapshot }, setup)).filter(
+            (entry) => entry !== 'reset'
+          );
+        }
+
+        const actual = await probeLive(session.page, {
           tokens: Object.keys(testCase.tokens ?? {}),
-          selectors: [...new Set([...(testCase.selectors?.mustHit ?? []), ...(testCase.selectors?.mustMiss ?? [])])],
-          attributes: testCase.attributes ?? {},
+          selectors: selectorList,
+          // 交互后的状态要按可见性过滤；纯静态探针在视口外，不能过滤。
+          requireVisible: (testCase.actions ?? []).length > 0,
           probes: (testCase.probes ?? []).map((probe) => ({
             label: probe.label,
             html: probe.html,
@@ -208,9 +249,13 @@ async function main() {
             props: [...new Set([...Object.keys(probe.expect), ...STYLE_PROPS])],
           })),
         });
+        actual.actions = actionLog;
+
         results.push({
           frontend,
+          mode: (testCase.actions ?? []).length ? 'live' : 'static',
           name: testCase.name,
+          actions: actionLog,
           checks: evaluateCase(testCase, actual),
           actual,
         });
@@ -262,7 +307,7 @@ async function main() {
     for (const line of staticProblems) console.log(PREFIX + '✗ ' + line);
     for (const note of notes) console.log(PREFIX + '注：' + note);
     for (const result of results) {
-      for (const line of formatChecks('[' + result.frontend + '] ' + result.name, result.checks)) console.log(line);
+      for (const line of formatChecks(result)) console.log(line);
     }
   }
 

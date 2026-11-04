@@ -2,7 +2,7 @@
    可用的钩子：data-theme-mode / data-frontend / data-backend / data-ui-density /
    文档级 .protyle[custom-*] / 块级 [custom-*]。 */
 [data-theme-mode='dark'] .b3-menu__item {
-  color: rgb(var(--b3-theme-on-surface));
+  color: var(--b3-theme-on-surface);
 }
 
 [data-ui-density='compact'] .b3-menu__item {

@@ -26,9 +26,15 @@ import type { Plugin, ResolvedConfig } from 'vite';
 export interface AssetsPluginOptions {
   /** 项目根目录，缺省当前工作目录。 */
   cwd?: string;
-  /** 清单文件相对路径，缺省 `public/theme.json`；插件传 `public/plugin.json`。 */
-  manifestPath?: string;
-  /** 额外搬运规则，缺省从清单推导。每条是 `{ src: glob, dest: 相对产物根 }`。 */
+  /**
+   * 清单文件相对路径。**没有缺省值**——由调用方从类型描述符的
+   * `manifestName()` 取，避免在这里硬编码 `theme.json`。
+   */
+  manifestPath: string;
+  /**
+   * 要搬运进产物的额外文件规则，缺省从清单推导。
+   * 每条是 `{ src: glob, dest: 相对产物根 }`。
+   */
   extraFiles?: Array<{ src: string; dest?: string }> | null;
   /** 是否监听 `public/`，缺省 true。 */
   watchPublic?: boolean;
@@ -85,8 +91,8 @@ function walk(dir: string): string[] {
  * 两个职责：把 `public/**` 加进监听（否则改了不重建），
  * 把清单声明的元数据文件搬进产物。
  */
-export default function siyuanAssets(options: AssetsPluginOptions = {}): Plugin {
-  const { cwd = process.cwd(), manifestPath = 'public/theme.json', extraFiles = null, watchPublic = true } = options;
+export default function siyuanAssets(options: AssetsPluginOptions): Plugin {
+  const { cwd = process.cwd(), manifestPath, extraFiles = null, watchPublic = true } = options;
 
   const root = resolve(cwd);
   const resolvedManifest = join(root, manifestPath);

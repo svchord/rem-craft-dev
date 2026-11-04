@@ -18,8 +18,8 @@ export default defineConfig({
     UnoCSS(),
     siyuan({
       entry: 'src/styles/index.css',
-      // 非 watch 时打 package.zip（.releaserc.json 把它作为 release 资产）
-      pack: { outFile: 'package.zip' },
+      // 非 watch 时打 package.zip（思源集市的产物名，.releaserc.json 引用它）
+      pack: true,
     }),
   ],
   resolve: {

@@ -262,9 +262,26 @@ describe('target type registry', () => {
     }
   });
 
-  it('refuses to register a type that is missing capabilities', () => {
-    // 少一个能力，dev.mjs 就会为它长出分支。宁可注册时就拒绝。
-    expect(() => registerTargetType('broken', { manifestName: () => 'x.json' } as never)).toThrow(/缺少/);
+  it('trusts the descriptor interface instead of re-checking capabilities at runtime', () => {
+    // 能力完整性由 TargetDescriptor 接口在编译期约束（写描述符时用 satisfies）。
+    // 运行时再维护一份 9 项清单是同一份知识的两种写法，改接口容易漏改。
+    // 这里验证注册表本身不再挑剔——自定义类型只要满足接口就能注册。
+    const source = stripComments(readCdp('target-types.ts'));
+    expect(source, '不该再维护运行时能力清单').not.toMatch(/REQUIRED_CAPABILITIES/);
+    // 满足接口的自定义类型能注册，并被自动推断。
+    const descriptor = {
+      manifestName: () => 'x.json',
+      installSubdir: () => 'widgets',
+      dirEnv: () => 'SIYUAN_WIDGET_DIR',
+      outDir: () => './dev',
+      artifact: () => 'index.html',
+      expectedFiles: () => ['index.html', 'x.json'],
+      matchArtifact: () => true,
+      reload: async () => ({ ok: true, message: 'ok' }),
+      resolveCss: async () => [],
+      mountState: async () => ({ ok: true, loaded: 'x', reason: null }),
+    } as const;
+    expect(() => registerTargetType('widget-runtime', descriptor)).not.toThrow();
   });
 
   it('lets a new type join the whole dev loop with one registration', async () => {
@@ -740,6 +757,47 @@ describe('vite plugin shape', () => {
     // 不传 entry 时不给 input——让项目自己在 rollupOptions.input 里写。
     const noEntry = themeTarget({ name: 'T' }).buildSpec(context);
     expect(noEntry?.input, '不传 entry 就不该硬塞 input').toBeUndefined();
+  });
+
+  it('takes the manifest name from the descriptor, not a hardcoded string', () => {
+    // 注册表可扩展是这个包的核心承诺：注册第三种类型后，资产插件也应该
+    // 自动去找它的清单。硬编码 theme.json / 三元判断会让承诺失效。
+    const pluginSource = stripComments(readCdp('plugin.ts'));
+    expect(pluginSource, 'plugin.ts 不得硬编码清单文件名').not.toMatch(/requestedKind === 'plugin'/);
+    expect(pluginSource, '必须从描述符拿清单名').toMatch(/descriptor\.manifestName\(\)/);
+
+    const assetsSource = stripComments(readCdp('assets.ts'));
+    expect(assetsSource, 'assets.ts 不得把 theme.json 当缺省').not.toMatch(/manifestPath = 'public\/theme\.json'/);
+    expect(assetsSource, 'manifestPath 必须由调用方给').toMatch(/manifestPath: string/);
+  });
+
+  it('resolves the target in one place instead of repeating kind detection', () => {
+    // 之前 config() / ensureSession() / post 各写了一遍「推断 kind + createTarget」，
+    // 加一种类型要改三处。收敛成 resolveTarget() 后应该只有一个入口。
+    const pluginSource = stripComments(readCdp('plugin.ts'));
+    const occurrences = (pluginSource.match(/detectTargetType\(/g) ?? []).length;
+    expect(occurrences, `kind 检测只该有 2 处（resolveTarget + manifestFile），实际 ${occurrences}`).toBe(2);
+    expect(pluginSource).toMatch(/function resolveTarget\(/);
+  });
+
+  it('uses the fixed package name instead of exposing it as an option', () => {
+    // package.zip 是思源集市的产物约定（主题/插件/官方 sample 一致），
+    // 不是项目自己的发布偏好——不该由入参指定。
+    const post = stripComments(readCdp('post.ts'));
+    expect(post, '应导出固定常量').toMatch(/export const PACKAGE_NAME = 'package\.zip'/);
+    expect(post, '不该有 PackOptions 接口').not.toMatch(/interface PackOptions/);
+
+    const pluginSource = stripComments(readCdp('plugin.ts'));
+    expect(pluginSource, 'pack 应是 boolean，不是对象配置').toMatch(/pack\?: boolean/);
+    expect(pluginSource, '不该有 resolvePack 归一化').not.toMatch(/function resolvePack/);
+  });
+
+  it('walks the output directory once for both common and descriptor checks', () => {
+    // 之前 expectedFiles 用递归 walk()、VerifyContext.files 用顶层 readdirSync()，
+    // 两次遍历、两套语义，描述符看到的和通用校验看到的不是一回事。
+    const source = stripComments(readCdp('verify.ts'));
+    expect(source, '只该调用一次 walk()').toMatch(/const files = walk\(absOutDir\)/);
+    expect(source, 'context.files 复用同一次遍历').toMatch(/files,\s*\n\s*readOutput,/);
   });
 
   it('injects the build config through the vite config hook', () => {

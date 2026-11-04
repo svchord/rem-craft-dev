@@ -1,5 +1,4 @@
 import type { Plugin } from 'vite';
-import type { PackOptions } from './post.ts';
 import type { Frontend } from '../core/siyuan.ts';
 import '../core/targets.ts';
 /** 插件选项。 */
@@ -53,14 +52,13 @@ export interface SiYuanPluginOptions {
      */
     verify?: boolean;
     /**
-     * 是否打包为 zip，缺省 false。
+     * 是否打包为 `package.zip`，缺省 false。
      *
+     * 名字是思源集市的产物约定（主题/插件/官方 sample 一致），不由项目指定。
      * 只在非 watch（生产构建）时执行，且在**校验通过之后**——
      * 不会把一个有问题的包发出去。
-     *
-     * 包名由项目给（`package.zip` 是发布约定，不是思源约定）。
      */
-    pack?: boolean | PackOptions;
+    pack?: boolean;
     /**
      * 是否附带产物资产插件（搬运 README/icon 等 + 监听 public/）。
      *

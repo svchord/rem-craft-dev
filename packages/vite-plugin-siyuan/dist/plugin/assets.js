@@ -70,8 +70,8 @@ function walk(dir) {
  * 两个职责：把 `public/**` 加进监听（否则改了不重建），
  * 把清单声明的元数据文件搬进产物。
  */
-export default function siyuanAssets(options = {}) {
-    const { cwd = process.cwd(), manifestPath = 'public/theme.json', extraFiles = null, watchPublic = true } = options;
+export default function siyuanAssets(options) {
+    const { cwd = process.cwd(), manifestPath, extraFiles = null, watchPublic = true } = options;
     const root = resolve(cwd);
     const resolvedManifest = join(root, manifestPath);
     // 缺省规则：清单里声明的文件；推导不出就用 README 通配。

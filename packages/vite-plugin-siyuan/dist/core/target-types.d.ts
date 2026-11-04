@@ -123,9 +123,12 @@ export interface TargetBuildSpecOptions {
 export interface VerifyContext {
     /** 项目根目录。 */
     readonly root: string;
-    /** 产物目录里的所有文件名（不含子目录）。 */
+    /**
+     * 产物目录里的所有文件，**相对产物根的路径**（如 `i18n/en.json`）。
+     * 与通用校验用的是同一份列表，一次遍历得到。
+     */
     readonly files: string[];
-    /** 读产物目录里的文件内容；不存在返回 null。 */
+    /** 读产物目录里的文件内容；路径相对产物根；不存在返回 null。 */
     readOutput(file: string): string | null;
     /** 读清单（已解析）；读不到返回 null。 */
     readonly manifest: Record<string, unknown> | null;
@@ -218,7 +221,9 @@ export interface TargetTypeEntry {
 /**
  * 注册一类被测对象。
  *
- * 缺能力会在**注册时**就抛错，而不是等到运行到一半才炸。
+ * 能力完整性由 `TargetDescriptor` 接口在**编译期**约束，不再做运行时的
+ * 反射检查——那份清单和接口是同一份知识的两种写法，改接口时容易漏改，
+ * 而且 `satisfies TargetDescriptor` 已经能在写描述符时就报错。
  */
 export declare function registerTargetType<T extends TargetDescriptor>(kind: string, descriptor: T, options?: RegisterOptions): string;
 /** 已注册的类型名。 */

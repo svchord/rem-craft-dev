@@ -33,12 +33,12 @@
  *   CLI     dev.ts 自己 spawn vite build --watch
  *   插件    宿主 vite 跑构建，本插件在 writeBundle 里喂变更给会话
  */
-import { join, resolve } from 'node:path';
+import { resolve } from 'node:path';
 import siyuanAssets from './assets.js';
 import { siyuanPost } from './post.js';
 import { startDevSession } from '../dev/dev-session.js';
 import { createTarget } from '../core/targets.js';
-import { detectTargetType } from '../core/target-types.js';
+import { detectTargetType, targetType } from '../core/target-types.js';
 // 静态 import：内置类型是在 targets.ts 求值时注册进注册表的。
 // 只 import target-types 会拿到空注册表——这个坑踩过一次。
 import '../core/targets.js';
@@ -69,30 +69,58 @@ export default function siyuanDev(options = {}) {
     let dev = false;
     const log = (message) => console.log(`[${NAME}] ${message}`);
     /**
-     * 在 `config()` 阶段解析构建配置片段。
+     * 解析被测类型与对象。
      *
-     * `config()` 早于 `configResolved`，此时 `root` 还是 process.cwd()——
-     * 但 Vite 调用 `config()` 时 cwd 就是项目根，所以够用。
+     * 这是「target / kind 入参 → 类型名 → 描述符 → Target」的唯一入口。
+     * 之前 config()、ensureSession()、post 的 resolveTarget 各写了一遍，
+     * 加一种类型时要改三处——注册表可扩展的承诺就毁在这上面。
+     *
+     * @param cwd  项目根目录（config() 早于 configResolved，只能用 cwd）
+     * @param announce 是否打日志（只有会话启动时需要）
      */
-    function resolveBuildSpec(context, entryOption) {
+    function resolveTarget(cwd, announce = false) {
         let resolvedKind = requestedKind;
         if (!resolvedKind) {
-            const detected = detectTargetType(context.root);
-            if (!detected.ok) {
-                // 没有清单就不知道产物该叫什么；交给项目自己配，不在这里报错。
-                log(`跳过构建配置注入：${detected.reason}`);
-                return null;
-            }
+            const detected = detectTargetType(cwd);
+            if (!detected.ok)
+                return { ok: false, reason: detected.reason };
             resolvedKind = detected.kind;
+            if (announce)
+                log(`类型：${resolvedKind}（从清单推断；可用 target 显式指定）`);
+        }
+        else if (announce) {
+            log(`类型：${resolvedKind}（入参指定）`);
         }
         try {
-            const target = createTarget(resolvedKind, { cwd: context.root });
-            // entry 是相对项目根的路径，解析成绝对路径再交给 rollup。
-            const entry = entryOption ? resolve(context.root, entryOption) : null;
-            return target.buildSpec(context, { entry });
+            return { kind: resolvedKind, target: createTarget(resolvedKind, { name, cwd }) };
+        }
+        catch (cause) {
+            return { ok: false, reason: cause instanceof Error ? cause.message : String(cause) };
+        }
+    }
+    /** 从 resolveTarget 的结果里取 Target；失败返回 null。 */
+    function targetOrNull(result) {
+        return 'target' in result ? result.target : null;
+    }
+    /**
+     * 从描述符拿清单文件名，不硬编码 theme.json / plugin.json。
+     *
+     * 注意这里不能用 resolveTarget()：它会 createTarget（要读清单里的 name），
+     * 而 asset 插件在 config() 阶段就得构造好，那时清单可能还没建。
+     */
+    function manifestFile(cwd) {
+        let kind = requestedKind;
+        if (!kind) {
+            const detected = detectTargetType(cwd);
+            if (!detected.ok)
+                return 'theme.json';
+            kind = detected.kind;
+        }
+        try {
+            return targetType(kind).descriptor.manifestName();
         }
         catch {
-            return null;
+            return 'theme.json';
         }
     }
     /** 会话是懒启动的：首次构建完成、产物真的在磁盘上之后才开始。 */
@@ -102,19 +130,11 @@ export default function siyuanDev(options = {}) {
         if (starting)
             return starting;
         starting = (async () => {
-            let resolvedKind = requestedKind;
-            if (!resolvedKind) {
-                const detected = detectTargetType(root);
-                if (!detected.ok)
-                    throw new Error(detected.reason);
-                resolvedKind = detected.kind;
-                log(`类型：${resolvedKind}（从清单推断；可用 target 显式指定）`);
-            }
-            else {
-                log(`类型：${resolvedKind}（入参指定）`);
-            }
+            const resolved = resolveTarget(root, true);
+            if (!('target' in resolved))
+                throw new Error(resolved.reason);
             const created = await startDevSession({
-                kind: resolvedKind,
+                kind: resolved.kind,
                 name,
                 cwd: root,
                 outDir,
@@ -151,7 +171,16 @@ export default function siyuanDev(options = {}) {
             config(userConfig, env) {
                 const watch = Boolean(userConfig.build?.watch);
                 const context = { command: env.command, watch, root };
-                const spec = resolveBuildSpec(context, entry);
+                const resolved = resolveTarget(context.root);
+                const resolvedTarget = targetOrNull(resolved);
+                if (!resolvedTarget) {
+                    // 没有清单就不知道产物该叫什么；交给项目自己配，不在这里报错。
+                    log('跳过构建配置注入：识别不到被测类型');
+                    return undefined;
+                }
+                // entry 是相对项目根的路径，解析成绝对路径再交给 rollup。
+                const input = entry ? resolve(context.root, entry) : null;
+                const spec = resolvedTarget.buildSpec(context, { entry: input });
                 if (!spec)
                     return undefined;
                 const build = (userConfig.build ??= {});
@@ -229,7 +258,8 @@ export default function siyuanDev(options = {}) {
             ? [
                 siyuanAssets({
                     cwd: root,
-                    manifestPath: manifestPath ?? `public/${requestedKind === 'plugin' ? 'plugin.json' : 'theme.json'}`,
+                    // 清单名从描述符取，不硬编码——注册新类型时这里自动跟着变。
+                    manifestPath: manifestPath ?? `public/${manifestFile(root)}`,
                 }),
             ]
             : []),
@@ -241,32 +271,10 @@ export default function siyuanDev(options = {}) {
                 return resolve(root, outDir ?? (dev ? './dev' : './dist'));
             },
             verify,
-            pack: resolvePack(pack, root),
-            resolveTarget: () => {
-                let kind = requestedKind;
-                if (!kind) {
-                    const detected = detectTargetType(root);
-                    if (!detected.ok)
-                        return null;
-                    kind = detected.kind;
-                }
-                try {
-                    return createTarget(kind, { name, cwd: root });
-                }
-                catch {
-                    return null;
-                }
-            },
+            pack,
+            resolveTarget: () => targetOrNull(resolveTarget(root)),
             log,
         }),
     ];
-}
-/** 把 `pack` 选项归一成绝对路径配置。 */
-function resolvePack(pack, root) {
-    if (!pack)
-        return null;
-    if (pack === true)
-        return { outFile: join(root, 'package.zip') };
-    return { ...pack, outFile: pack.outFile.startsWith(root) ? pack.outFile : join(root, pack.outFile) };
 }
 //# sourceMappingURL=plugin.js.map

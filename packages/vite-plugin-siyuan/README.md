@@ -33,7 +33,7 @@ siyuan({
   headless: false, // 浏览器是否无头
   frontend: 'desktop', // 'desktop' | 'mobile'
   verify: true, // 是否校验产物（缺省 true）
-  pack: false, // 是否打 zip；true 或 { outFile: 'package.zip' }
+  pack: false, // 是否打包为 package.zip（思源集市约定的固定名称）
   assets: true, // 是否带产物资产插件（见下）
 });
 ```
@@ -153,9 +153,13 @@ $ pnpm build
 ```ts
 siyuan({
   entry: 'src/styles/index.css',
-  pack: { outFile: 'package.zip' }, // .releaserc.json 的 release 资产
+  pack: true,
 });
 ```
+
+产物名固定为 `package.zip`——主题项目、插件项目、思源官方 sample 一致，
+是集市的产物约定，所以不像 `theme.css` / `index.js` 那样随类型变化，
+也不由项目指定。`.releaserc.json` 只是引用它。
 
 zip 由包自己写（`node:zlib`，零依赖），实测生成的文件能被标准解压工具读出、
 内容哈希与产物一致。

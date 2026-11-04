@@ -1,29 +1,13 @@
-/** 所有类型共有的能力名，用于注册时校验。 */
-const REQUIRED_CAPABILITIES = [
-    'manifestName',
-    'installSubdir',
-    'outDir',
-    'artifact',
-    'expectedFiles',
-    'matchArtifact',
-    'reload',
-    'resolveCss',
-    'mountState',
-];
 /** 类型注册表。key 是类型名（theme / plugin / 未来新增）。 */
 const TYPES = new Map();
 /**
  * 注册一类被测对象。
  *
- * 缺能力会在**注册时**就抛错，而不是等到运行到一半才炸。
+ * 能力完整性由 `TargetDescriptor` 接口在**编译期**约束，不再做运行时的
+ * 反射检查——那份清单和接口是同一份知识的两种写法，改接口时容易漏改，
+ * 而且 `satisfies TargetDescriptor` 已经能在写描述符时就报错。
  */
 export function registerTargetType(kind, descriptor, options = {}) {
-    const record = descriptor;
-    const missing = REQUIRED_CAPABILITIES.filter((name) => typeof record[name] !== 'function');
-    if (missing.length) {
-        throw new Error(`注册被测类型 ${kind} 失败：缺少 ${missing.join('、')}\n` +
-            '  这些能力是开发链路必需的，缺一个就会让编排层长出类型分支。');
-    }
     TYPES.set(kind, { kind, detect: options.detect ?? null, descriptor });
     return kind;
 }

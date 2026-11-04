@@ -21,7 +21,7 @@
  *   类型特有（描述符）   verifyManifest() / verifyArtifact()
  */
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { isAbsolute, join } from 'node:path';
 /** 读 JSON；读不到或解析失败返回 null。 */
 function readJson(path) {
     try {
@@ -45,7 +45,12 @@ function checkI18nField(manifest, field) {
             hint: '思源按 default 回退，缺了会显示空白。加上 {"default": "..."}。',
         };
 }
-/** 递归列出目录下所有文件名（相对路径）。 */
+/**
+ * 递归列出目录下所有文件（相对路径）。
+ *
+ * 一次遍历同时供通用校验与描述符校验使用，避免两处各读一次目录、
+ * 还给出不同语义的文件列表。
+ */
 function walk(dir, base = '') {
     if (!existsSync(dir))
         return [];
@@ -53,6 +58,10 @@ function walk(dir, base = '') {
         const rel = base ? `${base}/${entry.name}` : entry.name;
         return entry.isDirectory() ? walk(join(dir, entry.name), rel) : [rel];
     });
+}
+/** outDir 可能已经是绝对路径，也可能相对 root。 */
+function resolveOutDir(root, outDir) {
+    return isAbsolute(outDir) ? outDir : join(root, outDir);
 }
 /**
  * 校验一个目标的清单与产物。
@@ -62,7 +71,17 @@ function walk(dir, base = '') {
 export function verifyTarget(target, { root, outDir }) {
     const issues = [];
     const config = target.buildConfig();
-    const absOutDir = outDir.startsWith(root) ? outDir : join(root, outDir);
+    const absOutDir = resolveOutDir(root, outDir);
+    // 一次遍历，通用与类型特有校验共用同一份文件列表。
+    const files = walk(absOutDir);
+    const readOutput = (file) => {
+        try {
+            return readFileSync(join(absOutDir, file), 'utf8');
+        }
+        catch {
+            return null;
+        }
+    };
     const manifestName = target.descriptor.manifestName();
     const manifestPath = join(root, 'public', manifestName);
     const manifest = readJson(manifestPath) ?? readJson(join(root, 'dist', manifestName));
@@ -110,12 +129,11 @@ export function verifyTarget(target, { root, outDir }) {
         });
     }
     else {
-        const files = walk(absOutDir);
         for (const expected of config.expectedFiles) {
             if (!files.includes(expected)) {
                 issues.push({
                     message: `产物缺少 ${expected}`,
-                    hint: `思源按固定文件名加载，缺了不会报错、只是加载不到。`,
+                    hint: '思源按固定文件名加载，缺了不会报错、只是加载不到。',
                 });
             }
         }
@@ -123,15 +141,8 @@ export function verifyTarget(target, { root, outDir }) {
     // ---- 类型特有 ----
     const context = {
         root,
-        files: existsSync(absOutDir) ? readdirSync(absOutDir) : [],
-        readOutput: (file) => {
-            try {
-                return readFileSync(join(absOutDir, file), 'utf8');
-            }
-            catch {
-                return null;
-            }
-        },
+        files,
+        readOutput,
         manifest,
         packageJson,
     };

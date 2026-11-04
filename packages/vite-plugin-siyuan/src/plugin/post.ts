@@ -31,13 +31,18 @@ import type { Plugin } from 'vite';
 import type { Target } from '../core/targets.ts';
 import { formatIssues, verifyTarget } from '../core/verify.ts';
 
-/** 打包选项。 */
-export interface PackOptions {
-  /** 输出 zip 相对项目根的路径，如 `package.zip`。 */
-  outFile: string;
-  /** 要打包的目录，缺省产物目录。 */
-  inDir?: string;
-}
+/**
+ * 思源集市的发布产物名。
+ *
+ * 两个项目以及官方 sample 一致使用 `package.zip`：
+ *   主题项目 .releaserc.json 的 assets 指向它
+ *   插件项目 vite.config 的 outFileName 是它
+ * 所以这是思源生态的约定，不是项目自己的偏好——不该由入参指定。
+ *
+ * 放在这里而不是描述符里：主题和插件用的是同一个名字，
+ * 没有必要让每个描述符重复声明。将来自定义类型如果不同，再提升为能力。
+ */
+export const PACKAGE_NAME = 'package.zip';
 
 /** 收尾插件的选项。 */
 export interface PostPluginOptions {
@@ -49,8 +54,8 @@ export interface PostPluginOptions {
   outDir: string;
   /** 是否校验。 */
   verify: boolean;
-  /** 打包配置；null 表示不打包。 */
-  pack: PackOptions | null;
+  /** 是否打包（名字固定为 package.zip）。 */
+  pack: boolean;
   /** 日志函数。 */
   log: (message: string) => void;
 }
@@ -194,16 +199,14 @@ export function siyuanPost(options: PostPluginOptions): Plugin {
 
       // ---- 2. 打包（只在不 watch 时；校验抛错时不会走到这里） ----
       if (pack && !isWatch) {
-        const inDir = pack.inDir ?? outDir;
-        const absInDir = inDir.startsWith(cwd) ? inDir : join(cwd, inDir);
-        if (!existsSync(absInDir)) {
-          log(`跳过打包：目录不存在 ${absInDir}`);
+        if (!existsSync(outDir)) {
+          log(`跳过打包：目录不存在 ${outDir}`);
           return;
         }
         try {
-          const outFile = pack.outFile.startsWith(cwd) ? pack.outFile : join(cwd, pack.outFile);
-          const result = writeZip(absInDir, outFile);
-          log(`已打包：${pack.outFile}（${result.files} 个文件，${result.bytes} 字节）`);
+          const outFile = join(cwd, PACKAGE_NAME);
+          const result = writeZip(outDir, outFile);
+          log(`已打包：${PACKAGE_NAME}（${result.files} 个文件，${result.bytes} 字节）`);
         } catch (cause) {
           log(`打包失败：${cause instanceof Error ? cause.message : String(cause)}`);
         }

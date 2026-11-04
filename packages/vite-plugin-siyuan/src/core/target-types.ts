@@ -132,9 +132,12 @@ export interface TargetBuildSpecOptions {
 export interface VerifyContext {
   /** 项目根目录。 */
   readonly root: string;
-  /** 产物目录里的所有文件名（不含子目录）。 */
+  /**
+   * 产物目录里的所有文件，**相对产物根的路径**（如 `i18n/en.json`）。
+   * 与通用校验用的是同一份列表，一次遍历得到。
+   */
   readonly files: string[];
-  /** 读产物目录里的文件内容；不存在返回 null。 */
+  /** 读产物目录里的文件内容；路径相对产物根；不存在返回 null。 */
   readOutput(file: string): string | null;
   /** 读清单（已解析）；读不到返回 null。 */
   readonly manifest: Record<string, unknown> | null;
@@ -238,40 +241,21 @@ export interface TargetTypeEntry {
   readonly descriptor: TargetDescriptor;
 }
 
-/** 所有类型共有的能力名，用于注册时校验。 */
-const REQUIRED_CAPABILITIES = [
-  'manifestName',
-  'installSubdir',
-  'outDir',
-  'artifact',
-  'expectedFiles',
-  'matchArtifact',
-  'reload',
-  'resolveCss',
-  'mountState',
-] as const;
-
 /** 类型注册表。key 是类型名（theme / plugin / 未来新增）。 */
 const TYPES = new Map<string, TargetTypeEntry>();
 
 /**
  * 注册一类被测对象。
  *
- * 缺能力会在**注册时**就抛错，而不是等到运行到一半才炸。
+ * 能力完整性由 `TargetDescriptor` 接口在**编译期**约束，不再做运行时的
+ * 反射检查——那份清单和接口是同一份知识的两种写法，改接口时容易漏改，
+ * 而且 `satisfies TargetDescriptor` 已经能在写描述符时就报错。
  */
 export function registerTargetType<T extends TargetDescriptor>(
   kind: string,
   descriptor: T,
   options: RegisterOptions = {}
 ): string {
-  const record = descriptor as unknown as Record<string, unknown>;
-  const missing = REQUIRED_CAPABILITIES.filter((name) => typeof record[name] !== 'function');
-  if (missing.length) {
-    throw new Error(
-      `注册被测类型 ${kind} 失败：缺少 ${missing.join('、')}\n` +
-        '  这些能力是开发链路必需的，缺一个就会让编排层长出类型分支。'
-    );
-  }
   TYPES.set(kind, { kind, detect: options.detect ?? null, descriptor });
   return kind;
 }

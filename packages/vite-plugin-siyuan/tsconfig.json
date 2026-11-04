@@ -1,0 +1,31 @@
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    // page.evaluate 的回调在浏览器里执行，需要 DOM 类型。
+    "lib": ["ES2023", "DOM"],
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "moduleDetection": "force",
+
+    // 源码里写 `./foo.ts`，产物自动改写成 `./foo.js`。
+    // 这样源码和产物都能被 Node 直接跑，不需要额外的重写插件。
+    "rewriteRelativeImportExtensions": true,
+
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+
+    "esModuleInterop": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "forceConsistentCasingInFileNames": true,
+
+    "types": ["node"]
+  },
+  "include": ["src", "tests", "bin"]
+}

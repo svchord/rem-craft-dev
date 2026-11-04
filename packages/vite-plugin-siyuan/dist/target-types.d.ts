@@ -1,0 +1,141 @@
+/**
+ * 被测目标的**契约**与注册表。
+ *
+ * 思源里主题、插件、未来的 widget / iconset 各有一套清单与加载方式。
+ * 与其在代码里写死 `kind === 'theme'` 分支，不如把「一类被测对象」抽象成
+ * 一份描述符，让新类型能注册进来：
+ *
+ *   registerTargetType('widget', { ... })
+ *
+ * 描述符的每个能力都对应开发链路的一步。缺一个，编排层就会长出类型分支——
+ * 所以注册时会校验，缺哪个直接报哪个。
+ */
+import type { Page } from 'puppeteer-core';
+/** 要审计的 CSS 文本（都来自磁盘）。 */
+export interface CssSheet {
+    /** 来源标签，报错/输出时用（通常是文件路径）。 */
+    label: string;
+    text: string;
+}
+/** 挂载判定结果。 */
+export interface MountState {
+    /** 是否可以用来测量。插件没有样式表时仍算 ok（退化成 DOM 断言）。 */
+    ok: boolean;
+    /** 读到的东西；`null` 表示确实没有样式表。 */
+    loaded: string | null;
+    /** ok=false 时说明原因。 */
+    reason: string | null;
+}
+/** 重载结果。 */
+export interface ReloadResult {
+    ok: boolean;
+    /** 人类可读的一句话，直接进日志。 */
+    message: string;
+}
+/** 激活结果（开发前让宿主用上本对象）。 */
+export interface ActivateResult {
+    ok: boolean;
+    message: string;
+}
+/**
+ * 描述符收到的上下文：名字、项目目录、以及预绑定好的 resolveCss。
+ *
+ * `resolveCss` 由 createTarget 预先绑好——描述符内部（比如插件的 reload）
+ * 需要读磁盘产物时直接用它，不必回调 target 的方法，也就不会出现 this 绑不上的问题。
+ */
+export interface TargetContext {
+    /** 被测对象的名字（清单里的 name）。 */
+    readonly name: string;
+    /** 项目目录。 */
+    readonly cwd: string;
+    /** 读磁盘上的 CSS；插件无 CSS 时返回空数组。 */
+    readonly resolveCss: () => Promise<CssSheet[]>;
+}
+/** 重载时由编排层传进来的事实。 */
+export interface ReloadContext extends TargetContext {
+    /** 变化的产物文件名。 */
+    readonly filename: string;
+    /** kernel 端口；需要经 kernel 重载的类型（插件 JS）才用得上。 */
+    readonly port: number | null;
+}
+/** 激活时由编排层传进来的事实。 */
+export interface ActivateContext extends TargetContext {
+    readonly port: number | null;
+}
+/**
+ * 一类被测对象的描述符。
+ *
+ * 除标注为可选的外，全部必需——缺一个就说明抽象漏了。
+ */
+export interface TargetDescriptor {
+    /** 清单文件名，如 'theme.json'。 */
+    manifestName(): string;
+    /** 安装子目录，如 'themes'。 */
+    installSubdir(): string;
+    /** 覆盖安装目录的环境变量名，如 'SIYUAN_THEME_DIR'。 */
+    dirEnv(): string;
+    /** 构建产物目录。 */
+    outDir(): string;
+    /** 首个产物；等它出现即视为构建就绪。 */
+    artifact(): string;
+    /** 链接后必须存在的文件。 */
+    expectedFiles(): string[];
+    /** 产物变化时是否触发重载。 */
+    matchArtifact(filename: string): boolean;
+    /**
+     * 一批产物同时变化时挑哪个作为重载依据。
+     * 缺省取第一个；插件要优先 JS，因为它能连带更新 CSS。
+     */
+    primaryArtifact?(filenames: string[]): string;
+    /**
+     * 让页面用上新产物。
+     * 主题换 `<link>` 的 href；插件 CSS 换 `<style>` 文本、JS 走 kernel 重建实例。
+     */
+    reload(page: Page, context: ReloadContext): Promise<ReloadResult>;
+    /** 要审计的 CSS 文本。 */
+    resolveCss(context: TargetContext): Promise<CssSheet[]>;
+    /** 确认被测对象确实加载了。 */
+    mountState(page: Page, context: TargetContext): Promise<MountState>;
+    /**
+     * 开发前让宿主用上本对象（可选）。
+     * 主题需要经 kernel 切 themeLight/themeDark；插件由思源自己管启用状态，不实现。
+     */
+    activate?(page: Page | null, context: ActivateContext): Promise<ActivateResult>;
+}
+/** 注册时可选的额外信息。 */
+export interface RegisterOptions {
+    /** 给定项目目录返回 true 表示「这个目录是该类型」，用于自动推断。 */
+    detect?: ((cwd: string) => boolean) | null;
+}
+/** 注册表里存的是描述符 + 类型名。 */
+export interface TargetTypeEntry {
+    readonly kind: string;
+    readonly detect: ((cwd: string) => boolean) | null;
+    readonly descriptor: TargetDescriptor;
+}
+/**
+ * 注册一类被测对象。
+ *
+ * 缺能力会在**注册时**就抛错，而不是等到运行到一半才炸。
+ */
+export declare function registerTargetType<T extends TargetDescriptor>(kind: string, descriptor: T, options?: RegisterOptions): string;
+/** 已注册的类型名。 */
+export declare function targetTypes(): string[];
+/** 取某个类型的注册项；未注册时把可用类型列出来。 */
+export declare function targetType(kind: string): TargetTypeEntry;
+/** 类型推断结果。 */
+export type DetectResult = {
+    ok: true;
+    kind: string;
+} | {
+    ok: false;
+    reason: string;
+};
+/**
+ * 从项目目录推断类型：看 public/ 下存在哪份清单。
+ *
+ * 这是「不用在引用项目里写配置」的关键——插件不带 kind 时，
+ * 靠 theme.json / plugin.json 的存在与否自己判断。
+ */
+export declare function detectTargetType(cwd: string): DetectResult;
+//# sourceMappingURL=target-types.d.ts.map

@@ -1,0 +1,119 @@
+{
+  "name": "vite-plugin-siyuan",
+  "version": "0.1.0",
+  "description": "SiYuan theme/plugin dev tooling: Vite plugin for hot reload + CLI primitives for measuring real rendering",
+  "type": "module",
+  "license": "MIT",
+  "private": true,
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./plugin": {
+      "types": "./dist/plugin.d.ts",
+      "default": "./dist/plugin.js"
+    },
+    "./dev": {
+      "types": "./dist/dev.d.ts",
+      "default": "./dist/dev.js"
+    },
+    "./measure": {
+      "types": "./dist/measure.d.ts",
+      "default": "./dist/measure.js"
+    },
+    "./actions": {
+      "types": "./dist/actions.d.ts",
+      "default": "./dist/actions.js"
+    },
+    "./targets": {
+      "types": "./dist/targets.d.ts",
+      "default": "./dist/targets.js"
+    },
+    "./target-types": {
+      "types": "./dist/target-types.d.ts",
+      "default": "./dist/target-types.js"
+    },
+    "./session": {
+      "types": "./dist/session.d.ts",
+      "default": "./dist/session.js"
+    },
+    "./kernel": {
+      "types": "./dist/kernel.d.ts",
+      "default": "./dist/kernel.js"
+    },
+    "./link": {
+      "types": "./dist/link.d.ts",
+      "default": "./dist/link.js"
+    },
+    "./workspace": {
+      "types": "./dist/workspace.d.ts",
+      "default": "./dist/workspace.js"
+    },
+    "./color": {
+      "types": "./dist/color.d.ts",
+      "default": "./dist/color.js"
+    },
+    "./lints": {
+      "types": "./dist/lints.d.ts",
+      "default": "./dist/lints.js"
+    },
+    "./siyuan": {
+      "types": "./dist/siyuan.d.ts",
+      "default": "./dist/siyuan.js"
+    },
+    "./theme": {
+      "types": "./dist/theme.d.ts",
+      "default": "./dist/theme.js"
+    },
+    "./build": {
+      "types": "./dist/build.d.ts",
+      "default": "./dist/build.js"
+    },
+    "./control-server": {
+      "types": "./dist/control-server.d.ts",
+      "default": "./dist/control-server.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "bin": {
+    "siyuan-devtools": "./bin/cli.js",
+    "siyuan-dev": "./bin/dev.js",
+    "siyuan-link": "./bin/link.js",
+    "siyuan-measure": "./bin/measure.js",
+    "siyuan-open": "./bin/open.js",
+    "siyuan-watch": "./bin/watch.js"
+  },
+  "files": [
+    "dist",
+    "bin"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.build.json --watch",
+    "type-check": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "puppeteer-core": "^25.16.0"
+  },
+  "peerDependencies": {
+    "vite": ">=6"
+  },
+  "peerDependenciesMeta": {
+    "vite": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "vite": "^8.3.5",
+    "vitest": "^5.0.5"
+  }
+}

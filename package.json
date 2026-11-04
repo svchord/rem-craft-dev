@@ -9,14 +9,14 @@
     "node": ">=24.0.0"
   },
   "scripts": {
-    "dev": "siyuan-devtools dev",
+    "dev": "vite build --watch",
     "build": "pnpm run clean && pnpm run check:manifest && pnpm run type-check && vite build && pnpm run check:dist",
     "check": "pnpm run check:manifest && pnpm run format:check && pnpm run lint && pnpm run type-check && pnpm run test",
     "check:manifest": "node ./scripts/check_manifest.mjs",
     "check:dist": "node ./scripts/check_dist.mjs",
     "clean": "node ./scripts/clean.js",
-    "type-check": "tsc --build --force",
-    "test": "vitest run && pnpm --filter siyuan-devtools test",
+    "type-check": "tsc --build --force && pnpm --filter vite-plugin-siyuan type-check",
+    "test": "vitest run && pnpm --filter vite-plugin-siyuan test",
     "lint": "oxlint --deny-warnings src scripts packages",
     "format": "oxfmt .",
     "format:check": "oxfmt --check .",
@@ -27,7 +27,7 @@
     "open:theme": "siyuan-devtools open"
   },
   "devDependencies": {
-    "siyuan-devtools": "workspace:*",
+    "vite-plugin-siyuan": "workspace:*",
     "@semantic-release/changelog": "^7.0.0",
     "@semantic-release/commit-analyzer": "^13.0.1",
     "@semantic-release/exec": "^7.1.0",

@@ -39,6 +39,29 @@ try {
 }
 ```
 
+### 主题开发（`theme-dev`）
+
+自己写 `pnpm dev` 这类热更新脚本时需要两个通用能力：
+
+```js
+import { findKernelPort, readThemeName, selectTheme, reloadThemeCss } from 'siyuan-devtools';
+
+const port = await findKernelPort();
+const themeName = readThemeName(); // 从 public/theme.json 读
+
+// 1) 让思源真正选中本主题（否则预览的是宿主主题）
+const result = await selectTheme(port, themeName);
+// → { ok, changed, reason }；changed=false 表示本来就是它
+
+// 2) 产物变了之后，让页面重新加载 theme.css
+await reloadThemeCss(page); // 换 #themeStyle 的 href 并加时间戳
+```
+
+`selectTheme` 只动思源的 `themeLight`/`themeDark`，`reloadThemeCss` 只动
+`#themeStyle` 那一个 link——不碰其它样式表，级联位置不变。
+
+还提供 `callKernel(port, path, body)` 调任意 kernel API，`currentTheme(port)` 读当前选中的主题。
+
 ## CLI
 
 ### siyuan-measure：通用测量
@@ -115,6 +138,7 @@ siyuan-watch --once --exec "siyuan-measure env"
 
 ```
 会话层  session.mjs   浏览器生命周期、打开哪个前端、attach 复用
+        theme-dev.mjs 主题开发：让思源选中主题、重载 theme.css
 测量层  measure.mjs   令牌 / 计算样式 / 命中数 / 盒模型 / 动作前后差异
         actions.mjs   交互驱动
         targets.mjs   被测对象适配（主题 / 插件）

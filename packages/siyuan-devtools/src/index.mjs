@@ -35,4 +35,5 @@ export { themeTarget, pluginTarget } from './targets.mjs';
 export { parseColor, luminance, contrastRatio } from './color.mjs';
 export { findDoubleWrappedColors, findProblemsIn } from './lints.mjs';
 export { judgeMount, readThemeName } from './theme.mjs';
+export { callKernel, selectTheme, reloadThemeCss, currentTheme } from './theme-dev.mjs';
 export { findChrome, findKernelPort, frontendUrl, findWorkspaceDir, MOBILE_VIEWPORT } from './siyuan.mjs';

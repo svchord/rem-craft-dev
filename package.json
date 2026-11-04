@@ -16,7 +16,7 @@
     "check:dist": "node ./scripts/check_dist.mjs",
     "clean": "node ./scripts/clean.js",
     "type-check": "tsc --build --force",
-    "test": "vitest run",
+    "test": "vitest run && pnpm --filter siyuan-devtools test",
     "lint": "oxlint --deny-warnings src scripts packages",
     "format": "oxfmt .",
     "format:check": "oxfmt --check .",

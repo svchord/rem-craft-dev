@@ -16,6 +16,7 @@
     "./targets": "./src/targets.mjs",
     "./color": "./src/color.mjs",
     "./theme": "./src/theme.mjs",
+    "./theme-dev": "./src/theme-dev.mjs",
     "./siyuan": "./src/siyuan.mjs",
     "./lints": "./src/lints.mjs"
   },
@@ -23,6 +24,12 @@
     "siyuan-measure": "./bin/measure.mjs",
     "siyuan-open": "./bin/open.mjs",
     "siyuan-watch": "./bin/watch.mjs"
+  },
+  "scripts": {
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "vitest": "^5.0.5"
   },
   "peerDependencies": {
     "puppeteer-core": ">=25"

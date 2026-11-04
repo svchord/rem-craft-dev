@@ -3,18 +3,18 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 // @ts-expect-error 工具脚本是纯 .mjs 且没有 .d.ts，tsc 无法推断其类型；本文件按下面用例里的形状使用它们。
-import { probeTokens } from '../packages/siyuan-devtools/src/probes.mjs';
+import { probeTokens } from '../src/probes.mjs';
 // @ts-expect-error 同上。
-import { parseViewport, viewportFor } from '../packages/siyuan-devtools/src/session.mjs';
+import { parseViewport, viewportFor } from '../src/session.mjs';
 // @ts-expect-error 同上。
-import { frontendUrl, MOBILE_VIEWPORT } from '../packages/siyuan-devtools/src/siyuan.mjs';
+import { frontendUrl, MOBILE_VIEWPORT } from '../src/siyuan.mjs';
 // @ts-expect-error 同上。
-import { findDoubleWrappedColors, findProblemsIn } from '../packages/siyuan-devtools/src/lints.mjs';
+import { findDoubleWrappedColors, findProblemsIn } from '../src/lints.mjs';
 // @ts-expect-error 同上。
-import { pluginTarget, themeTarget } from '../packages/siyuan-devtools/src/targets.mjs';
+import { pluginTarget, themeTarget } from '../src/targets.mjs';
 
 const root = join(import.meta.dirname, '..');
-const cdpDir = join(root, 'packages', 'siyuan-devtools', 'src');
+const cdpDir = join(root, 'src');
 const readCdp = (file: string) => readFileSync(join(cdpDir, file), 'utf8');
 
 /**

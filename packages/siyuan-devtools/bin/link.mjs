@@ -1,4 +1,5 @@
 #!/usr/bin/env node
-import { runCli } from '../src/link-cli.mjs';
+/** siyuan-devtools link 的等价独立命令。 */
+import { runLinkCli } from '../src/link-cli.mjs';
 
-runCli();
+await runLinkCli();

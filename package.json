@@ -9,7 +9,7 @@
     "node": ">=24.0.0"
   },
   "scripts": {
-    "dev": "node ./scripts/dev-live.mjs",
+    "dev": "siyuan-devtools dev",
     "build": "pnpm run clean && pnpm run check:manifest && pnpm run type-check && vite build && pnpm run check:dist",
     "check": "pnpm run check:manifest && pnpm run format:check && pnpm run lint && pnpm run type-check && pnpm run test",
     "check:manifest": "node ./scripts/check_manifest.mjs",
@@ -20,11 +20,11 @@
     "lint": "oxlint --deny-warnings src scripts packages",
     "format": "oxfmt .",
     "format:check": "oxfmt --check .",
-    "make-link": "node --no-warnings ./scripts/make_dev_link.js",
-    "measure": "node ./packages/siyuan-devtools/bin/measure.mjs",
-    "watch:theme": "node ./packages/siyuan-devtools/bin/watch.mjs --dir src/styles",
-    "open:theme": "node ./packages/siyuan-devtools/bin/open.mjs",
-    "link:check": "node ./packages/siyuan-devtools/bin/link.mjs --check"
+    "make-link": "siyuan-devtools link",
+    "link:check": "siyuan-devtools link --check",
+    "measure": "siyuan-devtools measure",
+    "watch:theme": "siyuan-devtools watch --dir src/styles",
+    "open:theme": "siyuan-devtools open"
   },
   "devDependencies": {
     "siyuan-devtools": "workspace:*",

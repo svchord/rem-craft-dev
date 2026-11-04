@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/** siyuan-open：打开桌面 + 移动端页面供人工复审。 */
-import { runCli } from '../src/open.mjs';
+/** siyuan-devtools open 的等价独立命令。 */
+import { runOpenCli } from '../src/open.mjs';
 
-await runCli();
+await runOpenCli();

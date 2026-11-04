@@ -66,36 +66,37 @@ export async function listWorkspaces({ port = null } = {}) {
   return readWorkspaceManifest();
 }
 
-/** 被测对象的安装子目录：主题与插件在思源里是两套目录。 */
-const INSTALL_SUBDIR = {
-  theme: 'themes',
-  plugin: 'plugins',
-};
-
-/** 显式指定安装目录的环境变量，优先级最高。 */
-const DIR_ENV = {
-  theme: 'SIYUAN_THEME_DIR',
-  plugin: 'SIYUAN_PLUGIN_DIR',
-};
-
 /**
- * 解析 `<workspace>/data/<themes|plugins>`。
+ * 解析 `<workspace>/data/<subdir>`。
  *
- * @param kind       'theme' | 'plugin'
- * @param workspace  显式工作区路径（跳过探测）
- * @param port       内核端口（用于问工作区列表）
+ * 子目录名与环境变量名由**调用方**给（来自被测类型描述符），这里不写死：
+ * 思源的安装目录不止 themes / plugins，widgets、icons 各有各的位置，
+ * 写死在这里就意味着每加一种类型都要改这个文件。
+ *
+ * @param kind      类型名，只用于报错信息
+ * @param subdir    data 下的子目录，如 'themes' / 'plugins'
+ * @param dirEnv    覆盖安装目录的环境变量名，如 'SIYUAN_THEME_DIR'
+ * @param workspace 显式工作区路径（跳过探测）
+ * @param port      内核端口（用于问工作区列表）
  * @returns 绝对路径；找不到时抛错而不是静默返回一个不存在的路径
  */
-export async function resolveInstallDir({ kind, workspace = null, port = null } = {}) {
-  const subdir = INSTALL_SUBDIR[kind];
-  if (!subdir) throw new Error('未知的被测对象类型：' + kind + '（可用：theme / plugin）');
+export async function resolveInstallDir({ kind, subdir, dirEnv, workspace = null, port = null } = {}) {
+  if (!subdir) throw new Error('resolveInstallDir 需要 subdir（如 themes / plugins）');
 
-  const explicitDir = process.env[DIR_ENV[kind]]?.trim();
+  const explicitDir = dirEnv ? process.env[dirEnv]?.trim() : null;
   if (explicitDir) return resolve(explicitDir);
 
   const root = workspace ?? (await listWorkspaces({ port }))[0]?.path;
   if (!root) {
-    throw new Error('找不到思源工作区：确认思源已启动，或设置 ' + DIR_ENV[kind] + ' 为 <workspace>/data/' + subdir);
+    throw new Error(
+      '找不到思源工作区：确认思源已启动，或设置 ' +
+        (dirEnv ?? '<类型对应的环境变量>') +
+        ' 为 <workspace>/data/' +
+        subdir +
+        '（当前类型：' +
+        kind +
+        '）'
+    );
   }
   return resolve(join(root, 'data', subdir));
 }

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/** siyuan-watch：监听源码，改动后重跑指定命令。 */
-import { runCli } from '../src/watch.mjs';
+/** siyuan-devtools watch 的等价独立命令。 */
+import { runWatchCli } from '../src/watch.mjs';
 
-await runCli();
+await runWatchCli();

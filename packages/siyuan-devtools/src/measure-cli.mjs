@@ -37,8 +37,8 @@ import { createSession, parseViewport } from './session.mjs';
 import { runActions, snapshotRoot } from './actions.mjs';
 import { contrastRatio } from './color.mjs';
 import { diffAfter, elementBox, elementStyles, environment, probeHtml, selectorCounts, tokens } from './measure.mjs';
-import { pluginTarget, themeTarget } from './targets.mjs';
-import { readThemeName } from './theme.mjs';
+import { createTarget } from './targets.mjs';
+import { detectTargetType } from './target-types.mjs';
 
 const PREFIX = '[measure] ';
 const DEFAULT_PROPS = [
@@ -69,7 +69,17 @@ const DEFAULT_PROPS = [
  * 特殊处理：令牌名本身以 `--` 开头（`--rc-brand-8`），不能当成选项。
  * 所以先认「已知选项」，其余以 `--` 开头的都算位置参数。
  */
-const KNOWN_FLAGS = new Set(['--frontend', '--viewport', '--do', '--setup', '--css', '--plugin', '--props', '--limit']);
+const KNOWN_FLAGS = new Set([
+  '--frontend',
+  '--viewport',
+  '--do',
+  '--setup',
+  '--css',
+  '--plugin',
+  '--kind',
+  '--props',
+  '--limit',
+]);
 const BOOLEAN_FLAGS = new Set(['--attach', '--json']);
 
 function parseArgs(argv) {
@@ -103,9 +113,9 @@ const flag = (values, name) => values['--' + name]?.at(-1);
 const list = (values, name) => (values['--' + name] ?? []).filter((v) => v !== true);
 
 function usage() {
-  console.error(
+  console.log(
     [
-      '用法：siyuan-measure <子命令> [参数] [选项]',
+      '用法：siyuan-devtools measure <子命令> [参数] [选项]',
       '',
       '  env                              页面环境',
       '  tokens <name...>                 令牌计算值',
@@ -114,8 +124,9 @@ function usage() {
       '  box <selector>                   元素盒模型尺寸',
       '  probe <html> <target>            插入 HTML 再量',
       '  diff <selector> --do <action>    动作前后差异',
+      '  contrast <fg> <bg>               两色对比度',
       '',
-      '通用选项：--frontend --viewport --do --css --plugin --attach --json --props',
+      '通用选项：--kind --frontend --viewport --do --setup --css --plugin --attach --json --props',
     ].join('\n')
   );
 }
@@ -143,14 +154,34 @@ async function main() {
       .filter(Boolean) ?? DEFAULT_PROPS;
   const actions = list(values, 'do');
   const setupActions = list(values, 'setup');
+  const kindFlag = flag(values, 'kind');
   const pluginName = flag(values, 'plugin');
+  const cssPath = flag(values, 'css');
 
-  const target = pluginName
-    ? pluginTarget({ name: pluginName })
-    : themeTarget({ cssPath: flag(values, 'css'), themeName: readThemeName() });
+  // 目标类型：--kind 优先；兼容旧的 --plugin / --css 写法。
+  // 都没给就按「当前目录是哪种项目」推断，推断不出则只量页面不绑定目标。
+  const kind = kindFlag ?? (pluginName ? 'plugin' : cssPath ? 'theme' : null);
+  let target = null;
+  if (kind) {
+    target = createTarget(kind, { name: pluginName ?? undefined, cssPath: cssPath ?? undefined });
+  } else {
+    const detected = detectTargetType(process.cwd());
+    if (detected.ok) {
+      try {
+        target = createTarget(detected.kind, { cssPath: cssPath ?? undefined });
+      } catch {
+        // 清单里没有 name 也不该挡住纯页面测量
+      }
+    }
+  }
 
   const session = await createSession({ frontend, viewport, attach: values['--attach']?.includes(true) });
-  const output = { command, frontend, viewport: session.viewport, target: { kind: target.kind, name: target.name } };
+  const output = {
+    command,
+    frontend,
+    viewport: session.viewport,
+    target: target ? { kind: target.kind, name: target.name } : null,
+  };
 
   try {
     // 动作先跑（如果有），让后续测量发生在目标状态下。
@@ -370,7 +401,7 @@ async function main() {
 }
 
 /** 供 bin/ 与测试调用；不在模块顶层自动执行，便于被 import。 */
-export async function runCli() {
+export async function runMeasureCli() {
   try {
     await main();
   } catch (error) {

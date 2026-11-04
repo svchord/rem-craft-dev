@@ -18,25 +18,25 @@ description: 用 siyuan-devtools 包的通用测量工具，在真实思源前�
 
 ## 命令
 
-| 用途               | 命令                            |
-| ------------------ | ------------------------------- |
-| 改样式自动热更新   | `pnpm dev`                      |
-| 通用测量           | `pnpm measure <子命令>`         |
-| 改完重跑你的命令   | `pnpm watch:theme --exec "..."` |
-| 人工复审（看页面） | `pnpm open:theme`               |
+| 用途               | 命令                                 |
+| ------------------ | ------------------------------------ |
+| 改样式自动热更新   | `siyuan-devtools dev`                |
+| 通用测量           | `siyuan-devtools measure <子命令>`   |
+| 改完重跑你的命令   | `siyuan-devtools watch --exec "..."` |
+| 人工复审（看页面） | `siyuan-devtools open`               |
 
-## pnpm measure：通用测量原语（= siyuan-measure CLI）
+## measure：通用测量原语（也可用独立命令 siyuan-measure）
 
-| 子命令     | 能力                      | 例子                                                                |
-| ---------- | ------------------------- | ------------------------------------------------------------------- |
-| `env`      | 页面环境                  | `pnpm measure env`                                                  |
-| `tokens`   | 令牌计算值                | `pnpm measure tokens --rc-text-primary --rc-bg-page`                |
-| `styles`   | 元素计算样式              | `pnpm measure styles .b3-menu__item --props color,background-color` |
-| `count`    | 选择器命中数（总数/可见） | `pnpm measure count .b3-menu__item .dock__item`                     |
-| `box`      | 盒模型尺寸                | `pnpm measure box .dock__item --frontend mobile`                    |
-| `probe`    | 插入 HTML 再量            | `pnpm measure probe '<div class="x">' .x`                           |
-| `diff`     | 动作前后差异              | 见下                                                                |
-| `contrast` | 两色对比度                | `pnpm measure contrast --rc-text-placeholder --rc-bg-page`          |
+| 子命令     | 能力                      | 例子                                                                           |
+| ---------- | ------------------------- | ------------------------------------------------------------------------------ |
+| `env`      | 页面环境                  | `siyuan-devtools measure env`                                                  |
+| `tokens`   | 令牌计算值                | `siyuan-devtools measure tokens --rc-text-primary --rc-bg-page`                |
+| `styles`   | 元素计算样式              | `siyuan-devtools measure styles .b3-menu__item --props color,background-color` |
+| `count`    | 选择器命中数（总数/可见） | `siyuan-devtools measure count .b3-menu__item .dock__item`                     |
+| `box`      | 盒模型尺寸                | `siyuan-devtools measure box .dock__item --frontend mobile`                    |
+| `probe`    | 插入 HTML 再量            | `siyuan-devtools measure probe '<div class="x">' .x`                           |
+| `diff`     | 动作前后差异              | 见下                                                                           |
+| `contrast` | 两色对比度                | `siyuan-devtools measure contrast --rc-text-placeholder --rc-bg-page`          |
 
 通用选项：`--frontend desktop|mobile`、`--viewport 390x844@3`、`--props a,b,c`、
 `--do <action>`、`--setup <action>`、`--css <path>`、`--plugin <name>`、`--attach`、`--json`。
@@ -47,12 +47,12 @@ description: 用 siyuan-devtools 包的通用测量工具，在真实思源前�
 
 ```bash
 # 打开右键菜单，再 hover 菜单项，看背景变了什么
-pnpm measure diff .b3-menu__item \
+siyuan-devtools measure diff .b3-menu__item \
   --setup contextmenu:.b3-list-item --setup wait:600 \
   --do hover:.b3-menu__item --props background-color
 
 # 直接数「菜单打开后」有多少菜单项
-pnpm measure count .b3-menu__item --do contextmenu:.b3-list-item --do wait:600
+siyuan-devtools measure count .b3-menu__item --do contextmenu:.b3-list-item --do wait:600
 ```
 
 可用动作（`packages/siyuan-devtools/src/actions.mjs`）：`click` / `hover` / `press` / `focus` / `type` /
@@ -76,23 +76,23 @@ pnpm measure count .b3-menu__item --do contextmenu:.b3-list-item --do wait:600
 
 ```bash
 # 1) 令牌有没有断链
-pnpm measure tokens --rc-text-primary --rc-text-placeholder --b3-theme-background
+siyuan-devtools measure tokens --rc-text-primary --rc-text-placeholder --b3-theme-background
 
 # 2) 对比度够不够（WCAG AA 正文要 4.5:1，大字/图形 3:1）
-pnpm measure contrast --rc-text-placeholder --rc-bg-page
+siyuan-devtools measure contrast --rc-text-placeholder --rc-bg-page
 #   → 2.42:1  ← 低于 3:1，是否接受按设计意图判断
 
 # 3) 组件算出来的样式
-pnpm measure styles .b3-menu__item --props display,gap,padding-top,color,border-radius
+siyuan-devtools measure styles .b3-menu__item --props display,gap,padding-top,color,border-radius
 
 # 4) 交互有没有生效
-pnpm measure diff .b3-menu__item --setup contextmenu:.b3-list-item --setup wait:600 \
+siyuan-devtools measure diff .b3-menu__item --setup contextmenu:.b3-list-item --setup wait:600 \
   --do hover:.b3-menu__item --props background-color
 #   → background-color  rgb(246,246,246) → rgba(0,0,0,0.075)
 #     注意：这是 base.css 的值，不是主题声明的 bg-surface —— 说明主题 hover 规则被覆盖了
 
 # 5) 移动端触摸目标
-pnpm measure box .dock__item --frontend mobile --limit 6
+siyuan-devtools measure box .dock__item --frontend mobile --limit 6
 ```
 
 ## 常见误读

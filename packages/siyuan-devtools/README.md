@@ -1,26 +1,99 @@
 # siyuan-devtools
 
-在真实思源前端里测量渲染事实、驱动交互、人工复审。适用于主题和插件开发。
+思源主题/插件开发与审计工具：在真实前端里测量渲染事实、驱动交互、构建链接热重载。
 
 **只提供能力，不预设该查什么。** 工具不知道你的项目有哪些组件、哪些颜色该配在一起、
 什么值算「对」。它负责把页面事实读出来，判断交给调用方（人或 agent）。
 
 ## 为什么独立成包
 
-它不依赖任何具体主题/插件——`readThemeName` 从 `public/theme.json` 读，
-`themeTarget` 的 CSS 路径可配置，插件目录从 `workspace.json` 推导。
-复制到别的思源主题/插件项目里可以直接用。
+它不依赖任何具体主题/插件，也**不依赖任何具体构建工具**：
+
+- 被测类型靠 `public/` 下的清单自动推断（`theme.json` → 主题，`plugin.json` → 插件）
+- 构建默认用 `vite build --watch`，但可以用 `--build-command` 换成任何命令
+- `vite` 与 `vitest` 都不是本包的依赖——它们属于引用项目自己
+
+复制到别的思源项目里可以直接用，不需要在那边写任何脚本。
 
 ## 安装
 
 ```bash
-pnpm add -D siyuan-devtools puppeteer-core
+pnpm add -D siyuan-devtools
 ```
 
 前置条件：
 
 1. 思源正在运行（靠 `port.json` 的 PID→端口映射找 kernel，可用 `SIYUAN_PORT` 覆盖）
 2. Chrome 或 Edge（自动按候选路径查找，可用 `CHROME_PATH` 覆盖）
+
+## 命令行（推荐）
+
+一条命令，类型自动推断，**不用在引用项目里写 scripts**：
+
+```bash
+siyuan-devtools dev                  # 构建 + 链接 + 热重载
+siyuan-devtools dev --kind plugin    # 显式指定类型
+siyuan-devtools dev --build-command "npx sass --watch src:dev"
+siyuan-devtools measure tokens --rc-brand-8 --attach
+siyuan-devtools link --check
+```
+
+| 命令      | 作用                                          |
+| --------- | --------------------------------------------- |
+| `dev`     | 构建 → 链接 → 让思源加载 → 改完自动重载       |
+| `link`    | 把构建产物目录链接到思源安装目录（`--check`） |
+| `measure` | 在真实前端里量渲染事实、驱动交互              |
+| `open`    | 开可见浏览器人工复审（可截图）                |
+| `watch`   | 盯着源码目录，改动后重跑你给的命令            |
+
+也提供等价的独立命令：`siyuan-dev` / `siyuan-link` / `siyuan-measure` / `siyuan-open` / `siyuan-watch`。
+
+### dev 做了什么
+
+```
+1. 起构建进程（默认 vite build --watch）      等首个产物出现
+2. 产物目录 → <workspace>/data/<themes|plugins>/<name>   链接（symlink/junction）
+3. 让思源用上它（主题：切 themeLight/themeDark；插件：启用状态由思源管）
+4. 开浏览器并登记 CDP 端点                    供 measure / open 复用
+5. 监听产物，按类型精确重载
+```
+
+热重载粒度按产物类型区分，比整页刷新精细：
+
+| 产物             | 重载方式                      | 页面是否刷新 |
+| ---------------- | ----------------------------- | ------------ |
+| 主题 `theme.css` | 换 `#themeStyle` 的 href      | 否           |
+| 插件 `index.css` | 换 `#pluginsStyle<name>` 文本 | 否           |
+| 插件 `index.js`  | 整页 reload                   | 是           |
+
+**不要同时用 `rollup-plugin-livereload`**：它对任何变化都整页刷新，会把正在编辑的
+文档和打开的面板全部重置。检测到项目里还在用会给出警告。
+
+### measure 子命令
+
+| 子命令                         | 能力                                       |
+| ------------------------------ | ------------------------------------------ |
+| `env`                          | 页面环境（前端/后端/模式/视口/DOM 节点数） |
+| `tokens <name...>`             | 令牌计算值                                 |
+| `styles <selector> [--props]`  | 元素计算样式                               |
+| `count <selector...>`          | 选择器命中数（总数/可见）                  |
+| `box <selector>`               | 盒模型尺寸                                 |
+| `probe <html> <target>`        | 插入 HTML 再量                             |
+| `diff <selector> --setup/--do` | 动作前后差异                               |
+| `contrast <fg> <bg>`           | 两色对比度                                 |
+
+通用选项：`--kind`、`--frontend desktop|mobile`、`--viewport 390x844@3`、
+`--props a,b,c`、`--do <action>`、`--setup <action>`、`--css <path>`、
+`--plugin <name>`、`--attach`、`--json`
+
+```bash
+siyuan-devtools measure tokens --rc-text-primary --rc-bg-page
+siyuan-devtools measure contrast --rc-text-placeholder --rc-bg-page     # → 2.42:1
+siyuan-devtools measure count .b3-menu__item --do contextmenu:.b3-list-item --do wait:600
+siyuan-devtools measure box .dock__item --frontend mobile
+siyuan-devtools measure diff .b3-menu__item --setup contextmenu:.b3-list-item \
+  --setup wait:600 --do hover:.b3-menu__item --props background-color
+```
 
 ## 编程方式
 
@@ -39,74 +112,40 @@ try {
 }
 ```
 
-### 主题开发（`theme-dev`）
+## 扩展新的被测类型
 
-自己写 `pnpm dev` 这类热更新脚本时需要两个通用能力：
+主题和插件是内置类型。思源的安装目录还有 widgets、icons 等，它们各有各的清单和
+加载方式——这些差异可以**注册**进来，不需要改 `dev.mjs` 或 CLI：
 
 ```js
-import { findKernelPort, readThemeName, selectTheme, reloadThemeCss } from 'siyuan-devtools';
+import { registerTargetType, detectTargetType } from 'siyuan-devtools';
 
-const port = await findKernelPort();
-const themeName = readThemeName(); // 从 public/theme.json 读
-
-// 1) 让思源真正选中本主题（否则预览的是宿主主题）
-const result = await selectTheme(port, themeName);
-// → { ok, changed, reason }；changed=false 表示本来就是它
-
-// 2) 产物变了之后，让页面重新加载 theme.css
-await reloadThemeCss(page); // 换 #themeStyle 的 href 并加时间戳
+registerTargetType(
+  'widget',
+  {
+    manifestName: () => 'widget.json', // public/ 下的清单
+    installSubdir: () => 'widgets', // data/ 下的子目录
+    dirEnv: () => 'SIYUAN_WIDGET_DIR', // 覆盖安装目录的环境变量
+    outDir: () => './dev',
+    artifact: () => 'index.html', // 等它出现即视为构建就绪
+    expectedFiles: () => ['index.html', 'widget.json'],
+    matchArtifact: (name) => name.endsWith('.html'),
+    reload: async (page) => true,
+    resolveCss: async () => [],
+    mountState: async () => ({ ok: true, loaded: 'widget', reason: null }),
+  },
+  { detect: (cwd) => existsSync(join(cwd, 'public', 'widget.json')) }
+);
 ```
 
-`selectTheme` 只动思源的 `themeLight`/`themeDark`，`reloadThemeCss` 只动
-`#themeStyle` 那一个 link——不碰其它样式表，级联位置不变。
+注册后 `siyuan-devtools dev --kind widget` 就能用，`detect` 让它还能被自动推断。
+缺任何一个必需能力，注册时就会报错并列出缺哪几个。
 
-还提供 `callKernel(port, path, body)` 调任意 kernel API，`currentTheme(port)` 读当前选中的主题。
+类型描述符必须提供：`manifestName` / `installSubdir` / `dirEnv` / `outDir` /
+`artifact` / `expectedFiles` / `matchArtifact` / `reload` / `resolveCss` / `mountState`。
 
-## CLI
-
-### siyuan-measure：通用测量
-
-| 子命令                         | 能力                                       |
-| ------------------------------ | ------------------------------------------ |
-| `env`                          | 页面环境（前端/后端/模式/视口/DOM 节点数） |
-| `tokens <name...>`             | 令牌计算值                                 |
-| `styles <selector> [--props]`  | 元素计算样式                               |
-| `count <selector...>`          | 选择器命中数（总数/可见）                  |
-| `box <selector>`               | 盒模型尺寸                                 |
-| `probe <html> <target>`        | 插入 HTML 再量                             |
-| `diff <selector> --setup/--do` | 动作前后差异                               |
-| `contrast <fg> <bg>`           | 两色对比度                                 |
-
-通用选项：`--frontend desktop|mobile`、`--viewport 390x844@3`、`--props a,b,c`、
-`--do <action>`、`--setup <action>`、`--css <path>`、`--plugin <name>`、`--attach`、`--json`
-
-```bash
-siyuan-measure tokens --rc-text-primary --rc-bg-page
-siyuan-measure contrast --rc-text-placeholder --rc-bg-page     # → 2.42:1
-siyuan-measure count .b3-menu__item --do contextmenu:.b3-list-item --do wait:600
-siyuan-measure box .dock__item --frontend mobile
-siyuan-measure diff .b3-menu__item --setup contextmenu:.b3-list-item \
-  --setup wait:600 --do hover:.b3-menu__item --props background-color
-```
-
-### siyuan-open：人工复审
-
-打开桌面 + 移动端页面，可交互、可截图。
-
-```bash
-siyuan-open                       # 桌面 + 移动端
-siyuan-open --frontend mobile
-siyuan-open --state dark          # 打开即进暗色
-siyuan-open --shot                # 截图到 ./shots/（自动无头）
-siyuan-open --attach              # 复用 pnpm dev 的浏览器
-```
-
-### siyuan-watch：改完重跑
-
-```bash
-siyuan-watch --dir src/styles --exec "siyuan-measure styles .b3-menu__item"
-siyuan-watch --once --exec "siyuan-measure env"
-```
+可选：`requiresSelection`（开发前是否必须经 kernel API 让思源选中，主题需要）、
+`activate(page, ctx)`（面板类目标让元素出现在页面上）。
 
 ## 动作（`--do` / `--setup`）
 
@@ -133,18 +172,28 @@ siyuan-watch --once --exec "siyuan-measure env"
 | 移动端没有 hover                                   | 交互类测量在移动端无意义              |
 | `data-ui-density` 会被运行时还原（约 1s）          | 密度变体要立刻量                      |
 | 磁盘 `index.css` 与页面注入的 `<style>` 逐字节相同 | 插件 CSS 读磁盘即可                   |
+| 内核没有 `/api/plugin/*` 写接口                    | 插件重载只能重注入 CSS 或整页刷新     |
+| 插件目录不能用 junction                            | Go 不认 junction，必须真 symlink      |
 
 ## 分层
 
 ```
-会话层  session.mjs   浏览器生命周期、打开哪个前端、attach 复用
-        theme-dev.mjs 主题开发：让思源选中主题、重载 theme.css
-测量层  measure.mjs   令牌 / 计算样式 / 命中数 / 盒模型 / 动作前后差异
-        actions.mjs   交互驱动
-        targets.mjs   被测对象适配（主题 / 插件）
-        color.mjs     对比度计算（纯函数）
-        lints.mjs     CSS 文本静态检查
-入口层  measure-cli.mjs / open.mjs / watch.mjs
+会话层  session.mjs        浏览器生命周期、打开哪个前端、attach 复用
+测量层  measure.mjs        令牌 / 计算样式 / 命中数 / 盒模型 / 动作前后差异
+        actions.mjs        交互驱动
+        color.mjs          对比度计算（纯函数）
+        lints.mjs          CSS 文本静态检查
+目标层  target-types.mjs   被测类型的契约与注册表（可扩展）
+        targets.mjs        内置类型描述符 + createTarget
+        workspace.mjs      工作区与安装目录解析
+        link.mjs           产物目录链接到安装目录
+        theme.mjs          主题身份与挂载判定
+        theme-dev.mjs      切换主题、重载主题/插件 CSS
+开发层  build.mjs          起构建进程（默认 vite，可换），监听产物
+        dev.mjs            构建→链接→加载→热重载的完整循环
+        cdp-registry.mjs   dev 浏览器端点登记（机器级，跨项目复用）
+入口层  cli.mjs            统一命令，各 *-cli.mjs 为独立命令
 ```
 
-`puppeteer-core` 只出现在 `session.mjs` 和 `open.mjs`，其余模块纯数据、可单测。
+`puppeteer-core` 只出现在 `session.mjs`、`open.mjs`、`dev.mjs` 三个浏览器所有者里，
+其余模块纯数据、可单测。

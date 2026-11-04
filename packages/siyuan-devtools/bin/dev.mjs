@@ -1,4 +1,5 @@
 #!/usr/bin/env node
-import { runCli } from '../src/dev-cli.mjs';
+/** siyuan-devtools dev 的等价独立命令。 */
+import { runDevCli } from '../src/dev-cli.mjs';
 
-runCli();
+await runDevCli();

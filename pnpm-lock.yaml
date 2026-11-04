@@ -78,7 +78,7 @@ importers:
   packages/siyuan-devtools:
     dependencies:
       puppeteer-core:
-        specifier: '>=25'
+        specifier: ^25.16.0
         version: 25.16.0
     devDependencies:
       vitest:

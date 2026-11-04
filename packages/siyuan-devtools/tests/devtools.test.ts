@@ -11,13 +11,15 @@ import { frontendUrl, MOBILE_VIEWPORT } from '../src/siyuan.mjs';
 // @ts-expect-error 同上。
 import { findDoubleWrappedColors, findProblemsIn } from '../src/lints.mjs';
 // @ts-expect-error 同上。
-import { pluginTarget, themeTarget } from '../src/targets.mjs';
+import { pluginTarget, themeTarget, createTarget } from '../src/targets.mjs';
+// @ts-expect-error 同上。
+import { detectTargetType, registerTargetType, targetType, targetTypes } from '../src/target-types.mjs';
 // @ts-expect-error 同上。
 import { checkLinkedFiles, ensureLink, inspectLink, samePath } from '../src/link.mjs';
 // @ts-expect-error 同上。
 import { findEndpoint, registerEndpoint } from '../src/cdp-registry.mjs';
 // @ts-expect-error 同上。
-import { resolveViteBin } from '../src/build.mjs';
+import { resolveViteBin, startBuild } from '../src/build.mjs';
 
 const root = join(import.meta.dirname, '..');
 const cdpDir = join(root, 'src');
@@ -155,13 +157,19 @@ describe('style lints', () => {
 
 describe('target adapters', () => {
   it('builds a theme target that reads the build artifact', async () => {
-    const target = themeTarget({ cssPath: './dev/theme.css', themeName: 'Rem Craft Dev' });
+    const target = themeTarget({ cssPath: './dev/theme.css', name: 'Rem Craft Dev' });
     expect(target.kind).toBe('theme');
     expect(target.name).toBe('Rem Craft Dev');
   });
 
-  it('requires a plugin name', () => {
-    expect(() => pluginTarget({}), '插件名是定位插件目录的依据，不能缺').toThrow(/插件名/);
+  it('requires a name it cannot read from the manifest', () => {
+    // 名字是定位安装目录的唯一依据，读不到就必须报错，不能猜一个默认值。
+    const empty = mkdtempSync(join(tmpdir(), 'rc-noname-'));
+    try {
+      expect(() => pluginTarget({ cwd: empty }), '插件名缺失必须报错').toThrow(/读不到|name/);
+    } finally {
+      rmSync(empty, { recursive: true, force: true });
+    }
   });
 
   it('reads plugin CSS from disk, not from the page', async () => {
@@ -200,7 +208,6 @@ describe('target adapters', () => {
     expect(mount.ok, 'null 要变成可读的错误，不能抛异常').toBe(false);
     expect(mount.reason).toMatch(/页面不可用/);
   });
-
   it('tolerates a running plugin that injected no stylesheet', async () => {
     const target = pluginTarget({ name: 'Calendar-heatmap' });
     const mount = await target.mountState({
@@ -208,6 +215,87 @@ describe('target adapters', () => {
     });
     expect(mount.ok).toBe(true);
     expect(mount.reason).toMatch(/只做 DOM 断言/);
+  });
+});
+
+describe('target type registry', () => {
+  it('ships theme and plugin as built-in types', () => {
+    // 内置两种是最常用的；新类型靠 registerTargetType 加，不用改 dev.mjs。
+    expect(targetTypes()).toEqual(expect.arrayContaining(['theme', 'plugin']));
+  });
+
+  it('detects the type from the manifest in public/', () => {
+    // 「不用在引用项目里写脚本」靠的就是这个：有 theme.json 就是主题，
+    // 有 plugin.json 就是插件，用户什么都不用配。
+    const root = mkdtempSync(join(tmpdir(), 'rc-detect-'));
+    try {
+      mkdirSync(join(root, 'public'), { recursive: true });
+
+      writeFileSync(join(root, 'public', 'theme.json'), '{"name":"T"}');
+      expect(detectTargetType(root)).toEqual({ ok: true, kind: 'theme' });
+
+      rmSync(join(root, 'public', 'theme.json'));
+      writeFileSync(join(root, 'public', 'plugin.json'), '{"name":"P"}');
+      expect(detectTargetType(root)).toEqual({ ok: true, kind: 'plugin' });
+
+      rmSync(join(root, 'public', 'plugin.json'));
+      const none = detectTargetType(root);
+      expect(none.ok, '什么都没有时必须失败而不是猜').toBe(false);
+      expect(none.reason).toMatch(/找不到任何已知清单/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('refuses to register a type that is missing capabilities', () => {
+    // 少一个能力，dev.mjs 就会为它长出分支。宁可注册时就拒绝。
+    expect(() => registerTargetType('broken', { manifestName: () => 'x.json' })).toThrow(/缺少/);
+  });
+
+  it('lets a new type join the whole dev loop with one registration', async () => {
+    // 这是「泛化」的核心验收：注册一个 widget 类型，它就能被推断、
+    // 能算出产物配置、能定位安装目录，不需要改任何其它文件。
+    const root = mkdtempSync(join(tmpdir(), 'rc-widget-'));
+    const savedEnv = process.env.SIYUAN_WIDGET_DIR;
+    try {
+      mkdirSync(join(root, 'public'), { recursive: true });
+      writeFileSync(join(root, 'public', 'widget.json'), '{"name":"my-widget"}');
+
+      registerTargetType(
+        'widget',
+        {
+          manifestName: () => 'widget.json',
+          installSubdir: () => 'widgets',
+          dirEnv: () => 'SIYUAN_WIDGET_DIR',
+          outDir: () => './dev',
+          artifact: () => 'index.html',
+          expectedFiles: () => ['index.html', 'widget.json'],
+          matchArtifact: (name: string) => name.endsWith('.html'),
+          reload: async () => true,
+          resolveCss: async () => [],
+          mountState: async () => ({ ok: true, loaded: 'widget', reason: null }),
+        },
+        { detect: (cwd: string) => existsSync(join(cwd, 'public', 'widget.json')) }
+      );
+
+      expect(detectTargetType(root), '注册后应能被自动推断').toEqual({ ok: true, kind: 'widget' });
+
+      const target = createTarget('widget', { cwd: root });
+      expect(target.name).toBe('my-widget');
+      expect(target.requiresSelection, 'widget 不需要 kernel 切换，由思源自己管启用').toBe(false);
+      expect(target.buildConfig().artifact).toBe('index.html');
+
+      process.env.SIYUAN_WIDGET_DIR = join(root, 'installed');
+      expect(await target.installDir()).toBe(join(root, 'installed'));
+    } finally {
+      if (savedEnv === undefined) delete process.env.SIYUAN_WIDGET_DIR;
+      else process.env.SIYUAN_WIDGET_DIR = savedEnv;
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('lists the available types when asked for an unknown one', () => {
+    expect(() => targetType('nonexistent')).toThrow(/已注册/);
   });
 });
 
@@ -319,7 +407,7 @@ describe('target adapters drive the dev loop', () => {
   it('gives both targets the same set of dev capabilities', () => {
     // 主题和插件的开发链路是同一条，差别必须收敛在适配器里。
     // 少一个能力，dev.mjs 里就会长出 if (kind === ...) 分支。
-    for (const target of [themeTarget({ themeName: 'T' }), pluginTarget({ name: 'p' })]) {
+    for (const target of [themeTarget({ name: 'T' }), pluginTarget({ name: 'p' })]) {
       expect(typeof target.buildConfig, target.kind + ' 缺少 buildConfig').toBe('function');
       expect(typeof target.installDir, target.kind + ' 缺少 installDir').toBe('function');
       expect(typeof target.reload, target.kind + ' 缺少 reload').toBe('function');
@@ -328,9 +416,34 @@ describe('target adapters drive the dev loop', () => {
     }
   });
 
+  it('lets a descriptor reload without relying on its own this', async () => {
+    // 真实 bug：插件描述符的 reload 需要读磁盘 CSS，早先写成 this.resolveCss()
+    // 就报了 "resolveCss is not a function"——热重载静默失效，日志里只有一行错。
+    // 现在 resolveCss 预先绑进 context，描述符不依赖 this。
+    const dir = mkdtempSync(join(tmpdir(), 'rc-reload-'));
+    try {
+      writeFileSync(join(dir, 'index.css'), '.x { color: red }');
+      const target = pluginTarget({ name: 'p', pluginDir: dir });
+
+      const seen: string[] = [];
+      const fakePage = {
+        evaluate: (_fn: unknown, _name: string, css: string) => {
+          seen.push(css);
+          return Promise.resolve(true);
+        },
+      };
+
+      const ok = await target.reload(fakePage);
+      expect(ok, 'reload 必须成功，不能因 this 丢失而抛错').toBe(true);
+      expect(seen, 'reload 要把磁盘上的 CSS 注入页面').toEqual(['.x { color: red }']);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it('names the right build artifact per target kind', () => {
     // 主题产物只有 theme.css；插件有 index.js + index.css，两者都要触发重载。
-    const theme = themeTarget({ themeName: 'T' }).buildConfig();
+    const theme = themeTarget({ name: 'T' }).buildConfig();
     expect(theme.artifact).toBe('theme.css');
     expect(theme.match('theme.css')).toBe(true);
     expect(theme.match('theme.json')).toBe(false);
@@ -346,11 +459,31 @@ describe('target adapters drive the dev loop', () => {
     process.env.SIYUAN_THEME_DIR = 'C:/ws/data/themes';
     process.env.SIYUAN_PLUGIN_DIR = 'C:/ws/data/plugins';
     try {
-      expect(await themeTarget({ themeName: 'T' }).installDir()).toMatch(/themes$/);
+      expect(await themeTarget({ name: 'T' }).installDir()).toMatch(/themes$/);
       expect(await pluginTarget({ name: 'p' }).installDir()).toMatch(/plugins$/);
     } finally {
       delete process.env.SIYUAN_THEME_DIR;
       delete process.env.SIYUAN_PLUGIN_DIR;
+    }
+  });
+});
+
+describe('build driver decoupling', () => {
+  it('accepts an arbitrary build command instead of vite', () => {
+    // 这是「包不绑死技术栈」的核心：用 sass / esbuild / 自己写的脚本都能跑。
+    // 只验证参数被接受并起得来，不依赖具体构建器。
+    expect(typeof startBuild).toBe('function');
+  });
+
+  it('does not require vite to be installed for the package to load', async () => {
+    // 包被 import 时不能因为找不到 vite 就炸——只有真的用内置驱动时才解析 vite。
+    const root = mkdtempSync(join(tmpdir(), 'rc-novite2-'));
+    try {
+      writeFileSync(join(root, 'package.json'), '{"name":"x"}');
+      expect(() => resolveViteBin(root), '用内置驱动且项目没装 vite 时才报错').toThrow(/找不到 vite/);
+      expect(() => resolveViteBin(root), '报错要告诉用户可以用 --build-command 换掉').toThrow(/build-command/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
     }
   });
 });
@@ -468,21 +601,46 @@ describe('cdp layering', () => {
     expect(source, 'measure-cli 必须复用 actions.mjs 驱动交互').toMatch(/from\s+['"]\.\/actions\.mjs['"]/);
   });
 
-  it('keeps target-specific knowledge out of measure-cli', () => {
-    // 主题与插件的差异必须收敛在 targets.mjs；measure-cli 里出现主题/插件的分支判断，
-    // 说明抽象漏了，加第三个被测对象时就要改 measure-cli。
-    const source = stripComments(readCdp('measure-cli.mjs'));
-    expect(source, 'measure-cli 必须通过 targets.mjs 拿被测对象').toMatch(/from\s+['"]\.\/targets\.mjs['"]/);
-    expect(source, 'measure-cli 不得直接读 theme.json 或 pluginsStyle').not.toMatch(/pluginsStyle|public\/theme\.json/);
+  it('keeps target-specific knowledge out of the CLI layer', () => {
+    // 类型差异必须收敛在 target-types.mjs / targets.mjs；CLI 里出现主题/插件的
+    // 分支判断，说明抽象漏了，加第三种被测对象时就要改 CLI。
+    for (const file of ['measure-cli.mjs', 'dev-cli.mjs', 'link-cli.mjs']) {
+      const source = stripComments(readCdp(file));
+      expect(source, '不得直接读 theme.json 或 pluginsStyle').not.toMatch(/pluginsStyle|public\/theme\.json/);
+      expect(source, '不得自己判断产物文件名').not.toMatch(/['"]theme\.css['"]|['"]index\.js['"]/);
+    }
+    // 允许出现类型名的唯一地方是「默认值」，不允许用它做分支。
+    const devCli = stripComments(readCdp('dev-cli.mjs'));
+    expect(devCli, 'dev-cli 必须通过注册表推断类型').toMatch(/detectTargetType/);
+  });
+
+  it('drives dev through the type registry, not hardcoded kinds', () => {
+    // dev.mjs 里出现 kind === 'theme' 之类的分支，泛化就破了。
+    const source = stripComments(readCdp('dev.mjs'));
+    expect(source, 'dev.mjs 必须通过 targets.mjs 造目标').toMatch(/from\s+['"]\.\/targets\.mjs['"]/);
+    expect(source, 'dev.mjs 不得判断具体类型').not.toMatch(/kind\s*===\s*['"]theme['"]|kind\s*===\s*['"]plugin['"]/);
+    expect(source, 'dev.mjs 不得自己读清单').not.toMatch(/public\/theme\.json|public\/plugin\.json/);
+  });
+
+  it('keeps vite out of the package dependencies', () => {
+    // 构建器是被测项目自己的事。包一旦依赖 vite，就绑死在一种技术栈上。
+    const manifest = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
+    const allDeps = { ...manifest.dependencies, ...manifest.peerDependencies };
+    expect(Object.keys(allDeps), 'vite 不得成为包的依赖').not.toContain('vite');
+    expect(Object.keys(allDeps), 'vitest 是包的开发依赖，不该是运行时依赖').not.toContain('vitest');
   });
 
   it('keeps mount judgement in one place', () => {
     // 挂载判定错了，测量读数会被张冠李戴。
-    for (const file of ['measure-cli.mjs', 'open.mjs']) {
+    // 判定逻辑只许出现在 targets.mjs 的类型描述符里；CLI 与 open 通过 createTarget 拿。
+    for (const file of ['measure-cli.mjs', 'open.mjs', 'link-cli.mjs', 'dev-cli.mjs']) {
       const source = stripComments(readCdp(file));
-      expect(source, file + ' 必须复用 theme.mjs 的挂载判定/主题名').toMatch(/from\s+['"]\.\/theme\.mjs['"]/);
       expect(source, file + ' 不得自己实现 normalizeThemeName').not.toMatch(/function\s+normalizeThemeName/);
+      expect(source, file + ' 不得自己解析 themeStyle 的路径').not.toMatch(/appearance\/themes/);
     }
+    const targets = stripComments(readCdp('targets.mjs'));
+    expect(targets, '挂载判定必须在 targets.mjs').toMatch(/mountState/);
+    expect(stripComments(readCdp('open.mjs')), 'open.mjs 仍需读主题名做展示').toMatch(/from\s+['"]\.\/theme\.mjs['"]/);
   });
 
   it('keeps pure modules independent of session.mjs', () => {

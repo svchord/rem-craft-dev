@@ -1,7 +1,7 @@
 {
   "name": "siyuan-devtools",
   "version": "0.1.0",
-  "description": "在真实思源前端里测量渲染事实、驱动交互、人工复审主题与插件",
+  "description": "思源主题/插件开发与审计工具：真实前端测量、交互驱动、构建链接热重载",
   "type": "module",
   "license": "MIT",
   "private": true,
@@ -14,6 +14,7 @@
     "./measure": "./src/measure.mjs",
     "./actions": "./src/actions.mjs",
     "./targets": "./src/targets.mjs",
+    "./target-types": "./src/target-types.mjs",
     "./color": "./src/color.mjs",
     "./theme": "./src/theme.mjs",
     "./theme-dev": "./src/theme-dev.mjs",
@@ -26,24 +27,20 @@
     "./dev": "./src/dev.mjs"
   },
   "bin": {
+    "siyuan-devtools": "./bin/cli.mjs",
+    "siyuan-dev": "./bin/dev.mjs",
+    "siyuan-link": "./bin/link.mjs",
     "siyuan-measure": "./bin/measure.mjs",
     "siyuan-open": "./bin/open.mjs",
-    "siyuan-watch": "./bin/watch.mjs",
-    "siyuan-dev": "./bin/dev.mjs",
-    "siyuan-link": "./bin/link.mjs"
+    "siyuan-watch": "./bin/watch.mjs"
   },
   "scripts": {
     "test": "vitest run"
   },
+  "dependencies": {
+    "puppeteer-core": "^25.16.0"
+  },
   "devDependencies": {
     "vitest": "^5.0.5"
-  },
-  "peerDependencies": {
-    "puppeteer-core": ">=25"
-  },
-  "peerDependenciesMeta": {
-    "puppeteer-core": {
-      "optional": false
-    }
   }
 }

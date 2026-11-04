@@ -1,47 +1,83 @@
 /**
- * 被测目标适配器：把「主题」和「插件」的差异收敛到一个接口后面。
+ * 被测目标适配器：把「主题」「插件」以及未来其它类型的差异收敛到一个接口后面。
  *
- * 主题与插件在思源里是两套东西，但**开发链路是同一条**：
+ * 思源里这些东西的开发链路是同一条：
  *
- *   构建到 dev/  →  链接到 <workspace>/data/<themes|plugins>/<name>  →  让思源重新加载
+ *   构建到 dev/  →  链接到 <workspace>/data/<subdir>/<name>  →  让思源重新加载
  *
- * 差别只有四处，全部由这里吸收：
+ * 差别只在四处，全部由**类型描述符**吸收（见 target-types.mjs）：
  *   1. 产物叫什么        主题 theme.css；插件 index.js + index.css
- *   2. 清单叫什么        主题 public/theme.json；插件 public/plugin.json
+ *   2. 清单叫什么        主题 theme.json；插件 plugin.json
  *   3. 装到哪个目录      data/themes；data/plugins
- *   4. 怎么重载          主题换 #themeStyle 的 href；插件只能整页刷新或重注入 CSS
+ *   4. 怎么重载          主题换 #themeStyle 的 href；插件只能重注入 CSS 或整页刷新
  *
- * 所以适配器对外提供同一组能力：
- *   resolveCss()       → [{ label, text }]     要审计的 CSS 文本（都读磁盘）
- *   mountState(page)   → { ok, loaded, reason } 确认被测对象确实加载了
- *   buildConfig()      → { outDir, artifact }   构建看护用的参数
- *   installDir()       → string                 链接目标目录
- *   reload(page)       → boolean                让页面用上新产物
+ * 本文件提供两个东西：
+ *   - 内置类型的描述符（theme / plugin），在模块加载时注册进注册表
+ *   - `createTarget(kind, options)`：把描述符 + 具体参数组合成一个可用的 target 对象
  *
- * 插件额外的「面板打开后才有 DOM」用 activate(page) 表达，只对需要真实 DOM 的
- * 断言有用；纯 CSS 审计不需要它。
+ * 加第三种类型（widget / iconset / 自定义）时只需要 registerTargetType()，
+ * 不用改 dev.mjs、不用改 CLI——这条约束由测试钉住。
  */
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { findWorkspaceDir } from './siyuan.mjs';
+import { registerTargetType, targetType } from './target-types.mjs';
 import { reloadPluginCss, reloadThemeCss } from './theme-dev.mjs';
 import { resolveInstallDir } from './workspace.mjs';
 
 const readText = (file) => readFileSync(file, 'utf8');
 
-/**
- * 主题适配器。
- *
- * CSS 读磁盘产物：它就是思源真正加载的那份，也是生产交付的那份。
- * 路径由调用方给（本仓约定是 dev/ 优先、回退 dist/，但不写死在包里）。
- */
-export function themeTarget({ cssPath, cssPaths, themeName } = {}) {
-  const candidates = cssPaths ?? (cssPath ? [cssPath] : ['./dev/theme.css', './dist/theme.css']);
-  return {
-    kind: 'theme',
-    name: themeName ?? 'theme',
+/** 项目目录下某个清单文件是否存在（detect 用）。 */
+const hasManifest = (cwd, manifest) =>
+  existsSync(join(cwd, 'public', manifest)) || existsSync(join(cwd, 'dist', manifest));
 
-    async resolveCss() {
+/**
+ * 从清单读名字。
+ *
+ * 主题和插件的清单都有 name 字段，缺了就没法定位安装目录，
+ * 所以这里返回 null 而不是猜一个默认值。
+ */
+export function readManifestName(cwd, manifest) {
+  for (const file of [join(cwd, 'public', manifest), join(cwd, 'dist', manifest)]) {
+    if (!existsSync(file)) continue;
+    try {
+      const name = JSON.parse(readFileSync(file, 'utf8')).name;
+      if (name) return String(name).trim();
+    } catch {
+      // 继续下一个候选
+    }
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// 内置类型：主题
+// ---------------------------------------------------------------------------
+
+registerTargetType(
+  'theme',
+  {
+    // 主题必须经 kernel API 让思源真正选中它，否则预览的是宿主主题，
+    // 量到的级联（尤其 --b3-* 的取值）与生产不一致。
+    requiresSelection: true,
+
+    manifestName: () => 'theme.json',
+    installSubdir: () => 'themes',
+    dirEnv: () => 'SIYUAN_THEME_DIR',
+    outDir: () => './dev',
+    artifact: () => 'theme.css',
+    expectedFiles: () => ['theme.css', 'theme.json'],
+    matchArtifact: (name) => name.endsWith('theme.css'),
+
+    /** 主题换 #themeStyle 的 href 即可，级联位置不变。 */
+    reload: (page) => reloadThemeCss(page),
+
+    /**
+     * CSS 读磁盘产物：它就是思源真正加载的那份，也是生产交付的那份。
+     * 路径由调用方给（本仓约定 dev/ 优先、回退 dist/，但不写死在包里）。
+     */
+    async resolveCss({ cssPath, cssPaths } = {}) {
+      const candidates = cssPaths ?? (cssPath ? [cssPath] : ['./dev/theme.css', './dist/theme.css']);
       for (const candidate of candidates) {
         try {
           return [{ label: candidate, text: await readText(candidate) }];
@@ -63,60 +99,58 @@ export function themeTarget({ cssPath, cssPaths, themeName } = {}) {
       }
       return { ok: true, loaded: decodeURIComponent(segment), reason: null };
     },
+  },
+  { detect: (cwd) => hasManifest(cwd, 'theme.json') }
+);
 
-    /** 构建产物：只有一个 theme.css。 */
-    buildConfig() {
-      return {
-        outDir: './dev',
-        artifact: 'theme.css',
-        expectedFiles: ['theme.css', 'theme.json'],
-        match: (name) => name.endsWith('theme.css'),
-      };
+// ---------------------------------------------------------------------------
+// 内置类型：插件
+// ---------------------------------------------------------------------------
+
+registerTargetType(
+  'plugin',
+  {
+    manifestName: () => 'plugin.json',
+    installSubdir: () => 'plugins',
+    dirEnv: () => 'SIYUAN_PLUGIN_DIR',
+    outDir: () => './dev',
+    artifact: () => 'index.js',
+    expectedFiles: () => ['index.js', 'plugin.json'],
+    matchArtifact: (name) => name.endsWith('index.js') || name.endsWith('index.css'),
+
+    /**
+     * 插件重载只能重注入 CSS。
+     *
+     * 查过内核：没有 `/api/plugin/*` 写接口（实测 404），`reloadPlugin` 是
+     * WebSocket 推送的分支，HTTP 侧触发不了。但插件 CSS 是内联在
+     * `<style id="pluginsStyle<name>">` 里的（实测磁盘 index.css 与 textContent
+     * 逐字节相同），所以直接换 textContent 就能让新样式立即生效。
+     *
+     * 注意：只对 CSS 有效。index.js 变了必须整页刷新，那一步由 dev.mjs 负责。
+     */
+    async reload(page, { name, resolveCss }) {
+      // resolveCss 由 createTarget 绑好放进 context——描述符不依赖 this，
+      // 这样它被单独取出调用（如测试里直接 descriptor.reload）也不会炸。
+      const sheets = await resolveCss();
+      if (!sheets.length) return false;
+      return reloadPluginCss(page, name, sheets[0].text);
     },
 
-    installDir(options) {
-      return resolveInstallDir({ kind: 'theme', ...options });
-    },
-
-    /** 主题换 #themeStyle 的 href 即可，级联位置不变。 */
-    reload(page) {
-      return reloadThemeCss(page);
-    },
-  };
-}
-
-/**
- * 插件适配器。
- *
- * CSS 读磁盘 `index.css`，与主题读 `dev/theme.css` 对称。实测磁盘文件与思源
- * 注入的 `<style id="pluginsStyle<name>">` **逐字节相同**（arco-calendar
- * 275334 字符、siyuan-plugin-publisher 492618 字符），所以没有理由绕道从页面读：
- *   - 读磁盘不依赖插件是否已加载，审计可以在插件出问题时照常跑
- *   - 不需要先把插件点开，纯 CSS 断言不受 UI 状态影响
- *
- * 插件目录按思源约定推导：`<workspace>/data/plugins/<name>/`，工作区从
- * workspace.json 读。也可以用 pluginDir 显式指定（插件源码在别处、或做 CI 时）。
- *
- * 无 index.css 的插件（如 Calendar-heatmap）返回空数组，退化成只做 DOM 断言。
- */
-export function pluginTarget({ name, pluginDir = null } = {}) {
-  if (!name) throw new Error('pluginTarget 需要插件名（plugin.json 的 name）');
-
-  return {
-    kind: 'plugin',
-    name,
-
-    /** 插件 CSS 的候选路径，按优先级排。找不到不是错误（有的插件只有 index.js）。 */
-    cssCandidates() {
+    /**
+     * CSS 读磁盘 `index.css`，与主题读 `dev/theme.css` 对称。实测磁盘文件与
+     * 思源注入的 `<style id="pluginsStyle<name>">` **逐字节相同**
+     * （arco-calendar 275334 字符、siyuan-plugin-publisher 492618 字符）。
+     *
+     * 好处：不依赖插件是否已加载，插件出问题时审计照常跑；不需要先把插件点开。
+     * 无 index.css 的插件（如 Calendar-heatmap）返回空数组，退化成只做 DOM 断言。
+     */
+    async resolveCss({ name, pluginDir = null } = {}) {
       const workspace = process.env.SIYUAN_WORKSPACE || findWorkspaceDir();
-      return [
+      const candidates = [
         pluginDir ? join(pluginDir, 'index.css') : null,
         workspace ? join(workspace, 'data', 'plugins', name, 'index.css') : null,
       ].filter(Boolean);
-    },
 
-    async resolveCss() {
-      const candidates = this.cssCandidates();
       for (const candidate of candidates) {
         try {
           return [{ label: candidate, text: await readText(candidate) }];
@@ -124,11 +158,10 @@ export function pluginTarget({ name, pluginDir = null } = {}) {
           // 试下一个
         }
       }
-      // 没有 index.css 不算失败：部分插件只有 index.js，退化成 DOM 断言。
       return [];
     },
 
-    async mountState(page) {
+    async mountState(page, { name }) {
       // 插件是否在运行：有 CSS 的插件会被思源注入 style 标签。
       // 没有该标签不算失败——可能是无 CSS 插件，也可能是插件没启用，
       // 后者会让 DOM 断言失败，比在这里硬判更准确。
@@ -146,35 +179,93 @@ export function pluginTarget({ name, pluginDir = null } = {}) {
         reason: state.hasStyle ? null : '插件没有注入样式表，只做 DOM 断言',
       };
     },
+  },
+  { detect: (cwd) => hasManifest(cwd, 'plugin.json') }
+);
 
-    /** 构建产物：插件有 js 和 css 两份，任一变化都要重载。 */
-    buildConfig() {
-      return {
-        outDir: './dev',
-        artifact: 'index.js',
-        expectedFiles: ['index.js', 'plugin.json'],
-        match: (name) => name.endsWith('index.js') || name.endsWith('index.css'),
-      };
-    },
+// ---------------------------------------------------------------------------
+// 组合成 target 对象
+// ---------------------------------------------------------------------------
 
-    installDir(options) {
-      return resolveInstallDir({ kind: 'plugin', ...options });
-    },
+/**
+ * 造一个被测目标。
+ *
+ * @param kind     已注册的类型名
+ * @param options.name      名字；缺省从清单读
+ * @param options.cwd       项目目录（读清单用）
+ * @param options.cssPath   显式指定 CSS 路径（主题）
+ * @param options.pluginDir 显式指定插件目录
+ * @param options.workspace 显式工作区（解析安装目录用）
+ */
+export function createTarget(kind, { name = null, cwd = process.cwd(), ...rest } = {}) {
+  const descriptor = targetType(kind);
+  const resolvedName = name ?? readManifestName(cwd, descriptor.manifestName());
+  if (!resolvedName) {
+    throw new Error(
+      '读不到' +
+        kind +
+        '的名字：确认 ' +
+        join(cwd, 'public', descriptor.manifestName()) +
+        ' 里有 name 字段，或用 --name 指定'
+    );
+  }
 
-    /**
-     * 插件重载只能重注入 CSS。
-     *
-     * 查过内核：没有 `/api/plugin/*` 写接口（实测 404），`reloadPlugin` 是
-     * WebSocket 推送的分支，HTTP 侧触发不了。所以产物变了之后：
-     *   - CSS 可以直接换 <style> 的 textContent，页面立即生效
-     *   - JS 必须整页刷新（换 style 不会重新执行 index.js）
-     *
-     * 这里只做 CSS 重注入；JS 变化时调用方应当 page.reload()。
-     */
-    async reload(page) {
-      const sheets = await this.resolveCss();
-      if (!sheets.length) return false;
-      return reloadPluginCss(page, name, sheets[0].text);
-    },
+  // context 里预先绑好 resolveCss：描述符内部（比如插件的 reload）需要读磁盘
+  // 产物时直接用它，不必回调 target 的方法，也就不会出现 this 绑不上的问题。
+  const resolveCss = () => descriptor.resolveCss(context);
+  const context = { ...rest, cwd, name: resolvedName, resolveCss };
+
+  const target = {
+    kind,
+    name: resolvedName,
+
+    /** 开发前是否必须经 kernel API 让思源选中它（只有主题是）。 */
+    requiresSelection: Boolean(descriptor.requiresSelection),
+
+    /** 供审计读取的 CSS 文本（都来自磁盘）。 */
+    resolveCss,
+
+    /** 确认被测对象确实加载了。 */
+    mountState: (page) => descriptor.mountState(page, context),
+
+    /** 构建看护用的参数。 */
+    buildConfig: () => ({
+      outDir: descriptor.outDir(context),
+      artifact: descriptor.artifact(context),
+      expectedFiles: descriptor.expectedFiles(context),
+      match: (filename) => descriptor.matchArtifact(filename, context),
+    }),
+
+    /** 链接目标目录：<workspace>/data/<subdir>。 */
+    installDir: (options) =>
+      resolveInstallDir({
+        kind,
+        subdir: descriptor.installSubdir(context),
+        dirEnv: descriptor.dirEnv(context),
+        ...options,
+      }),
+
+    /** 让页面用上新产物。 */
+    reload: (page) => descriptor.reload(page, context),
   };
+
+  // activate 只有部分类型需要（面板打开后才有 DOM 的那种），有就挂上。
+  if (typeof descriptor.activate === 'function') {
+    target.activate = (page) => descriptor.activate(page, context);
+  }
+
+  return target;
+}
+
+/**
+ * 主题目标。保留这个名字是因为它比 createTarget('theme') 读起来清楚，
+ * 且已有调用方（measure-cli、测试）在用。
+ */
+export function themeTarget(options = {}) {
+  return createTarget('theme', options);
+}
+
+/** 插件目标。理由同上。 */
+export function pluginTarget(options = {}) {
+  return createTarget('plugin', options);
 }

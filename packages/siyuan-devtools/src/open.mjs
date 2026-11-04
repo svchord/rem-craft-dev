@@ -35,15 +35,35 @@ import { readThemeName } from './theme.mjs';
 
 const PREFIX = '[open] ';
 const SHOT_DIR = './shots';
-const args = process.argv.slice(2);
 
-const frontendArg = args.indexOf('--frontend');
-const wanted = frontendArg >= 0 ? [args[frontendArg + 1]] : ['desktop', 'mobile'];
-const shot = args.includes('--shot');
-const attach = args.includes('--attach');
-const headless = args.includes('--headless');
-const stateArg = args.indexOf('--state');
-const state = stateArg >= 0 ? args[stateArg + 1] : null;
+const USAGE = [
+  '用法：siyuan-devtools open [选项]',
+  '',
+  '  --frontend desktop|mobile  只开某一个前端（缺省两个都开）',
+  '  --shot                     截图到 ./shots/（自动无头）',
+  '  --state dark|light|compact 打开时切到某状态',
+  '  --attach                   复用正在跑的 dev 浏览器',
+  '  --headless                 无头模式',
+].join('\n');
+
+/** 解析参数。惰性执行——模块顶层解析会在被 import 时拿错 argv。 */
+function parseArgs() {
+  const args = process.argv.slice(2);
+  if (args.includes('--help') || args.includes('-h')) {
+    console.log(USAGE);
+    process.exit(0);
+  }
+
+  const frontendArg = args.indexOf('--frontend');
+  const stateArg = args.indexOf('--state');
+  return {
+    wanted: frontendArg >= 0 ? [args[frontendArg + 1]] : ['desktop', 'mobile'],
+    shot: args.includes('--shot'),
+    attach: args.includes('--attach'),
+    headless: args.includes('--headless'),
+    state: stateArg >= 0 ? args[stateArg + 1] : null,
+  };
+}
 
 let browser = null;
 let attached = false;
@@ -93,7 +113,7 @@ async function applyState(page, value) {
  * `bringToFront` 只在可见模式调用：无头模式没有前台概念，调用它反而会打乱
  * 截图时序（实测在无头下 bringToFront + 两页共存时 captureScreenshot 超时）。
  */
-async function openFrontend(port, frontend, { visible }) {
+async function openFrontend(port, frontend, { visible, state = null }) {
   const marker = 'stage/build/' + frontend;
   const existing = (await browser.pages()).find((p) => p.url().includes(marker));
   let page = existing;
@@ -145,6 +165,8 @@ async function openFrontend(port, frontend, { visible }) {
 }
 
 async function main() {
+  const { wanted, shot, attach, headless, state } = parseArgs();
+
   // 截图必须无头：可见模式下非前台标签页被 Chrome 暂停渲染，截图会永久挂起。
   if (shot && !headless && !attach) {
     console.log(PREFIX + '提示：--shot 会自动使用无头模式（可见窗口里非前台标签页会被暂停渲染，截图挂起）');
@@ -190,7 +212,7 @@ async function main() {
       console.log(PREFIX + '警告：跳过未知前端 ' + frontend + '（可用：desktop / mobile）');
       continue;
     }
-    pages.push({ frontend, page: await openFrontend(port, frontend, { visible: !useHeadless }) });
+    pages.push({ frontend, page: await openFrontend(port, frontend, { visible: !useHeadless, state }) });
   }
 
   if (shot) {
@@ -218,7 +240,7 @@ async function main() {
 }
 
 /** 供 bin/ 调用；不在模块顶层自动执行，便于被 import。 */
-export async function runCli() {
+export async function runOpenCli() {
   try {
     await main();
   } catch (error) {

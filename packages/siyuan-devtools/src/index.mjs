@@ -12,25 +12,30 @@
  *            actions.mjs   驱动交互（真实指针才能驱动 :hover）
  *            color.mjs     对比度计算（纯函数）
  *            lints.mjs     CSS 文本静态检查
- *   目标层   targets.mjs   主题与插件的差异（产物名、清单名、安装目录、重载方式）
- *            workspace.mjs 工作区与 data/themes|plugins 解析
- *            link.mjs      dev/ 链接到安装目录（symlink / junction）
+ *   目标层   target-types.mjs 被测类型的契约与注册表（可扩展）
+ *            targets.mjs   内置类型（theme / plugin）的描述符 + createTarget
+ *            workspace.mjs 工作区与安装目录解析
+ *            link.mjs      产物目录链接到安装目录
  *            theme.mjs     主题身份与挂载判定
  *            theme-dev.mjs 切换主题、重载主题/插件 CSS
- *   开发层   build.mjs     起 vite build --watch，监听产物
+ *   开发层   build.mjs     起构建进程（默认 vite，可换），监听产物
  *            dev.mjs       构建→链接→加载→热重载的完整循环
  *
- * 入口层   measure-cli.mjs / open.mjs / watch.mjs / dev-cli.mjs / link-cli.mjs
+ * 入口层   cli.mjs 统一命令，各 *-cli.mjs 为独立命令
+ *
+ * 典型用法（命令行，不用写脚本）：
+ *
+ *   npx siyuan-devtools dev              # 类型从 public/ 清单自动推断
+ *   npx siyuan-devtools measure tokens --rc-brand-8 --attach
  *
  * 典型用法（编程方式）：
  *
- *   import { createSession, tokens, elementStyles, contrastRatio } from 'siyuan-devtools';
+ *   import { createSession, tokens, contrastRatio } from 'siyuan-devtools';
  *
  *   const session = await createSession({ frontend: 'desktop' });
  *   try {
  *     const values = await tokens(session.page, ['--rc-text-primary', '--rc-bg-page']);
  *     const ratio = contrastRatio(values['--rc-text-primary'], values['--rc-bg-page']);
- *     const styles = await elementStyles(session.page, '.b3-menu__item', ['display', 'gap']);
  *   } finally {
  *     await session.dispose();
  *   }
@@ -38,7 +43,8 @@
 export { createSession, parseViewport, viewportFor } from './session.mjs';
 export { tokens, elementStyles, selectorCounts, elementBox, probeHtml, diffAfter, environment } from './measure.mjs';
 export { runActions, snapshotRoot, ACTIONS } from './actions.mjs';
-export { themeTarget, pluginTarget } from './targets.mjs';
+export { createTarget, pluginTarget, themeTarget, readManifestName } from './targets.mjs';
+export { detectTargetType, registerTargetType, targetType, targetTypes } from './target-types.mjs';
 export { parseColor, luminance, contrastRatio } from './color.mjs';
 export { findDoubleWrappedColors, findProblemsIn } from './lints.mjs';
 export { judgeMount, readThemeName } from './theme.mjs';

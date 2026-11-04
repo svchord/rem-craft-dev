@@ -627,8 +627,34 @@ describe('vite plugin shape', () => {
 
   it('lets the plugin be disabled for production builds', () => {
     const plugins = siyuanVitePlugin({ enabled: false });
-    expect(plugins.length).toBe(1);
+    expect(plugins.length).toBe(2); // dev + assets
     expect(plugins[0]?.apply).toBe('build');
+  });
+
+  it('accepts an explicit target instead of guessing from the manifest', () => {
+    // 自动推断靠 public/ 下有没有清单；清单还没创建、或同项目多种清单时，
+    // 调用方应该能直接指定，而不是被推断逻辑卡住。
+    const auto = siyuanVitePlugin();
+    const explicit = siyuanVitePlugin({ target: 'plugin' });
+    expect(auto.map((plugin) => plugin.name)).toEqual(explicit.map((plugin) => plugin.name));
+    // 旧名 kind 仍可用（兼容），target 优先。
+    const legacy = siyuanVitePlugin({ kind: 'theme' });
+    expect(legacy.map((plugin) => plugin.name)).toEqual(auto.map((plugin) => plugin.name));
+  });
+
+  it('bundles the asset contract so public/ changes rebuild the project', () => {
+    // Vite 只在启动时复制 publicDir，之后不监听它——改 theme.json 不会触发重建。
+    // 这个职责原本在项目里靠手写 watch-external 与 vite-plugin-static-copy 完成，
+    // 现在由包统一负责。
+    const plugins = siyuanVitePlugin();
+    const assets = plugins.find((plugin) => plugin.name === 'vite-plugin-siyuan:assets');
+    expect(assets, '必须带资产插件').toBeTruthy();
+    expect(typeof assets?.buildStart, '必须 addWatchFile 监听 public/').toBe('function');
+    expect(typeof assets?.writeBundle, '必须搬运清单声明的元数据文件').toBe('function');
+
+    // 可关闭：调用方自己接管时不该被强制。
+    const bare = siyuanVitePlugin({ assets: false });
+    expect(bare.some((plugin) => plugin.name === 'vite-plugin-siyuan:assets')).toBe(false);
   });
 
   it('keeps both dev shapes sharing one session layer', () => {
@@ -667,6 +693,7 @@ describe('cdp layering', () => {
     'dev-session.ts',
     'dev.ts',
     'plugin.ts',
+    'assets.ts',
     'cli-args.ts',
     ...cliFiles,
   ];

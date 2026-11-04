@@ -98,3 +98,5 @@ export type { ControlServer, DevSessionInfo, DiscoverResult } from './control-se
 // 插件形态
 export { default as siyuan } from './plugin.ts';
 export type { SiYuanPluginOptions } from './plugin.ts';
+export { default as siyuanAssets } from './assets.ts';
+export type { AssetsPluginOptions } from './assets.ts';

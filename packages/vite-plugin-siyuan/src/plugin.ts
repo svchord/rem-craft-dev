@@ -34,6 +34,7 @@
  *   插件    宿主 vite 跑构建，本插件在 writeBundle 里喂变更给会话
  */
 import type { Plugin } from 'vite';
+import siyuanAssets from './assets.ts';
 import { startDevSession } from './dev-session.ts';
 import type { DevSession } from './dev-session.ts';
 import { detectTargetType } from './target-types.ts';
@@ -47,7 +48,21 @@ const NAME = 'vite-plugin-siyuan';
 
 /** 插件选项。 */
 export interface SiYuanPluginOptions {
-  /** 被测类型；缺省从 public/ 清单推断。 */
+  /**
+   * 被测类型，显式指定时跳过自动推断。
+   *
+   *   'theme'   主题项目
+   *   'plugin'  插件项目
+   *
+   * 缺省从 `public/` 下的清单推断（theme.json → theme，plugin.json → plugin）。
+   * 显式指定的意义：自动推断靠清单存在与否，同一项目里若有多个清单、
+   * 或清单还没创建时不猜。
+   */
+  target?: string | null;
+  /**
+   * 同上，旧名。两者等价，`target` 优先。
+   * @deprecated 用 `target`
+   */
   kind?: string | null;
   /** 显式指定名字；缺省从清单读。 */
   name?: string | null;
@@ -61,16 +76,26 @@ export interface SiYuanPluginOptions {
   frontend?: Frontend;
   /** 整体开关，便于在生产构建里关掉。 */
   enabled?: boolean;
+  /**
+   * 是否附带产物资产插件（搬运 README/icon 等 + 监听 public/）。
+   *
+   * 缺省 true。关掉它意味着你自己处理 `public/` 变更监听——
+   * 注意 Vite 不监听 publicDir，改清单不会触发重建。
+   */
+  assets?: boolean;
+  /** 清单路径，缺省按类型取 `public/theme.json` 或 `public/plugin.json`。 */
+  manifestPath?: string | null;
 }
 
 /**
- * 智源开发插件。
+ * 思源开发插件。
  *
- * 返回数组（和 vite-plugin-electron 一致）：将来要加 `:prod` 之类的插件时，
- * 不用改调用方的写法。
+ * 返回数组（和 vite-plugin-electron 一致）：一个负责热重载，一个负责产物资产。
+ * 将来要加 `:prod` 之类的插件时，不用改调用方的写法。
  */
 export default function siyuanDev(options: SiYuanPluginOptions = {}): Plugin[] {
   const {
+    target = null,
     kind = null,
     name = null,
     outDir = null,
@@ -78,7 +103,12 @@ export default function siyuanDev(options: SiYuanPluginOptions = {}): Plugin[] {
     headless = false,
     frontend = 'desktop',
     enabled = true,
+    assets = true,
+    manifestPath = null,
   } = options;
+
+  /** `target` 是新名，`kind` 是旧名。 */
+  const requestedKind = target ?? kind;
 
   let session: DevSession | null = null;
   let starting: Promise<DevSession> | null = null;
@@ -94,12 +124,14 @@ export default function siyuanDev(options: SiYuanPluginOptions = {}): Plugin[] {
     if (starting) return starting;
 
     starting = (async () => {
-      let resolvedKind = kind;
+      let resolvedKind = requestedKind;
       if (!resolvedKind) {
         const detected = detectTargetType(root);
         if (!detected.ok) throw new Error(detected.reason);
         resolvedKind = detected.kind;
-        log(`类型：${resolvedKind}（从清单推断）`);
+        log(`类型：${resolvedKind}（从清单推断；可用 target 显式指定）`);
+      } else {
+        log(`类型：${resolvedKind}（入参指定）`);
       }
 
       const created = await startDevSession({
@@ -172,5 +204,16 @@ export default function siyuanDev(options: SiYuanPluginOptions = {}): Plugin[] {
         }
       },
     },
+
+    // 产物资产：监听 public/（Vite 不监听 publicDir）+ 搬运清单声明的元数据文件。
+    // 默认带上——没有它，改 theme.json 不会触发重建，这让「改清单不生效」很难查。
+    ...(assets
+      ? [
+          siyuanAssets({
+            cwd: root,
+            manifestPath: manifestPath ?? `public/${requestedKind === 'plugin' ? 'plugin.json' : 'theme.json'}`,
+          }),
+        ]
+      : []),
   ];
 }

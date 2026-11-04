@@ -60,4 +60,5 @@ export { startDev } from './dev.js';
 export { discover, endpointFiles, startControlServer, CONTROL_DIR } from './control-server.js';
 // 插件形态
 export { default as siyuan } from './plugin.js';
+export { default as siyuanAssets } from './assets.js';
 //# sourceMappingURL=index.js.map

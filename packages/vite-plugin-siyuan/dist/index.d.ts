@@ -73,4 +73,6 @@ export { discover, endpointFiles, startControlServer, CONTROL_DIR } from './cont
 export type { ControlServer, DevSessionInfo, DiscoverResult } from './control-server.ts';
 export { default as siyuan } from './plugin.ts';
 export type { SiYuanPluginOptions } from './plugin.ts';
+export { default as siyuanAssets } from './assets.ts';
+export type { AssetsPluginOptions } from './assets.ts';
 //# sourceMappingURL=index.d.ts.map

@@ -21,6 +21,24 @@ export default defineConfig({
 });
 ```
 
+### 选项
+
+```ts
+siyuan({
+  target: 'theme', // 'theme' | 'plugin'，缺省从 public/ 清单推断
+  name: 'My Theme', // 缺省从清单读
+  outDir: './dev', // 缺省按类型取
+  link: true, // 是否链接到 <workspace>/data/<subdir>/
+  headless: false, // 浏览器是否无头
+  frontend: 'desktop', // 'desktop' | 'mobile'
+  assets: true, // 是否带产物资产插件（见下）
+  enabled: isWatch, // 全局开关，生产构建时关掉
+});
+```
+
+**`target` 与自动推断**：缺省看 `public/` 下有 `theme.json` 还是 `plugin.json`。
+清单还没创建、或两者并存时，显式传 `target` 更可靠。
+
 然后照常跑：
 
 ```bash
@@ -34,6 +52,19 @@ vite build --watch
 > 编译（实测不产生任何磁盘文件）。插件 JS 更严格：思源用
 > `window.eval("(function anonymous(require, module, exports){…})")` 执行，
 > 需要 CJS 单文件，dev server 给的是 ESM 模块图。所以必须落盘。
+
+### 产物资产（自动带上）
+
+`siyuan()` 默认返回两个插件：热重载 + 产物资产。后者解决两件项目里容易漏的事：
+
+1. **监听 `public/`**。Vite 只在启动时复制 `publicDir`，之后**不再监听**它。
+   实测：`build --watch` 下改 `public/theme.json`，构建次数不变，`dev/theme.json`
+   仍是旧内容。所以改清单（版本号、`frontends`）不重启就永远不生效。
+2. **搬运清单声明的元数据文件**。从 `theme.json` / `plugin.json` 的
+   `readme` / `icon` / `preview` 字段推导要复制哪些文件到产物。
+
+有了它，项目里不再需要 `vite-plugin-static-copy` 和手写的 `watch-external`。
+要自己接管就传 `assets: false`。
 
 ### 2. CLI
 

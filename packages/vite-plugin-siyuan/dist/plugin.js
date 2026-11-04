@@ -1,3 +1,4 @@
+import siyuanAssets from './assets.js';
 import { startDevSession } from './dev-session.js';
 import { detectTargetType } from './target-types.js';
 // 静态 import：内置类型是在 targets.ts 求值时注册进注册表的。
@@ -6,13 +7,15 @@ import './targets.js';
 /** 插件名，用于日志前缀。 */
 const NAME = 'vite-plugin-siyuan';
 /**
- * 智源开发插件。
+ * 思源开发插件。
  *
- * 返回数组（和 vite-plugin-electron 一致）：将来要加 `:prod` 之类的插件时，
- * 不用改调用方的写法。
+ * 返回数组（和 vite-plugin-electron 一致）：一个负责热重载，一个负责产物资产。
+ * 将来要加 `:prod` 之类的插件时，不用改调用方的写法。
  */
 export default function siyuanDev(options = {}) {
-    const { kind = null, name = null, outDir = null, link = true, headless = false, frontend = 'desktop', enabled = true, } = options;
+    const { target = null, kind = null, name = null, outDir = null, link = true, headless = false, frontend = 'desktop', enabled = true, assets = true, manifestPath = null, } = options;
+    /** `target` 是新名，`kind` 是旧名。 */
+    const requestedKind = target ?? kind;
     let session = null;
     let starting = null;
     /** 第一次构建不是「变更」：只启动会话，不触发重载。 */
@@ -26,13 +29,16 @@ export default function siyuanDev(options = {}) {
         if (starting)
             return starting;
         starting = (async () => {
-            let resolvedKind = kind;
+            let resolvedKind = requestedKind;
             if (!resolvedKind) {
                 const detected = detectTargetType(root);
                 if (!detected.ok)
                     throw new Error(detected.reason);
                 resolvedKind = detected.kind;
-                log(`类型：${resolvedKind}（从清单推断）`);
+                log(`类型：${resolvedKind}（从清单推断；可用 target 显式指定）`);
+            }
+            else {
+                log(`类型：${resolvedKind}（入参指定）`);
             }
             const created = await startDevSession({
                 kind: resolvedKind,
@@ -102,6 +108,16 @@ export default function siyuanDev(options = {}) {
                 }
             },
         },
+        // 产物资产：监听 public/（Vite 不监听 publicDir）+ 搬运清单声明的元数据文件。
+        // 默认带上——没有它，改 theme.json 不会触发重建，这让「改清单不生效」很难查。
+        ...(assets
+            ? [
+                siyuanAssets({
+                    cwd: root,
+                    manifestPath: manifestPath ?? `public/${requestedKind === 'plugin' ? 'plugin.json' : 'theme.json'}`,
+                }),
+            ]
+            : []),
     ];
 }
 //# sourceMappingURL=plugin.js.map

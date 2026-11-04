@@ -80,7 +80,7 @@ const KNOWN_FLAGS = new Set([
   '--props',
   '--limit',
 ]);
-const BOOLEAN_FLAGS = new Set(['--attach', '--json']);
+const BOOLEAN_FLAGS = new Set(['--attach', '--json', '--help', '-h']);
 
 function parseArgs(argv) {
   const values = {};
@@ -137,8 +137,11 @@ async function main() {
   const { values, positional } = parseArgs(argv.slice(1));
   const args = positional;
 
-  if (!command || command === 'help') {
+  // --help 必须只打印用法、不执行动作。否则 `measure env --help` 会真的去开浏览器量一遍。
+  const wantsHelp = !command || command === 'help' || command === '--help' || command === '-h' || values['--help'];
+  if (wantsHelp) {
     usage();
+    // 完全没给子命令算用法错误（退出码 2）；显式问帮助算成功。
     process.exit(command ? 0 : 2);
   }
 

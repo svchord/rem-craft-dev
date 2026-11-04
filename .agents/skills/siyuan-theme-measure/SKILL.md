@@ -1,45 +1,90 @@
 ---
 name: siyuan-theme-measure
-description: 用 siyuan-devtools 包的通用测量工具，在真实思源前端里读取主题/插件的渲染事实并驱动交互。当需要「某个选择器渲染成什么样」「令牌解析出什么值」「桌面端/移动端尺寸」「交互前后变化」「改完样式对不对」时使用。工具只给原语，查什么由你决定。不要为此新写脚本。
+description: 用 siyuan-devtools 在真实思源前端里读取主题/插件的渲染事实、驱动交互、开发热重载。当需要「某个选择器渲染成什么样」「令牌解析出什么值」「桌面端/移动端尺寸」「交互前后变化」「改完样式对不对」「起一个带热重载的开发环境」时使用。工具只给原语，查什么由你决定。不要为此新写脚本。
 ---
 
-# 思源主题/插件测量
+# 思源主题/插件开发与测量
 
-回答「渲染出来到底是什么样」时用这套工具，**不要新写脚本**。
+两件事都在这套工具里：**开发热重载**（`dev`）和**渲染审计**（`measure`）。
 
-工具只提供**测量原语**，不预设该查什么。查哪些令牌、量哪些选择器、什么值算对，
-全部由你在命令行上组合。
+工具只提供**事实与原语**，不预设该查什么、什么算对。查哪些令牌、量哪些选择器、
+改完是否合格，全部由你根据设计意图判断。
 
 ## 前置条件
 
-1. **思源必须在运行**（靠 `port.json` 的 PID→端口映射找 kernel；找不到会提示设 `SIYUAN_PORT`）。
+1. **思源必须在运行**（靠 `port.json` 的 PID→端口映射找 kernel；可用 `SIYUAN_PORT` 覆盖）。
 2. 需要 Chrome 或 Edge（自动按候选路径查找，可用 `CHROME_PATH` 覆盖）。
-3. 测量主题需产物 `./dev/theme.css`；测量插件读 `<workspace>/data/plugins/<name>/index.css`。
+3. **不需要**预先构建产物：`measure` 量的是思源当前真实渲染的页面，
+   不读磁盘 CSS。`dev` 才会构建。
 
 ## 命令
 
+命令名是 `siyuan-devtools`（也提供等价的 `siyuan-dev` / `siyuan-measure` / `siyuan-open` / `siyuan-watch` / `siyuan-link`）。
+在父项目里可用 `pnpm dev` / `pnpm measure` / `pnpm open:theme` / `pnpm watch:theme` 这些别名。
+
 | 用途               | 命令                                 |
 | ------------------ | ------------------------------------ |
-| 改样式自动热更新   | `siyuan-devtools dev`                |
+| 开发：构建+热重载  | `siyuan-devtools dev`                |
 | 通用测量           | `siyuan-devtools measure <子命令>`   |
 | 改完重跑你的命令   | `siyuan-devtools watch --exec "..."` |
 | 人工复审（看页面） | `siyuan-devtools open`               |
+| 只建/查链接        | `siyuan-devtools link [--check]`     |
 
-## measure：通用测量原语（也可用独立命令 siyuan-measure）
+`dev` 会**自动推断被测类型**（看 `public/` 下有 `theme.json` 还是 `plugin.json`），
+不需要写任何配置或脚本。要显式指定用 `--kind theme|plugin`。
 
-| 子命令     | 能力                      | 例子                                                                           |
-| ---------- | ------------------------- | ------------------------------------------------------------------------------ |
-| `env`      | 页面环境                  | `siyuan-devtools measure env`                                                  |
-| `tokens`   | 令牌计算值                | `siyuan-devtools measure tokens --rc-text-primary --rc-bg-page`                |
-| `styles`   | 元素计算样式              | `siyuan-devtools measure styles .b3-menu__item --props color,background-color` |
-| `count`    | 选择器命中数（总数/可见） | `siyuan-devtools measure count .b3-menu__item .dock__item`                     |
-| `box`      | 盒模型尺寸                | `siyuan-devtools measure box .dock__item --frontend mobile`                    |
-| `probe`    | 插入 HTML 再量            | `siyuan-devtools measure probe '<div class="x">' .x`                           |
-| `diff`     | 动作前后差异              | 见下                                                                           |
-| `contrast` | 两色对比度                | `siyuan-devtools measure contrast --rc-text-placeholder --rc-bg-page`          |
+### dev 的热重载粒度
+
+| 产物             | 怎么重载                          | 页面刷新吗 |
+| ---------------- | --------------------------------- | ---------- |
+| 主题 `theme.css` | 换 `#themeStyle` 的 href          | 否         |
+| 插件 `index.css` | 换 `#pluginsStyle<name>` 的文本   | 否         |
+| 插件 `index.js`  | kernel 禁用→启用，让思源重新 eval | 否         |
+
+插件 JS 是 `window.eval` 执行的、带副作用，换样式撤销不了，必须让思源重建实例；
+这条走 `/api/petal/setPetalEnabled`，约 0.5s。三条都不会整页刷新，不打断编辑。
+
+**不要同时开 `rollup-plugin-livereload`**：它对任何改动整页刷新，会和上面冲突。
+`dev` 检测到会警告。
+
+## measure：通用测量原语
+
+| 子命令     | 能力                      | 例子                                                                        |
+| ---------- | ------------------------- | --------------------------------------------------------------------------- |
+| `env`      | 页面环境 + 挂载状态       | `siyuan-devtools measure env`                                               |
+| `tokens`   | 令牌计算值                | `siyuan-devtools measure tokens --rc-text-primary --rc-bg-page`             |
+| `styles`   | 元素计算样式              | `siyuan-devtools measure styles .b3-menu__item --props color,border-radius` |
+| `count`    | 选择器命中数（总数/可见） | `siyuan-devtools measure count .b3-menu__item .dock__item`                  |
+| `box`      | 盒模型尺寸                | `siyuan-devtools measure box .dock__item --frontend mobile`                 |
+| `probe`    | 插入 HTML 再量            | `siyuan-devtools measure probe '<div class="x">' .x`                        |
+| `diff`     | 动作前后差异              | 见下                                                                        |
+| `contrast` | 两色对比度                | `siyuan-devtools measure contrast --rc-text-placeholder --rc-bg-page`       |
 
 通用选项：`--frontend desktop|mobile`、`--viewport 390x844@3`、`--props a,b,c`、
-`--do <action>`、`--setup <action>`、`--css <path>`、`--plugin <name>`、`--attach`、`--json`。
+`--do <action>`、`--setup <action>`、`--kind theme|plugin`、`--css <path>`、
+`--plugin <name>`、`--attach`、`--json`。`--help` 只打印用法、不执行动作。
+
+### `--attach`：量你眼前那个窗口
+
+```bash
+siyuan-devtools dev                    # 终端 A：起开发会话（持有浏览器）
+siyuan-devtools measure tokens --attach  # 终端 B：量同一个页面
+```
+
+`--attach` 会连到正在跑的 `dev` 会话（本地控制服务发现，跨项目也能连）。
+**连不上时会静默新开一个无头浏览器**，量到的是另一个页面。如果读数可疑，
+先跑 `measure env` 看 `themeStyle` 是不是你期望的主题。
+
+### 挂载事实
+
+`--json` 输出里带 `mount` 字段，文本模式只在未挂载时提醒：
+
+```json
+"mount": { "ok": true, "loaded": "Rem Craft Dev", "reason": null }
+```
+
+`mount.ok=false` 表示页面里没有你的主题/插件——此时量到的所有值都是**宿主**的，
+不是你的。这不是工具坏了，是量错了对象。
 
 ### 交互：`--do` / `--setup` / `diff`
 
@@ -55,8 +100,8 @@ siyuan-devtools measure diff .b3-menu__item \
 siyuan-devtools measure count .b3-menu__item --do contextmenu:.b3-list-item --do wait:600
 ```
 
-可用动作（`packages/siyuan-devtools/src/actions.mjs`）：`click` / `hover` / `press` / `focus` / `type` /
-`move` / `wait` / `contextmenu` / `dock` / `attr` / `reset`。
+可用动作（`packages/siyuan-devtools/src/actions.mjs`）：`click` / `hover` / `press` /
+`focus` / `type` / `move` / `wait` / `contextmenu` / `dock` / `attr` / `reset`。
 
 ## 实测要点（都是踩过的坑）
 
@@ -69,16 +114,20 @@ siyuan-devtools measure count .b3-menu__item --do contextmenu:.b3-list-item --do
 | `position:fixed` 元素 `offsetParent` 恒为 null      | 不能用它判可见性；思源菜单就是这样（可见但 offsetParent=null） |
 | 移动端无 hover                                      | 交互类测量在移动端无意义                                       |
 | `data-ui-density` 会被运行时还原（约 1s）           | 密度变体要在设置后立刻量                                       |
+| 主题异步挂载，比壳子晚                              | 启动后立刻量可能读到宿主值，稍等或用 `mount` 确认              |
 
 ## 典型用法：判断改完是否符合预期
 
 工具不给结论，只给事实。判断由你根据设计意图做。
 
 ```bash
+# 0) 先确认量的是自己的主题/插件
+siyuan-devtools measure env --json          # 看 mount.ok 和 themeStyle
+
 # 1) 令牌有没有断链
 siyuan-devtools measure tokens --rc-text-primary --rc-text-placeholder --b3-theme-background
 
-# 2) 对比度够不够（WCAG AA 正文要 4.5:1，大字/图形 3:1）
+# 2) 对比度够不够（WCAG AA 正文 4.5:1，大字/图形 3:1）
 siyuan-devtools measure contrast --rc-text-placeholder --rc-bg-page
 #   → 2.42:1  ← 低于 3:1，是否接受按设计意图判断
 
@@ -97,18 +146,20 @@ siyuan-devtools measure box .dock__item --frontend mobile --limit 6
 
 ## 常见误读
 
-| 现象                           | 含义                                                                |
-| ------------------------------ | ------------------------------------------------------------------- |
-| `tokens` 全为空                | 宿主跑的不是本主题（`measure env` 看 themeStyle）。**不是工具坏了** |
-| `box` 返回空                   | 选择器不适用于该前端（移动端结构不同），不是工具坏了                |
-| `diff` 报「无变化」            | 元素没有该状态的样式声明，或被更高特异性规则覆盖                    |
-| `count` 总数>0 但可见=0        | 元素在 DOM 里但被隐藏（display/visibility/opacity）                 |
-| 移动端不加载主题               | `theme.json` 缺 `frontends`，或改了没重启内核                       |
-| 报 `rgb(var(--b3-*))` 双重包装 | `--b3-*` 已是完整色值，再包 `rgb()` 整条声明会被静默丢弃            |
+| 现象                           | 含义                                                                    |
+| ------------------------------ | ----------------------------------------------------------------------- |
+| `tokens` 全为空                | 宿主跑的不是你的主题（`measure env` 看 mount/themeStyle）。不是工具坏了 |
+| `box` 返回空                   | 选择器不适用于该前端（移动端结构不同），不是工具坏了                    |
+| `diff` 报「无变化」            | 元素没有该状态的样式声明，或被更高特异性规则覆盖                        |
+| `count` 总数>0 但可见=0        | 元素在 DOM 里但被隐藏（display/visibility/opacity）                     |
+| 移动端不加载主题               | `theme.json` 缺 `frontends`，或改了没重启内核                           |
+| 报 `rgb(var(--b3-*))` 双重包装 | `--b3-*` 已是完整色值，再包 `rgb()` 整条声明会被静默丢弃                |
+| 插件改了 JS 但页面没变         | 确认 `dev` 在跑；JS 重载走 kernel，约 0.5s，不是即时                    |
 
 ## 使用要点
 
-1. **不要为一次测量新写脚本**。用 `measure` 的子命令组合，或 `--json` 读结构化数据。
+1. **不要为一次测量新写脚本**。用 `measure` 子命令组合，或 `--json` 读结构化数据。
 2. 工具不给「对不对」的结论——它给事实，判断按设计意图做。
 3. 没有真实输出就不要声称「样式已生效」，贴命令的真实结果。
 4. 改 `theme.json` 后必须重启思源内核，否则移动端判定不生效。
+5. 量之前先确认 `mount`——量错对象的结论比没有结论更糟。

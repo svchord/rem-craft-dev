@@ -22,16 +22,16 @@ const readText = (file) => readFileSync(file, 'utf8');
 /**
  * 主题适配器。
  *
- * CSS 读磁盘产物（dev/ 优先，回退 dist/）：它就是思源真正加载的那份，也是
- * 生产交付的那份，审计它才有意义。
+ * CSS 读磁盘产物：它就是思源真正加载的那份，也是生产交付的那份。
+ * 路径由调用方给（本仓约定是 dev/ 优先、回退 dist/，但不写死在包里）。
  */
-export function themeTarget({ cssPath, themeName } = {}) {
+export function themeTarget({ cssPath, cssPaths, themeName } = {}) {
+  const candidates = cssPaths ?? (cssPath ? [cssPath] : ['./dev/theme.css', './dist/theme.css']);
   return {
     kind: 'theme',
     name: themeName ?? 'theme',
 
     async resolveCss() {
-      const candidates = cssPath ? [cssPath] : ['./dev/theme.css', './dist/theme.css'];
       for (const candidate of candidates) {
         try {
           return [{ label: candidate, text: await readText(candidate) }];
@@ -39,7 +39,7 @@ export function themeTarget({ cssPath, themeName } = {}) {
           // 试下一个
         }
       }
-      throw new Error('找不到 theme.css：先运行 pnpm dev 或 pnpm build');
+      throw new Error('找不到主题 CSS：试过 ' + candidates.join('、'));
     },
 
     async mountState(page) {

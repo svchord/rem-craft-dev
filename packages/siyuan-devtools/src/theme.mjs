@@ -4,13 +4,23 @@
  * 回答两个问题：
  *   1. 本主题叫什么（目录名与 manifest 的 name 一致）
  *   2. 页面上跑的是不是本主题
+ *
+ * 不预设任何具体主题名——manifest 路径与兜底名都由调用方给。
  */
 import { readFileSync } from 'node:fs';
 
-const FALLBACK_THEME_NAME = 'Rem Craft';
-
-export function readThemeName() {
-  for (const file of ['./public/theme.json', './dist/theme.json']) {
+/**
+ * 读主题名：从 manifest 的 name 字段取。
+ *
+ * 缺省按「当前工作目录下 public/theme.json → dist/theme.json」找，这对任何
+ * 思源主题项目都成立，不算预设某个具体主题。要改就用参数覆盖。
+ *
+ * @param manifestPaths 候选清单路径，按顺序试
+ * @param fallback      都读不到时的兜底值（缺省 null，表示「不知道」）
+ */
+export function readThemeName(manifestPaths, fallback = null) {
+  const candidates = manifestPaths ?? ['./public/theme.json', './dist/theme.json'];
+  for (const file of candidates) {
     try {
       const name = JSON.parse(readFileSync(file, 'utf8')).name;
       if (name) return String(name).trim();
@@ -18,17 +28,19 @@ export function readThemeName() {
       // 继续下一个候选
     }
   }
-  return FALLBACK_THEME_NAME;
+  return fallback;
 }
 
 /** 目录名与 manifest 的 name 一致；比较时忽略大小写与空格/连字符的写法差异。 */
 const normalizeThemeName = (name) => name.toLowerCase().replace(/[\s_-]+/g, '');
 
 /**
- * 判断页面挂的是不是本主题。
+ * 判断页面挂的是不是指定主题。
  *
- * 允许前缀匹配：装了发布版 `Rem Craft` 而本地目录叫 `Rem Craft Dev` 时仍是本主题，
- * 但要把「测的不是 dev 目录」讲清楚，否则回归结论会被张冠李戴。
+ * 允许前缀匹配：装了发布版 `X` 而本地目录叫 `X Dev` 时仍是同一个主题，
+ * 但要把「测的不是 dev 目录」讲清楚，否则结论会被张冠李戴。
+ *
+ * themeName 为空时只判断「有没有挂自定义主题」，不比对具体名字。
  */
 export function judgeMount(href, themeName) {
   if (!href) {
@@ -41,6 +53,12 @@ export function judgeMount(href, themeName) {
   }
 
   const loaded = decodeURIComponent(segment);
+
+  // 没给期望名时只报「加载了谁」，不判对错。
+  if (!themeName) {
+    return { ok: true, exact: false, loaded, reason: null };
+  }
+
   const expected = normalizeThemeName(themeName);
   const actual = normalizeThemeName(loaded);
   const exact = actual === expected;

@@ -20,16 +20,16 @@
  *   --do <action>               驱动交互（可重复，见 actions.mjs）
  *   --css <path>                被测 CSS（缺省 dev/theme.css，回退 dist/）
  *   --plugin <name>             被测插件（读 index.css）
- *   --attach                    复用 pnpm dev 的浏览器
+ *   --attach                    复用 pnpm dev / siyuan-open --attach 的浏览器
  *   --json                      结构化输出
  *   --props a,b,c               要读的样式属性
  *
  * 例子（agent 按任务临时组合，不需要改工具）：
- *   pnpm measure tokens --rc-text-primary --rc-bg-page
- *   pnpm measure styles .b3-menu__item --props color,background-color
- *   pnpm measure diff .b3-menu__item --do contextmenu:.b3-list-item --do hover:.b3-menu__item
- *   pnpm measure box .dock__item --frontend mobile
- *   pnpm measure count .b3-menu__item .dock__item --do click:.dock__item[data-type=file]
+ *   siyuan-measure tokens --rc-text-primary --rc-bg-page
+ *   siyuan-measure styles .b3-menu__item --props color,background-color
+ *   siyuan-measure diff .b3-menu__item --do contextmenu:.b3-list-item --do hover:.b3-menu__item
+ *   siyuan-measure box .dock__item --frontend mobile
+ *   siyuan-measure count .b3-menu__item .dock__item --do click:.dock__item[data-type=file]
  *
  * 退出码：成功 0，参数/运行错误 2。
  */
@@ -105,7 +105,7 @@ const list = (values, name) => (values['--' + name] ?? []).filter((v) => v !== t
 function usage() {
   console.error(
     [
-      '用法：pnpm measure <子命令> [参数] [选项]',
+      '用法：siyuan-measure <子命令> [参数] [选项]',
       '',
       '  env                              页面环境',
       '  tokens <name...>                 令牌计算值',
@@ -369,9 +369,12 @@ async function main() {
   }
 }
 
-try {
-  await main();
-} catch (error) {
-  console.error(PREFIX + (error instanceof Error ? error.message : String(error)));
-  process.exit(2);
+/** 供 bin/ 与测试调用；不在模块顶层自动执行，便于被 import。 */
+export async function runCli() {
+  try {
+    await main();
+  } catch (error) {
+    console.error(PREFIX + (error instanceof Error ? error.message : String(error)));
+    process.exit(2);
+  }
 }

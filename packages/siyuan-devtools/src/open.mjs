@@ -213,9 +213,12 @@ async function main() {
   await new Promise(() => {});
 }
 
-try {
-  await main();
-} catch (error) {
-  console.error(PREFIX + (error instanceof Error ? error.message : String(error)));
-  await shutdown(2);
+/** 供 bin/ 调用；不在模块顶层自动执行，便于被 import。 */
+export async function runCli() {
+  try {
+    await main();
+  } catch (error) {
+    console.error(PREFIX + (error instanceof Error ? error.message : String(error)));
+    await shutdown(2);
+  }
 }

@@ -1,0 +1,35 @@
+{
+  "name": "siyuan-devtools",
+  "version": "0.1.0",
+  "description": "在真实思源前端里测量渲染事实、驱动交互、人工复审主题与插件",
+  "type": "module",
+  "license": "MIT",
+  "private": true,
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "exports": {
+    ".": "./src/index.mjs",
+    "./session": "./src/session.mjs",
+    "./measure": "./src/measure.mjs",
+    "./actions": "./src/actions.mjs",
+    "./targets": "./src/targets.mjs",
+    "./color": "./src/color.mjs",
+    "./theme": "./src/theme.mjs",
+    "./siyuan": "./src/siyuan.mjs",
+    "./lints": "./src/lints.mjs"
+  },
+  "bin": {
+    "siyuan-measure": "./bin/measure.mjs",
+    "siyuan-open": "./bin/open.mjs",
+    "siyuan-watch": "./bin/watch.mjs"
+  },
+  "peerDependencies": {
+    "puppeteer-core": ">=25"
+  },
+  "peerDependenciesMeta": {
+    "puppeteer-core": {
+      "optional": false
+    }
+  }
+}

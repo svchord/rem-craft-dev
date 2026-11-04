@@ -17,15 +17,16 @@
     "clean": "node ./scripts/clean.js",
     "type-check": "tsc --build --force",
     "test": "vitest run",
-    "lint": "oxlint --deny-warnings src scripts",
+    "lint": "oxlint --deny-warnings src scripts packages",
     "format": "oxfmt .",
     "format:check": "oxfmt --check .",
     "make-link": "node --no-warnings ./scripts/make_dev_link.js",
-    "measure": "node ./scripts/cdp/measure-cli.mjs",
-    "watch:theme": "node ./scripts/cdp/watch.mjs",
-    "open:theme": "node ./scripts/cdp/open.mjs"
+    "measure": "node ./packages/siyuan-devtools/bin/measure.mjs",
+    "watch:theme": "node ./packages/siyuan-devtools/bin/watch.mjs --dir src/styles",
+    "open:theme": "node ./packages/siyuan-devtools/bin/open.mjs"
   },
   "devDependencies": {
+    "siyuan-devtools": "workspace:*",
     "@semantic-release/changelog": "^7.0.0",
     "@semantic-release/commit-analyzer": "^13.0.1",
     "@semantic-release/exec": "^7.1.0",

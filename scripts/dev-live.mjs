@@ -25,8 +25,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawn } from 'node:child_process';
 import puppeteer from 'puppeteer-core';
-import { findChrome, findKernelPort, frontendUrl } from './cdp/siyuan.mjs';
-import { readThemeName } from './cdp/theme.mjs';
+import { findChrome, findKernelPort, frontendUrl, readThemeName } from 'siyuan-devtools';
 
 const BUILD_DIR = './dev';
 const CSS_FILE = join(BUILD_DIR, 'theme.css');

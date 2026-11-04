@@ -1,6 +1,6 @@
 ---
 name: siyuan-theme-measure
-description: 用 scripts/cdp 的通用测量工具，在真实思源前端里读取主题/插件的渲染事实并驱动交互。当需要「某个选择器渲染成什么样」「令牌解析出什么值」「桌面端/移动端尺寸」「交互前后变化」「改完样式对不对」时使用。工具只给原语，查什么由你决定。不要为此新写脚本。
+description: 用 siyuan-devtools 包的通用测量工具，在真实思源前端里读取主题/插件的渲染事实并驱动交互。当需要「某个选择器渲染成什么样」「令牌解析出什么值」「桌面端/移动端尺寸」「交互前后变化」「改完样式对不对」时使用。工具只给原语，查什么由你决定。不要为此新写脚本。
 ---
 
 # 思源主题/插件测量
@@ -25,7 +25,7 @@ description: 用 scripts/cdp 的通用测量工具，在真实思源前端里读
 | 改完重跑你的命令   | `pnpm watch:theme --exec "..."` |
 | 人工复审（看页面） | `pnpm open:theme`               |
 
-## pnpm measure：通用测量原语
+## pnpm measure：通用测量原语（= siyuan-measure CLI）
 
 | 子命令     | 能力                      | 例子                                                                |
 | ---------- | ------------------------- | ------------------------------------------------------------------- |
@@ -55,7 +55,7 @@ pnpm measure diff .b3-menu__item \
 pnpm measure count .b3-menu__item --do contextmenu:.b3-list-item --do wait:600
 ```
 
-可用动作（`scripts/cdp/actions.mjs`）：`click` / `hover` / `press` / `focus` / `type` /
+可用动作（`packages/siyuan-devtools/src/actions.mjs`）：`click` / `hover` / `press` / `focus` / `type` /
 `move` / `wait` / `contextmenu` / `dock` / `attr` / `reset`。
 
 ## 实测要点（都是踩过的坑）

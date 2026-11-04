@@ -786,6 +786,15 @@ pnpm build
 | `pnpm measure`     | **通用测量原语**：env/tokens/styles/count/box/probe/diff/contrast |
 | `pnpm open:theme`  | 人工复审：打开桌面 + 移动端页面（可截图），自己看效果             |
 
+#### 测量工具是独立包
+
+这三个命令都来自 `packages/siyuan-devtools`（workspace 包，`devDependencies` 里
+用 `workspace:*` 引用）。它不依赖本主题的任何东西，复制到别的思源主题/插件项目里
+能直接用——包内的 `readThemeName` 从 `public/theme.json` 读，`themeTarget` 的 CSS
+路径可配置，插件目录从 `workspace.json` 推导。
+
+包的公开 API 与 CLI 见 `packages/siyuan-devtools/README.md`。
+
 #### 工具只提供能力，不预设「该查什么」
 
 这是本工具最重要的设计约定。工具不知道你的主题有哪些组件、哪些颜色该配在一起、
@@ -826,7 +835,7 @@ pnpm measure diff .b3-menu__item --setup contextmenu:.b3-list-item \
 #### 主题与插件共用同一套测量
 
 主题和插件在思源里是两套东西，但**测量方法相同**：在真实页面上量计算样式。
-差异只在两处，收敛在 `scripts/cdp/targets.mjs`：
+差异只在两处，收敛在 `packages/siyuan-devtools/src/targets.mjs`：
 
 | 维度       | 主题                                   | 插件                                            |
 | ---------- | -------------------------------------- | ----------------------------------------------- |
@@ -883,7 +892,7 @@ pnpm measure diff .b3-menu__item --setup contextmenu:.b3-list-item \
 }
 ```
 
-可用动作（`scripts/cdp/actions.mjs`）：`click` / `hover` / `press` / `focus` / `type` /
+可用动作（`packages/siyuan-devtools/src/actions.mjs`）：`click` / `hover` / `press` / `focus` / `type` /
 `move` / `wait` / `contextmenu` / `dock` / `attr` / `reset`。
 
 实测确认的四个事实：

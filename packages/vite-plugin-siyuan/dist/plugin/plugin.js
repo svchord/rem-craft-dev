@@ -33,8 +33,9 @@
  *   CLI     dev.ts 自己 spawn vite build --watch
  *   插件    宿主 vite 跑构建，本插件在 writeBundle 里喂变更给会话
  */
-import { resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import siyuanAssets from './assets.js';
+import { siyuanPost } from './post.js';
 import { startDevSession } from '../dev/dev-session.js';
 import { createTarget } from '../core/targets.js';
 import { detectTargetType } from '../core/target-types.js';
@@ -50,7 +51,7 @@ const NAME = 'vite-plugin-siyuan';
  * 将来要加 `:prod` 之类的插件时，不用改调用方的写法。
  */
 export default function siyuanDev(options = {}) {
-    const { target = null, kind = null, name = null, entry = null, outDir = null, link = true, headless = false, frontend = 'desktop', enabled = true, assets = true, manifestPath = null, } = options;
+    const { target = null, kind = null, name = null, entry = null, outDir = null, link = true, headless = false, frontend = 'desktop', verify = true, pack = false, assets = true, manifestPath = null, } = options;
     /** `target` 是新名，`kind` 是旧名。 */
     const requestedKind = target ?? kind;
     let session = null;
@@ -58,6 +59,14 @@ export default function siyuanDev(options = {}) {
     /** 第一次构建不是「变更」：只启动会话，不触发重载。 */
     let firstBundle = true;
     let root = process.cwd();
+    /**
+     * 开发还是生产。由 `build.watch` 判断，不额外传参。
+     *
+     * 实测五种写法都能拿到：`--watch`、`-w`、config 里 `watch:{}`、
+     * `watch:true`、都不写。Vite 自己已经把命令行归一化进 build.watch，
+     * 项目再传一个 `isWatch` 只是重复同一件事，还多一个可能不一致的输入。
+     */
+    let dev = false;
     const log = (message) => console.log(`[${NAME}] ${message}`);
     /**
      * 在 `config()` 阶段解析构建配置片段。
@@ -169,13 +178,17 @@ export default function siyuanDev(options = {}) {
             },
             configResolved(resolved) {
                 root = resolved.root;
-                // 只在「本该 watch 却没 watch」时提示；生产构建不需要热重载，别制造噪音。
-                if (enabled && !resolved.build.watch) {
-                    log('提示：当前不是 watch 模式，热重载不会生效。开发请用 `vite build --watch`。');
+                // 开发/生产由 `build.watch` 判断，不额外传参——实测五种写法
+                // （--watch / -w / config 里 watch:{} / watch:true / 都不写）都能拿到。
+                dev = Boolean(resolved.build.watch);
+                if (!dev) {
+                    log('生产构建：不启动热重载会话，会校验产物。开发请用 `vite build --watch`。');
                 }
             },
             async writeBundle(_options, bundle) {
-                if (!enabled)
+                // 生产构建没有浏览器、也不需要热重载——但校验和打包由 :post 插件负责，
+                // 它们不看 dev，所以 CI 里仍然会跑。
+                if (!dev)
                     return;
                 const files = Object.keys(bundle);
                 // 第一次构建不是「变更」：此时会话可能还没起来，启动它即可，
@@ -220,6 +233,40 @@ export default function siyuanDev(options = {}) {
                 }),
             ]
             : []),
+        // 收尾：校验产物 + 打包。用 enforce: 'post' 确保在所有产物写完之后跑，
+        // 且校验失败时不打包。它不看 dev——两个环境都校验，只是失败处理不同。
+        siyuanPost({
+            cwd: root,
+            get outDir() {
+                return resolve(root, outDir ?? (dev ? './dev' : './dist'));
+            },
+            verify,
+            pack: resolvePack(pack, root),
+            resolveTarget: () => {
+                let kind = requestedKind;
+                if (!kind) {
+                    const detected = detectTargetType(root);
+                    if (!detected.ok)
+                        return null;
+                    kind = detected.kind;
+                }
+                try {
+                    return createTarget(kind, { name, cwd: root });
+                }
+                catch {
+                    return null;
+                }
+            },
+            log,
+        }),
     ];
+}
+/** 把 `pack` 选项归一成绝对路径配置。 */
+function resolvePack(pack, root) {
+    if (!pack)
+        return null;
+    if (pack === true)
+        return { outFile: join(root, 'package.zip') };
+    return { ...pack, outFile: pack.outFile.startsWith(root) ? pack.outFile : join(root, pack.outFile) };
 }
 //# sourceMappingURL=plugin.js.map

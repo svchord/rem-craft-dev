@@ -128,6 +128,28 @@ export interface TargetBuildSpecOptions {
   entry?: string | null;
 }
 
+/** 校验时收到的事实。 */
+export interface VerifyContext {
+  /** 项目根目录。 */
+  readonly root: string;
+  /** 产物目录里的所有文件名（不含子目录）。 */
+  readonly files: string[];
+  /** 读产物目录里的文件内容；不存在返回 null。 */
+  readOutput(file: string): string | null;
+  /** 读清单（已解析）；读不到返回 null。 */
+  readonly manifest: Record<string, unknown> | null;
+  /** package.json（已解析）；读不到返回 null。 */
+  readonly packageJson: Record<string, unknown> | null;
+}
+
+/** 一条校验问题。 */
+export interface VerifyIssue {
+  /** 一句话说明哪里错了。 */
+  message: string;
+  /** 建议怎么改（可选）。 */
+  hint?: string;
+}
+
 export interface TargetDescriptor {
   /** 清单文件名，如 'theme.json'。 */
   manifestName(): string;
@@ -159,6 +181,30 @@ export interface TargetDescriptor {
    * 让每个项目自己写，写错就是静默失效——思源找不到文件不会报错。
    */
   buildSpec?(context: BuildContext, options: TargetBuildSpecOptions): TargetBuildSpec;
+
+  /**
+   * 类型特有的清单校验（可选）。
+   *
+   * 通用规则（版本一致、必需字段存在、semver、i18n 的 default 项）在
+   * core/verify.ts 里做，这里只放各类型**独有**的部分：
+   *   主题  必须有 modes 且只有 light/dark
+   *   插件  必须有 minAppVersion 且是 semver、必须有 public/i18n/{en,zh-CN}.json
+   *
+   * 为什么收进包：这些规则来自思源的加载机制，写错了思源**静默忽略**——
+   * 主题不出现、移动端不加载、集市判为旧版。项目各写一份必然漂移。
+   */
+  verifyManifest?(context: VerifyContext): VerifyIssue[];
+
+  /**
+   * 产物校验（可选）。
+   *
+   * 通用部分（expectedFiles 齐不齐）在 core/verify.ts 里做，这里只放类型独有的：
+   *   主题  产物不允许任何 .js；CSS 里不允许 @layer（会被 base.css 压制）
+   *
+   * 不做「插件不允许 ESM 语法」这类检查：构建产物是 CJS 由 format 保证，
+   * 再拿正则扫一遍只会误报。
+   */
+  verifyArtifact?(context: VerifyContext): VerifyIssue[];
 
   /**
    * 让页面用上新产物。

@@ -1,4 +1,5 @@
 import type { Plugin } from 'vite';
+import type { PackOptions } from './post.ts';
 import type { Frontend } from '../core/siyuan.ts';
 import '../core/targets.ts';
 /** 插件选项。 */
@@ -44,8 +45,22 @@ export interface SiYuanPluginOptions {
     headless?: boolean;
     /** 打开哪个前端，缺省 desktop。 */
     frontend?: Frontend;
-    /** 整体开关，便于在生产构建里关掉。 */
-    enabled?: boolean;
+    /**
+     * 是否校验产物，缺省 true。
+     *
+     * 两种环境都校验，但失败处理不同：watch（开发）只警告，
+     * 非 watch（CI / 发布）中断构建——产物要发布，坏了代价更大。
+     */
+    verify?: boolean;
+    /**
+     * 是否打包为 zip，缺省 false。
+     *
+     * 只在非 watch（生产构建）时执行，且在**校验通过之后**——
+     * 不会把一个有问题的包发出去。
+     *
+     * 包名由项目给（`package.zip` 是发布约定，不是思源约定）。
+     */
+    pack?: boolean | PackOptions;
     /**
      * 是否附带产物资产插件（搬运 README/icon 等 + 监听 public/）。
      *

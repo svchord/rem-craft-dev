@@ -3,22 +3,23 @@ import { defineConfig } from 'vite';
 import UnoCSS from 'unocss/vite';
 
 import minimist from 'minimist';
-import zipPack from 'vite-plugin-zip-pack';
 import siyuan from 'vite-plugin-siyuan/plugin';
 
 const args = minimist(process.argv.slice(2));
 const isWatch = args.watch || args.w || false;
 
-// 产物目录、产物名（theme.css）、public/ 监听、README 搬运，全部由 siyuan() 注入。
-// 这里只剩「项目自己的事」：入口在哪、怎么压缩、要不要打 zip。
+// 产物目录、产物名（theme.css）、public/ 监听、README 搬运、产物校验、打 zip，
+// 全部由 siyuan() 负责。开发/生产由 build.watch 自动判断，不用传 isWatch。
+// 这里只剩「项目自己的偏好」：压缩、sourcemap、别名。
 
 export default defineConfig({
   publicDir: 'public',
   plugins: [
     UnoCSS(),
     siyuan({
-      enabled: isWatch,
       entry: 'src/styles/index.css',
+      // 非 watch 时打 package.zip（.releaserc.json 把它作为 release 资产）
+      pack: { outFile: 'package.zip' },
     }),
   ],
   resolve: {
@@ -29,9 +30,5 @@ export default defineConfig({
     sourcemap: false,
     minify: !isWatch,
     target: 'es2022',
-    // 生产构建打 package.zip。主题没有 JS，不需要 livereload。
-    rollupOptions: {
-      plugins: isWatch ? [] : [zipPack({ inDir: './dist', outDir: './', outFileName: 'package.zip' })],
-    },
   },
 });

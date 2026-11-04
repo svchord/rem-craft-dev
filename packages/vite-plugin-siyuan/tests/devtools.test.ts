@@ -1,7 +1,7 @@
 import { createServer } from 'node:http';
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { Page } from 'puppeteer-core';
 import { probeTokens } from '../src/core/probes.ts';
@@ -16,6 +16,8 @@ import siyuanVitePlugin from '../src/plugin/plugin.ts';
 import { resolveViteBin, startBuild } from '../src/dev/build.ts';
 import { planIsEmpty, validatePlan } from '../src/core/audit.ts';
 import { DEFAULT_CONFIG_NAME, loadConfig, mergePlan } from '../src/core/audit-config.ts';
+import { verifyTarget } from '../src/core/verify.ts';
+import { writeZip } from '../src/plugin/post.ts';
 
 const root = join(import.meta.dirname, '..');
 const cdpDir = join(root, 'src');
@@ -634,10 +636,27 @@ describe('vite plugin shape', () => {
     expect(typeof dev?.closeBundle).toBe('function');
   });
 
-  it('lets the plugin be disabled for production builds', () => {
-    const plugins = siyuanVitePlugin({ enabled: false });
-    expect(plugins.length).toBe(2); // dev + assets
+  it('does not need an enabled switch: build.watch decides dev vs production', () => {
+    // 实测五种写法（--watch / -w / config 里 watch:{} / watch:true / 都不写）
+    // 都能在 config() 与 configResolved() 里拿到一致的结果，
+    // 所以项目不需要再传一个 isWatch——多一个输入只多一处可能不一致的地方。
+    const source = stripComments(readCdp('plugin.ts'));
+    expect(source, '不得再有 enabled 参数').not.toMatch(/enabled\?:/);
+    expect(source, '必须用 build.watch 判断开发/生产').toMatch(/Boolean\(resolved\.build\.watch\)/);
+
+    const plugins = siyuanVitePlugin();
+    expect(plugins.length).toBe(3); // dev + assets + post
     expect(plugins[0]?.apply).toBe('build');
+  });
+
+  it('ships a post plugin so verify sees the complete output', () => {
+    // 校验必须等所有产物写完。实测 Vite 按 enforce 分三段执行 writeBundle
+    // （pre → 普通 → post），所以收尾插件必须是 post。
+    const plugins = siyuanVitePlugin();
+    const post = plugins.find((plugin) => plugin.name === 'vite-plugin-siyuan:post');
+    expect(post, '必须带收尾插件').toBeTruthy();
+    expect((post as { enforce?: string }).enforce, '必须是 post，否则读到半成品').toBe('post');
+    expect(typeof post?.writeBundle).toBe('function');
   });
 
   it('accepts an explicit target instead of guessing from the manifest', () => {
@@ -1044,5 +1063,153 @@ describe('audit config', () => {
     const merged = mergePlan({ tokens: ['--a'], counts: ['.x'] }, {});
     expect(merged.tokens).toEqual(['--a']);
     expect(merged.counts).toEqual(['.x']);
+  });
+});
+
+describe('artifact verification', () => {
+  /** 造一个临时项目目录。 */
+  function makeProject(files: Record<string, string>): string {
+    const dir = mkdtempSync(join(tmpdir(), 'verify-'));
+    for (const [rel, content] of Object.entries(files)) {
+      const full = join(dir, rel);
+      mkdirSync(dirname(full), { recursive: true });
+      writeFileSync(full, content);
+    }
+    return dir;
+  }
+
+  it('catches a version mismatch between manifest and package.json', () => {
+    // 后果不是报错，而是集市判为旧版、用户收不到更新——所以必须构建期拦住。
+    const dir = makeProject({
+      'package.json': JSON.stringify({ version: '3.0.1' }),
+      'public/theme.json': JSON.stringify({ name: 'T', author: 'a', url: 'u', version: '9.9.9', modes: ['light'] }),
+      'dist/theme.css': '.a{}',
+      'dist/theme.json': '{}',
+    });
+    try {
+      const result = verifyTarget(themeTarget({ name: 'T', cwd: dir }), { root: dir, outDir: join(dir, 'dist') });
+      expect(result.ok).toBe(false);
+      expect(result.issues.map((i) => i.message).join()).toMatch(/版本不一致/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('catches a theme shipping JavaScript', () => {
+    // 主题只交付 CSS；出现 .js 说明构建配置跑偏了。
+    const dir = makeProject({
+      'package.json': JSON.stringify({ version: '1.0.0' }),
+      'public/theme.json': JSON.stringify({ name: 'T', author: 'a', url: 'u', version: '1.0.0', modes: ['light'] }),
+      'dist/theme.css': '.a{}',
+      'dist/theme.json': '{}',
+      'dist/theme.js': 'console.log(1)',
+    });
+    try {
+      const result = verifyTarget(themeTarget({ name: 'T', cwd: dir }), { root: dir, outDir: join(dir, 'dist') });
+      expect(result.ok).toBe(false);
+      expect(result.issues.map((i) => i.message).join()).toMatch(/JavaScript/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('catches @layer in the theme CSS', () => {
+    // 思源 base.css 没用 @layer，主题规则带 @layer 会被压制，样式静默不生效。
+    const dir = makeProject({
+      'package.json': JSON.stringify({ version: '1.0.0' }),
+      'public/theme.json': JSON.stringify({ name: 'T', author: 'a', url: 'u', version: '1.0.0', modes: ['light'] }),
+      'dist/theme.css': '@layer base { .a { color: red } }',
+      'dist/theme.json': '{}',
+    });
+    try {
+      const result = verifyTarget(themeTarget({ name: 'T', cwd: dir }), { root: dir, outDir: join(dir, 'dist') });
+      expect(result.ok).toBe(false);
+      expect(result.issues.map((i) => i.message).join()).toMatch(/@layer/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('catches a missing expected artifact', () => {
+    const dir = makeProject({
+      'package.json': JSON.stringify({ version: '1.0.0' }),
+      'public/theme.json': JSON.stringify({ name: 'T', author: 'a', url: 'u', version: '1.0.0', modes: ['light'] }),
+      'dist/theme.json': '{}',
+    });
+    try {
+      const result = verifyTarget(themeTarget({ name: 'T', cwd: dir }), { root: dir, outDir: join(dir, 'dist') });
+      expect(result.ok).toBe(false);
+      expect(result.issues.map((i) => i.message).join()).toMatch(/缺少 theme\.css/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('passes a clean theme', () => {
+    const dir = makeProject({
+      'package.json': JSON.stringify({ version: '1.0.0' }),
+      'public/theme.json': JSON.stringify({
+        name: 'T',
+        author: 'a',
+        url: 'u',
+        version: '1.0.0',
+        modes: ['light', 'dark'],
+      }),
+      'dist/theme.css': '.a{}',
+      'dist/theme.json': '{}',
+    });
+    try {
+      const result = verifyTarget(themeTarget({ name: 'T', cwd: dir }), { root: dir, outDir: join(dir, 'dist') });
+      expect(result.ok, JSON.stringify(result.issues)).toBe(true);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('checks plugin-specific manifest requirements', () => {
+    // minAppVersion 与 i18n 是插件独有的（对照 arco-calendar 的 check_manifest）。
+    const dir = makeProject({
+      'package.json': JSON.stringify({ version: '1.0.0' }),
+      'public/plugin.json': JSON.stringify({ name: 'p', author: 'a', url: 'u', version: '1.0.0' }),
+      'public/i18n/en.json': JSON.stringify({ a: 'A' }),
+      'public/i18n/zh-CN.json': JSON.stringify({ a: 'A', b: 'B' }),
+      'dist/index.js': 'module.exports={}',
+      'dist/plugin.json': '{}',
+    });
+    try {
+      const result = verifyTarget(pluginTarget({ name: 'p', cwd: dir }), { root: dir, outDir: join(dir, 'dist') });
+      const text = result.issues.map((i) => i.message).join();
+      expect(text, 'minAppVersion 缺失要报').toMatch(/minAppVersion/);
+      expect(text, 'i18n key 不一致要报').toMatch(/key 与 en\.json 不一致/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('zip packing', () => {
+  it('writes a readable zip with the directory contents', () => {
+    // 自己实现 zip 而不是引依赖：思源的包只有几 MB，store/deflate 两种方式够用。
+    // 这里验证生成的文件确实能被标准库读回来。
+    const dir = mkdtempSync(join(tmpdir(), 'zip-'));
+    try {
+      mkdirSync(join(dir, 'in'), { recursive: true });
+      writeFileSync(join(dir, 'in', 'a.css'), '.a{color:red}');
+      writeFileSync(join(dir, 'in', 'b.json'), '{"x":1}');
+
+      const out = join(dir, 'out.zip');
+      const result = writeZip(join(dir, 'in'), out);
+      expect(result.files).toBe(2);
+      expect(result.bytes).toBeGreaterThan(0);
+
+      // zip 必须以 PK\x03\x04 开头，以 central directory 结束。
+      const buffer = readFileSync(out);
+      expect(buffer.subarray(0, 4).toString('hex')).toBe('504b0304');
+      expect(buffer.subarray(buffer.length - 22, buffer.length - 18).toString('hex')).toBe('504b0506');
+      // 文件名应出现在内容里（未加密）。
+      expect(buffer.includes(Buffer.from('a.css'))).toBe(true);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

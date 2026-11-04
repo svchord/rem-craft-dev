@@ -1,6 +1,6 @@
 import { runActions, snapshotRoot } from './actions.js';
 import { contrastRatio } from './color.js';
-import { diffAfter, elementBox, elementStyles, environment, probeHtml, selectorCounts, tokens, } from './measure.js';
+import { diffAfter, elementBox, elementStyles, environment, probeHtml, selectorCounts, tokens } from './measure.js';
 import { probeTokens } from './probes.js';
 /** 默认要读的 CSS 属性。与单子命令保持一致。 */
 export const DEFAULT_PROPS = [
@@ -189,15 +189,7 @@ export async function runPlan(page, plan, options = {}) {
 }
 /** 计划里是否真的要做点什么（空计划不该白起一个浏览器）。 */
 export function planIsEmpty(plan) {
-    const fields = [
-        'tokens',
-        'styles',
-        'counts',
-        'boxes',
-        'probes',
-        'contrast',
-        'diffs',
-    ];
+    const fields = ['tokens', 'styles', 'counts', 'boxes', 'probes', 'contrast', 'diffs'];
     return !fields.some((field) => {
         const value = plan[field];
         return Array.isArray(value) && value.length > 0;

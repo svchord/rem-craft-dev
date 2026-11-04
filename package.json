@@ -10,10 +10,8 @@
   },
   "scripts": {
     "dev": "vite build --watch",
-    "build": "pnpm run clean && pnpm run check:manifest && pnpm run type-check && vite build && pnpm run check:dist",
-    "check": "pnpm run check:manifest && pnpm run format:check && pnpm run lint && pnpm run type-check && pnpm run test",
-    "check:manifest": "node ./scripts/check_manifest.mjs",
-    "check:dist": "node ./scripts/check_dist.mjs",
+    "build": "pnpm run clean && pnpm run type-check && vite build",
+    "check": "pnpm run format:check && pnpm run lint && pnpm run type-check && pnpm run test",
     "clean": "node ./scripts/clean.js",
     "type-check": "tsc --build --force && pnpm --filter vite-plugin-siyuan type-check",
     "test": "vitest run && pnpm --filter vite-plugin-siyuan test",

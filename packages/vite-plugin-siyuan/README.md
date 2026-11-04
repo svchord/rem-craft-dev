@@ -32,10 +32,15 @@ siyuan({
   link: true, // 是否链接到 <workspace>/data/<subdir>/
   headless: false, // 浏览器是否无头
   frontend: 'desktop', // 'desktop' | 'mobile'
+  verify: true, // 是否校验产物（缺省 true）
+  pack: false, // 是否打 zip；true 或 { outFile: 'package.zip' }
   assets: true, // 是否带产物资产插件（见下）
-  enabled: isWatch, // 全局开关，生产构建时关掉
 });
 ```
+
+**没有 `enabled` / `isWatch` 这类开关。** 开发还是生产由 `build.watch` 判断——
+实测 `--watch`、`-w`、config 里 `watch:{}`、`watch:true`、都不写五种情况都能拿到。
+项目再传一个 `isWatch` 只是重复同一件事，还多一处可能不一致的输入。
 
 **`target` 与自动推断**：缺省看 `public/` 下有 `theme.json` 还是 `plugin.json`。
 清单还没创建、或两者并存时，显式传 `target` 更可靠。
@@ -91,7 +96,9 @@ vite build --watch
 
 ### 产物资产（自动带上）
 
-`siyuan()` 默认返回两个插件：热重载 + 产物资产。后者解决两件项目里容易漏的事：
+`siyuan()` 返回三个插件：热重载 + 产物资产 + 收尾（校验与打包）。
+
+**产物资产**解决两件项目里容易漏的事：
 
 1. **监听 `public/`**。Vite 只在启动时复制 `publicDir`，之后**不再监听**它。
    实测：`build --watch` 下改 `public/theme.json`，构建次数不变，`dev/theme.json`
@@ -101,6 +108,57 @@ vite build --watch
 
 有了它，项目里不再需要 `vite-plugin-static-copy` 和手写的 `watch-external`。
 要自己接管就传 `assets: false`。
+
+### 产物校验（收尾插件，`enforce: 'post'`）
+
+**思源的失败模式是静默的**——这点和 Electron 生态根本不同。Electron 的产物指错
+地方会启动崩溃、报错可见；思源则什么都不显示：
+
+| 问题                             | 后果                         |
+| -------------------------------- | ---------------------------- |
+| 清单缺 `modes` / `minAppVersion` | 主题/插件不出现在列表里      |
+| 产物缺 `index.js`                | 插件加载不到，无任何提示     |
+| 清单与 `package.json` 版本不一致 | 集市判为旧版，用户收不到更新 |
+| 主题 CSS 带 `@layer`             | 被 base.css 压制，样式不生效 |
+| `public/i18n` 缺 key             | 界面显示原始 key 或空白      |
+
+这些规则每个思源项目都要写一遍。收进包后由描述符声明「我这个类型独有的是什么」，
+通用的部分统一在 `core/verify.ts`。
+
+**两个环境都校验，失败处理不同：**
+
+|      | 开发（`build --watch`）               | 生产（`vite build`）                   |
+| ---- | ------------------------------------- | -------------------------------------- |
+| 校验 | 跑                                    | 跑                                     |
+| 失败 | **警告并继续**（中断会让 watch 退出） | **中断构建**（坏包代价远大于构建失败） |
+
+**CI 不需要特殊处理**：`vite build` 就是生产模式，插件的 `config()` 注入、
+产物资产、校验、打包全都会跑。实测：
+
+```
+$ pnpm build
+[vite-plugin-siyuan] 生产构建：不启动热重载会话，会校验产物。
+[vite-plugin-siyuan] 产物校验通过
+[vite-plugin-siyuan] 已打包：package.zip（4 个文件，6098 字节）
+```
+
+> **顺序为什么可靠**：实测 Vite 的 `writeBundle` 按 `enforce` 分三段执行
+> （`pre` → 普通 → `post`）。收尾插件是 `post`，所以能看到完整产物，
+> 且校验抛错时不会往下走到打包。
+
+### 打包
+
+`pack` 缺省 `false`。开启后只在**非 watch** 执行，且在校验通过之后：
+
+```ts
+siyuan({
+  entry: 'src/styles/index.css',
+  pack: { outFile: 'package.zip' }, // .releaserc.json 的 release 资产
+});
+```
+
+zip 由包自己写（`node:zlib`，零依赖），实测生成的文件能被标准解压工具读出、
+内容哈希与产物一致。
 
 ### 2. CLI
 

@@ -432,8 +432,7 @@ async function runAudit(parsed, argv) {
     }
     // 4) 建会话并执行
     const frontend = plan.frontend ?? 'desktop';
-    const viewport = parseViewport(plan.viewport, null) ??
-        parseViewport(frontend === 'mobile' ? '390x844@3' : '1600x1000@1', null);
+    const viewport = parseViewport(plan.viewport, null) ?? parseViewport(frontend === 'mobile' ? '390x844@3' : '1600x1000@1', null);
     const target = resolveTargetFrom(plan.target, argv);
     const session = await createSession({
         frontend: frontend === 'mobile' ? 'mobile' : 'desktop',

@@ -1,5 +1,5 @@
 import type { Page } from 'puppeteer-core';
-import type { ActivateResult, BuildContext, CssSheet, MountState, ReloadResult, TargetBuildSpec, TargetBuildSpecOptions } from './target-types.ts';
+import type { ActivateResult, BuildContext, CssSheet, MountState, ReloadResult, TargetBuildSpec, TargetBuildSpecOptions, TargetDescriptor } from './target-types.ts';
 /**
  * 从清单读名字。
  *
@@ -56,6 +56,8 @@ export interface Target {
      * 插件用它注入 `build.rollupOptions.output`，项目不必自己写产物命名。
      */
     buildSpec(context: BuildContext, options?: TargetBuildSpecOptions): TargetBuildSpec | null;
+    /** 描述符本身：校验时要用它的 verifyManifest / verifyArtifact。 */
+    readonly descriptor: TargetDescriptor;
     /** 开发前让宿主用上它（可选）。 */
     activate: ((page: Page | null, options?: {
         port?: number | null;

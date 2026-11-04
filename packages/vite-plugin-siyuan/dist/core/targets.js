@@ -12,10 +12,11 @@
  * 加第三种类型（widget / iconset）时只需要 registerTargetType()，
  * 不用改编排层——这条约束由测试钉住。
  */
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { reloadPlugin, reloadPluginCss, reloadThemeCss, selectTheme } from './kernel.js';
 import { registerTargetType, targetType } from './target-types.js';
+import { isSemver } from './verify.js';
 import { findWorkspaceDir } from './siyuan.js';
 import { resolveInstallDir } from './workspace.js';
 const readText = (file) => Promise.resolve(readFileSync(file, 'utf8'));
@@ -67,6 +68,55 @@ registerTargetType('theme', {
                 assetFileNames: (info) => (info.name?.endsWith('.css') ? 'theme.css' : (info.name ?? 'asset')),
             },
         };
+    },
+    /**
+     * 主题清单独有的要求：必须有 modes，且只能是 light / dark。
+     *
+     * 缺 modes 的后果是主题不出现在列表里——没有任何报错。
+     */
+    verifyManifest({ manifest }) {
+        if (!manifest)
+            return [];
+        const issues = [];
+        const modes = manifest.modes;
+        if (!Array.isArray(modes) || modes.length === 0) {
+            issues.push({
+                message: 'theme.json 的 modes 必须是非空数组',
+                hint: '如 ["light", "dark"]。缺了主题不会出现在思源的主题列表里。',
+            });
+            return issues;
+        }
+        for (const mode of modes) {
+            if (mode !== 'light' && mode !== 'dark') {
+                issues.push({ message: `theme.json 的 modes 含无效值：${String(mode)}（只接受 light / dark）` });
+            }
+        }
+        return issues;
+    },
+    /**
+     * 主题产物独有的要求：只交付 CSS。
+     *
+     * 两条都来自实测：
+     *   - 出现 .js 说明构建配置跑偏了（主题不需要 JS）
+     *   - 带 @layer 的规则会被 base.css（未分层）压制，样式不生效
+     */
+    verifyArtifact({ files, readOutput }) {
+        const issues = [];
+        const scripts = files.filter((file) => file.endsWith('.js'));
+        if (scripts.length) {
+            issues.push({
+                message: `主题产物里出现 JavaScript：${scripts.join('、')}`,
+                hint: '主题只交付 CSS。检查 rollupOptions.input 与 lib 配置。',
+            });
+        }
+        const css = readOutput('theme.css');
+        if (css && css.includes('@layer')) {
+            issues.push({
+                message: 'theme.css 含 @layer，会被 base.css（未分层）压制',
+                hint: '移除 @layer 包装，让主题规则保持 unlayered。',
+            });
+        }
+        return issues;
     },
     /**
      * 主题换 #themeStyle 的 href 即可，级联位置不变。纯前端动作，不需要 kernel、
@@ -148,10 +198,78 @@ registerTargetType('plugin', {
         };
     },
     /**
-     * 一次构建会同时写 index.js 和 index.css。JS 变更会走 kernel 重建插件实例，
-     * 新 CSS 会随之一起注入，所以优先按 JS 处理——一次重载就够，不用再补一次。
+     * 插件清单独有的要求（对照 siyuan-arco-calendar 的 check_manifest.mjs）：
+     *
+     *   minAppVersion  必须是 semver。思源用它判断「这个版本的思源能不能装」，
+     *                  格式错了插件在旧版思源上会装上但跑不起来。
+     *   displayName / description  清单里的 i18n 字段，必须带 default（通用校验已覆盖）。
+     *   public/i18n    必须存在且含 en.json、zh-CN.json，且 key 集合一致——
+     *                  缺 key 时界面上显示原始 key 或空白。
      */
-    primaryArtifact: (filenames) => filenames.find((name) => name.endsWith('index.js')) ?? filenames[0] ?? '',
+    verifyManifest({ root, manifest }) {
+        if (!manifest)
+            return [];
+        const issues = [];
+        if (!manifest.minAppVersion) {
+            issues.push({
+                message: 'plugin.json 缺少 minAppVersion',
+                hint: '思源用它判断能否安装，缺了会导致旧版思源装上但跑不起来。',
+            });
+        }
+        else if (!isSemver(manifest.minAppVersion)) {
+            issues.push({
+                message: `plugin.json 的 minAppVersion 不是 semver：${String(manifest.minAppVersion)}`,
+                hint: '应为 主.次.修订，如 3.1.0。',
+            });
+        }
+        // i18n 目录与 key 一致性
+        const i18nDir = join(root, 'public', 'i18n');
+        if (!existsSync(i18nDir)) {
+            issues.push({
+                message: '缺少 public/i18n 目录',
+                hint: '插件需要 en.json 与 zh-CN.json 提供界面文案。',
+            });
+            return issues;
+        }
+        const localeFiles = readdirSync(i18nDir).filter((file) => file.endsWith('.json'));
+        for (const required of ['en.json', 'zh-CN.json']) {
+            if (!localeFiles.includes(required)) {
+                issues.push({ message: `public/i18n 缺少 ${required}` });
+            }
+        }
+        // key 集合必须一致：缺 key 的界面上会显示原始 key 或空白。
+        const flattenKeys = (value, prefix = '') => {
+            if (!value || typeof value !== 'object' || Array.isArray(value))
+                return [prefix];
+            return Object.entries(value).flatMap(([key, child]) => {
+                const path = prefix ? `${prefix}.${key}` : key;
+                return child && typeof child === 'object' && !Array.isArray(child) ? flattenKeys(child, path) : [path];
+            });
+        };
+        const readLocale = (file) => {
+            try {
+                return JSON.parse(readFileSync(join(i18nDir, file), 'utf8'));
+            }
+            catch {
+                return null;
+            }
+        };
+        if (localeFiles.includes('en.json')) {
+            const reference = flattenKeys(readLocale('en.json')).sort();
+            for (const file of localeFiles) {
+                if (file === 'en.json')
+                    continue;
+                const keys = flattenKeys(readLocale(file)).sort();
+                if (keys.join('|') !== reference.join('|')) {
+                    issues.push({
+                        message: `public/i18n/${file} 的 key 与 en.json 不一致`,
+                        hint: '各语言 key 必须完全相同，缺的会显示原始 key。',
+                    });
+                }
+            }
+        }
+        return issues;
+    },
     /**
      * 插件重载要分两种情况，因为思源用两种完全不同的机制加载它们：
      *
@@ -244,6 +362,7 @@ export function createTarget(kind, options = {}) {
     const target = {
         kind,
         name: resolvedName,
+        descriptor,
         /** 供审计读取的 CSS 文本（都来自磁盘）。 */
         resolveCss: () => descriptor.resolveCss(context),
         /** 确认被测对象确实加载了。 */

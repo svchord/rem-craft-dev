@@ -6,6 +6,6 @@
  *   npx siyuan-devtools dev
  * 就能构建、链接、热重载，类型从 public/ 清单自动推断。
  */
-import { runCli } from '../dist/cli.js';
+import { runCli } from '../dist/cli/cli.js';
 
 await runCli();

@@ -16,68 +16,80 @@
       "default": "./dist/index.js"
     },
     "./plugin": {
-      "types": "./dist/plugin.d.ts",
-      "default": "./dist/plugin.js"
+      "types": "./dist/plugin/plugin.d.ts",
+      "default": "./dist/plugin/plugin.js"
+    },
+    "./assets": {
+      "types": "./dist/plugin/assets.d.ts",
+      "default": "./dist/plugin/assets.js"
     },
     "./dev": {
-      "types": "./dist/dev.d.ts",
-      "default": "./dist/dev.js"
+      "types": "./dist/dev/dev.d.ts",
+      "default": "./dist/dev/dev.js"
     },
-    "./measure": {
-      "types": "./dist/measure.d.ts",
-      "default": "./dist/measure.js"
-    },
-    "./actions": {
-      "types": "./dist/actions.d.ts",
-      "default": "./dist/actions.js"
-    },
-    "./targets": {
-      "types": "./dist/targets.d.ts",
-      "default": "./dist/targets.js"
-    },
-    "./target-types": {
-      "types": "./dist/target-types.d.ts",
-      "default": "./dist/target-types.js"
-    },
-    "./session": {
-      "types": "./dist/session.d.ts",
-      "default": "./dist/session.js"
-    },
-    "./kernel": {
-      "types": "./dist/kernel.d.ts",
-      "default": "./dist/kernel.js"
-    },
-    "./link": {
-      "types": "./dist/link.d.ts",
-      "default": "./dist/link.js"
-    },
-    "./workspace": {
-      "types": "./dist/workspace.d.ts",
-      "default": "./dist/workspace.js"
-    },
-    "./color": {
-      "types": "./dist/color.d.ts",
-      "default": "./dist/color.js"
-    },
-    "./lints": {
-      "types": "./dist/lints.d.ts",
-      "default": "./dist/lints.js"
-    },
-    "./siyuan": {
-      "types": "./dist/siyuan.d.ts",
-      "default": "./dist/siyuan.js"
-    },
-    "./theme": {
-      "types": "./dist/theme.d.ts",
-      "default": "./dist/theme.js"
+    "./dev-session": {
+      "types": "./dist/dev/dev-session.d.ts",
+      "default": "./dist/dev/dev-session.js"
     },
     "./build": {
-      "types": "./dist/build.d.ts",
-      "default": "./dist/build.js"
+      "types": "./dist/dev/build.d.ts",
+      "default": "./dist/dev/build.js"
+    },
+    "./targets": {
+      "types": "./dist/core/targets.d.ts",
+      "default": "./dist/core/targets.js"
+    },
+    "./target-types": {
+      "types": "./dist/core/target-types.d.ts",
+      "default": "./dist/core/target-types.js"
+    },
+    "./session": {
+      "types": "./dist/core/session.d.ts",
+      "default": "./dist/core/session.js"
+    },
+    "./measure": {
+      "types": "./dist/core/measure.d.ts",
+      "default": "./dist/core/measure.js"
+    },
+    "./probes": {
+      "types": "./dist/core/probes.d.ts",
+      "default": "./dist/core/probes.js"
+    },
+    "./actions": {
+      "types": "./dist/core/actions.d.ts",
+      "default": "./dist/core/actions.js"
+    },
+    "./kernel": {
+      "types": "./dist/core/kernel.d.ts",
+      "default": "./dist/core/kernel.js"
+    },
+    "./link": {
+      "types": "./dist/core/link.d.ts",
+      "default": "./dist/core/link.js"
+    },
+    "./workspace": {
+      "types": "./dist/core/workspace.d.ts",
+      "default": "./dist/core/workspace.js"
+    },
+    "./color": {
+      "types": "./dist/core/color.d.ts",
+      "default": "./dist/core/color.js"
+    },
+    "./lints": {
+      "types": "./dist/core/lints.d.ts",
+      "default": "./dist/core/lints.js"
+    },
+    "./siyuan": {
+      "types": "./dist/core/siyuan.d.ts",
+      "default": "./dist/core/siyuan.js"
+    },
+    "./theme": {
+      "types": "./dist/core/theme.d.ts",
+      "default": "./dist/core/theme.js"
     },
     "./control-server": {
-      "types": "./dist/control-server.d.ts",
-      "default": "./dist/control-server.js"
+      "types": "./dist/core/control-server.d.ts",
+      "default": "./dist/core/control-server.js"
     },
     "./package.json": "./package.json"
   },
@@ -94,11 +106,12 @@
     "bin"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
+    "build": "pnpm run clean && tsc -p tsconfig.build.json",
     "dev": "tsc -p tsconfig.build.json --watch",
     "type-check": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "pnpm run build"
   },
   "dependencies": {
     "puppeteer-core": "^25.16.0"

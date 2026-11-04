@@ -1,23 +1,30 @@
 import { createServer } from 'node:http';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { Page } from 'puppeteer-core';
-import { probeTokens } from '../src/probes.ts';
-import { parseViewport, viewportFor } from '../src/session.ts';
-import { frontendUrl, MOBILE_VIEWPORT } from '../src/siyuan.ts';
-import { findDoubleWrappedColors, findProblemsIn } from '../src/lints.ts';
-import { pluginTarget, themeTarget, createTarget } from '../src/targets.ts';
-import { detectTargetType, registerTargetType, targetType, targetTypes } from '../src/target-types.ts';
-import { checkLinkedFiles, ensureLink, inspectLink, samePath } from '../src/link.ts';
-import { discover, startControlServer } from '../src/control-server.ts';
-import siyuanVitePlugin from '../src/plugin.ts';
-import { resolveViteBin, startBuild } from '../src/build.ts';
+import { probeTokens } from '../src/core/probes.ts';
+import { parseViewport, viewportFor } from '../src/core/session.ts';
+import { frontendUrl, MOBILE_VIEWPORT } from '../src/core/siyuan.ts';
+import { findDoubleWrappedColors, findProblemsIn } from '../src/core/lints.ts';
+import { pluginTarget, themeTarget, createTarget } from '../src/core/targets.ts';
+import { detectTargetType, registerTargetType, targetType, targetTypes } from '../src/core/target-types.ts';
+import { checkLinkedFiles, ensureLink, inspectLink, samePath } from '../src/core/link.ts';
+import { discover, startControlServer } from '../src/core/control-server.ts';
+import siyuanVitePlugin from '../src/plugin/plugin.ts';
+import { resolveViteBin, startBuild } from '../src/dev/build.ts';
 
 const root = join(import.meta.dirname, '..');
 const cdpDir = join(root, 'src');
-const readCdp = (file: string) => readFileSync(join(cdpDir, file), 'utf8');
+const readCdp = (file: string) => {
+  // 重组后源码按层放：先在子目录里找，找不到再回顶层。
+  for (const layer of ['core', 'dev', 'plugin', 'cli', '']) {
+    const candidate = layer ? join(cdpDir, layer, file) : join(cdpDir, file);
+    if (existsSync(candidate)) return readFileSync(candidate, 'utf8');
+  }
+  throw new Error('找不到源码文件: ' + file);
+};
 
 /**
  * 架构断言只看代码本身：注释里提到 puppeteer.launch / console.log 不算违规。
@@ -662,8 +669,9 @@ describe('vite plugin shape', () => {
     // 两者都必须走 dev-session，否则重载逻辑会分叉成两份。
     const dev = stripComments(readCdp('dev.ts'));
     const plugin = stripComments(readCdp('plugin.ts'));
-    expect(dev, 'CLI 形态必须复用 dev-session').toMatch(/from\s+['"]\.\/dev-session\.ts['"]/);
-    expect(plugin, '插件形态必须复用 dev-session').toMatch(/from\s+['"]\.\/dev-session\.ts['"]/);
+    // 只断言「导入的是 dev-session」，不限定路径形状——跨层重构不该触发这条。
+    expect(dev, 'CLI 形态必须复用 dev-session').toMatch(/from\s+['"][^'"]*dev-session\.ts['"]/);
+    expect(plugin, '插件形态必须复用 dev-session').toMatch(/from\s+['"][^'"]*dev-session\.ts['"]/);
     expect(dev, 'dev.ts 只管构建，不该自己起浏览器').not.toMatch(/puppeteer/);
     expect(plugin, 'plugin.ts 不该自己起浏览器').not.toMatch(/puppeteer/);
     // 插件形态不能自己跑构建：构建是宿主的职责。
@@ -732,40 +740,85 @@ describe('vite plugin shape', () => {
 });
 
 describe('cdp layering', () => {
-  const cliFiles = ['measure-cli.ts', 'watch.ts', 'open.ts', 'dev-cli.ts', 'link-cli.ts'];
-  // 全部源码文件：架构断言要能覆盖每一个，漏一个就等于放弃一处约束。
-  const allFiles = [
-    'session.ts',
-    'probes.ts',
-    'siyuan.ts',
-    'theme.ts',
-    'targets.ts',
-    'target-types.ts',
-    'actions.ts',
-    'lints.ts',
-    'measure.ts',
-    'color.ts',
-    'workspace.ts',
-    'link.ts',
-    'kernel.ts',
-    'build.ts',
-    'control-server.ts',
-    'dev-session.ts',
-    'dev.ts',
-    'plugin.ts',
-    'assets.ts',
-    'cli-args.ts',
-    ...cliFiles,
-  ];
+  /**
+   * 源码按层放在 src/<layer>/ 下。这里自动收集，而不是手写清单——
+   * 新增文件会自动纳入所有架构断言，不会因为「忘了加进清单」而漏检。
+   */
+  const LAYERS = ['core', 'dev', 'plugin', 'cli'] as const;
+  type Layer = (typeof LAYERS)[number];
+
+  const filesByLayer: Record<Layer, string[]> = {
+    core: [],
+    dev: [],
+    plugin: [],
+    cli: [],
+  };
+  for (const layer of LAYERS) {
+    const dir = join(root, 'src', layer);
+    if (!existsSync(dir)) continue;
+    filesByLayer[layer] = readdirSync(dir)
+      .filter((name) => name.endsWith('.ts'))
+      .sort();
+  }
+  /** 全部源码文件名（跨层扁平），供既有的「只看文件名」断言使用。 */
+  const allFiles = LAYERS.flatMap((layer) => filesByLayer[layer]);
+
+  /** 读某层的某个文件。 */
+  const readLayer = (layer: Layer, file: string) => stripComments(readFileSync(join(root, 'src', layer, file), 'utf8'));
+
+  it('keeps every source file inside a layer', () => {
+    // 顶层只允许 index.ts（入口聚合）。散在顶层就等于没有分层。
+    const stray = readdirSync(join(root, 'src')).filter((name) => name.endsWith('.ts') && name !== 'index.ts');
+    expect(stray, '源码必须归入 core/dev/plugin/cli 四层之一').toEqual([]);
+    // 四层都不能是空的，否则分层形同虚设。
+    for (const layer of LAYERS) {
+      expect(filesByLayer[layer].length, `${layer}/ 不该是空目录`).toBeGreaterThan(0);
+    }
+  });
+
+  it('keeps core free of vite, bin and dev-loop concerns', () => {
+    // core 是被测对象契约与测量原语：只依赖 puppeteer-core 与 node 内置模块。
+    // 它不该知道 vite 的存在，也不该有 bin 入口或开发链路的重载逻辑。
+    for (const file of filesByLayer.core) {
+      const source = readLayer('core', file);
+      expect(source, `core/${file} 不该 import vite`).not.toMatch(/from\s+['"]vite['"]/);
+      expect(source, `core/${file} 不该碰 process.exit（那是 CLI 的事）`).not.toMatch(/process\.exit/);
+      expect(source, `core/${file} 不该 import dev/ 层`).not.toMatch(/from\s+['"][^'"]*\/(dev|plugin|cli)\//);
+    }
+  });
+
+  it('keeps plugin free of cli concerns', () => {
+    // 插件形态由宿主 vite 驱动，不解析命令行、不 process.exit。
+    for (const file of filesByLayer.plugin) {
+      const source = readLayer('plugin', file);
+      expect(source, `plugin/${file} 不该解析 argv`).not.toMatch(/process\.argv/);
+      expect(source, `plugin/${file} 不该 process.exit`).not.toMatch(/process\.exit/);
+    }
+  });
+
+  it('keeps cli free of vite plugin hooks', () => {
+    // CLI 形态不经过 vite 插件 API（它要么自己 spawn 构建，要么什么都不构建）。
+    for (const file of filesByLayer.cli) {
+      const source = readLayer('cli', file);
+      expect(source, `cli/${file} 不该实现 vite 插件`).not.toMatch(
+        /^\s+(apply|configResolved|writeBundle|closeBundle)\s*\(/m
+      );
+    }
+  });
 
   it('starts the browser only in the three owners that need their own lifecycle', () => {
     // 三个所有者，理由各不相同，都不是「顺手起一个」：
-    //   session.mjs  测量会话：无头、attach 优先、用完即关
-    //   open.mjs     人工复审：必须可见窗口，且要能 --shot / 多前端标签页
-    //   dev.mjs      开发循环：可见窗口长驻，产物变了由它自己驱动重载
-    // measure / watch / 两个 CLI 必须复用上面的入口，否则浏览器生命周期无人统一管理。
-    const launchers = allFiles.filter((file) => /puppeteer\.(launch|connect)/.test(stripComments(readCdp(file))));
-    expect(launchers.sort()).toEqual(['dev-session.ts', 'open.ts', 'session.ts']);
+    //   core/session.ts       测量会话：无头、attach 优先、用完即关
+    //   cli/open.ts           人工复审：必须可见窗口，且要能 --shot / 多前端标签页
+    //   dev/dev-session.ts    开发会话：可见窗口长驻，产物变了由它驱动重载
+    // 两种开发形态（CLI 的 dev.ts、插件 plugin.ts）都复用 dev-session，
+    // 所以浏览器生命周期只有一处。measure / watch / CLI 也不得自己起浏览器。
+    const launchers = LAYERS.flatMap((layer) =>
+      filesByLayer[layer]
+        .filter((file) => /puppeteer\.(launch|connect)/.test(readLayer(layer, file)))
+        .map((file) => `${layer}/${file}`)
+    );
+    expect(launchers.sort()).toEqual(['cli/open.ts', 'core/session.ts', 'dev/dev-session.ts']);
   });
 
   it('imports puppeteer-core at runtime only in those three owners', () => {
@@ -773,10 +826,17 @@ describe('cdp layering', () => {
     //   运行时 import puppeteer from 'puppeteer-core'   → 真的会拉起浏览器
     //   类型   import type { Page } from 'puppeteer-core' → 编译后擦除，零运行时成本
     // 很多模块只需要 Page 类型，它们不该被算成「浏览器所有者」。
-    const runtimeImporters = allFiles.filter((file) =>
-      /^import\s+puppeteer\s+from\s+['"]puppeteer-core['"]/m.test(stripComments(readCdp(file)))
+    const runtimeImporters = LAYERS.flatMap((layer) =>
+      filesByLayer[layer]
+        .filter((file) => /^import\s+puppeteer\s+from\s+['"]puppeteer-core['"]/m.test(readLayer(layer, file)))
+        .map((file) => `${layer}/${file}`)
     );
-    expect(runtimeImporters.sort()).toEqual(['dev-session.ts', 'open.ts', 'session.ts']);
+    expect(runtimeImporters.sort()).toEqual(['cli/open.ts', 'core/session.ts', 'dev/dev-session.ts']);
+  });
+
+  /** 既有的「只看文件名」断言用的扁平清单校验：确认收集到了东西。 */
+  it('collects every source file for the architecture assertions', () => {
+    expect(allFiles.length, '架构断言必须覆盖全部源码').toBeGreaterThanOrEqual(26);
   });
 
   it('keeps the CLI layer free of browser and build plumbing', () => {
@@ -793,7 +853,7 @@ describe('cdp layering', () => {
     // dev.mjs 里出现 kind === 'theme' 的重载/构建分支，说明差异没收敛到 targets.mjs，
     // 加第三种被测对象时就要改 dev.mjs。
     const source = stripComments(readCdp('dev.ts'));
-    expect(source, 'dev.mjs 必须通过 targets.mjs 拿被测对象').toMatch(/from\s+['"]\.\/targets\.ts['"]/);
+    expect(source, 'dev.mjs 必须通过 targets.mjs 拿被测对象').toMatch(/from\s+['"][^'"]*core\/targets\.ts['"]/);
     expect(source, 'dev.mjs 不得自己判断产物文件名').not.toMatch(
       /['"]theme\.css['"]|['"]index\.css['"]|['"]index\.js['"]/
     );
@@ -809,8 +869,10 @@ describe('cdp layering', () => {
 
   it('has measure-cli reuse session.mjs and the measurement primitives', () => {
     const source = stripComments(readCdp('measure-cli.ts'));
-    expect(source, 'measure-cli 必须复用 session.mjs 的浏览器生命周期').toMatch(/from\s+['"]\.\/session\.ts['"]/);
-    expect(source, 'measure-cli 必须复用 measure.mjs 的原语').toMatch(/from\s+['"]\.\/measure\.ts['"]/);
+    expect(source, 'measure-cli 必须复用 session.mjs 的浏览器生命周期').toMatch(
+      /from\s+['"][^'"]*core\/session\.ts['"]/
+    );
+    expect(source, 'measure-cli 必须复用 measure.mjs 的原语').toMatch(/from\s+['"][^'"]*core\/measure\.ts['"]/);
     expect(source, 'measure-cli 不得自己碰 puppeteer').not.toMatch(/puppeteer/);
   });
 
@@ -845,7 +907,7 @@ describe('cdp layering', () => {
     // 交互是主题/插件真正容易坏的地方：选择器还在但 DOM 结构变了，
     // 静态断言照样绿，实际已经烂了。
     const source = stripComments(readCdp('measure-cli.ts'));
-    expect(source, 'measure-cli 必须复用 actions.mjs 驱动交互').toMatch(/from\s+['"]\.\/actions\.ts['"]/);
+    expect(source, 'measure-cli 必须复用 actions.mjs 驱动交互').toMatch(/from\s+['"][^'"]*core\/actions\.ts['"]/);
   });
 
   it('keeps target-specific knowledge out of the CLI layer', () => {
@@ -864,7 +926,7 @@ describe('cdp layering', () => {
   it('drives dev through the type registry, not hardcoded kinds', () => {
     // dev.mjs 里出现 kind === 'theme' 之类的分支，泛化就破了。
     const source = stripComments(readCdp('dev.ts'));
-    expect(source, 'dev.mjs 必须通过 targets.mjs 造目标').toMatch(/from\s+['"]\.\/targets\.ts['"]/);
+    expect(source, 'dev.mjs 必须通过 targets.mjs 造目标').toMatch(/from\s+['"][^'"]*core\/targets\.ts['"]/);
     expect(source, 'dev.mjs 不得判断具体类型').not.toMatch(/kind\s*===\s*['"]theme['"]|kind\s*===\s*['"]plugin['"]/);
     expect(source, 'dev.mjs 不得自己读清单').not.toMatch(/public\/theme\.json|public\/plugin\.json/);
   });
@@ -887,14 +949,16 @@ describe('cdp layering', () => {
     }
     const targets = stripComments(readCdp('targets.ts'));
     expect(targets, '挂载判定必须在 targets.mjs').toMatch(/mountState/);
-    expect(stripComments(readCdp('open.ts')), 'open.mjs 仍需读主题名做展示').toMatch(/from\s+['"]\.\/theme\.ts['"]/);
+    expect(stripComments(readCdp('open.ts')), 'open.mjs 仍需读主题名做展示').toMatch(
+      /from\s+['"][^'"]*core\/theme\.ts['"]/
+    );
   });
 
   it('keeps pure modules independent of session.mjs', () => {
     // 反向依赖会让探针被迫关心浏览器生命周期，分层就失效了。
     for (const file of ['probes.ts', 'lints.ts', 'theme.ts', 'targets.ts']) {
       expect(stripComments(readCdp(file)), file + ' 不得依赖 session.mjs').not.toMatch(
-        /from\s+['"]\.\/session\.ts['"]/
+        /from\s+['"][^'"]*core\/session\.ts['"]/
       );
     }
   });

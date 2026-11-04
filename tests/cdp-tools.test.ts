@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -9,8 +9,6 @@ import { parseViewport, viewportFor } from '../scripts/cdp/session.mjs';
 // @ts-expect-error 同上。
 import { frontendUrl, MOBILE_VIEWPORT } from '../scripts/cdp/siyuan.mjs';
 // @ts-expect-error 同上。
-import { parseExpectations, evaluateCase } from '../scripts/cdp/expectations.mjs';
-// @ts-expect-error 同上。
 import { findDoubleWrappedColors, findProblemsIn } from '../scripts/cdp/lints.mjs';
 // @ts-expect-error 同上。
 import { pluginTarget, themeTarget } from '../scripts/cdp/targets.mjs';
@@ -20,8 +18,6 @@ const cdpDir = join(root, 'scripts', 'cdp');
 const readCdp = (file: string) => readFileSync(join(cdpDir, file), 'utf8');
 
 /** .mjs 没有 .d.ts，这里把基线结构显式写出来，避免 tsc 把参数推成 any。 */
-type BaselineCase = { name: string; frontend?: string; viewport?: string; tokens?: Record<string, string> };
-type BaselineCheck = { ok: boolean; expected: unknown; actual: string };
 
 /**
  * 架构断言只看代码本身：注释里提到 puppeteer.launch / console.log 不算违规。
@@ -127,68 +123,6 @@ describe('probeTokens', () => {
   });
 });
 
-describe('expectations baseline', () => {
-  const file = join(root, 'expectations.json');
-
-  it('is valid and non-empty', () => {
-    const parsed = parseExpectations(readFileSync(file, 'utf8'), 'expectations.json');
-    expect(parsed.cases.length, '基线至少要有一个用例').toBeGreaterThan(0);
-    for (const testCase of parsed.cases) {
-      expect(testCase.name.length, '用例必须有名字，否则报告里分不清是哪条').toBeGreaterThan(0);
-    }
-  });
-
-  it('only asserts tokens the theme actually defines', () => {
-    // 断言一个主题不存在的令牌，会永远读成空串并永远失败——基线写错最难查。
-    const parsed = parseExpectations(readFileSync(file, 'utf8'), 'expectations.json');
-    const sources = readdirSync(join(root, 'src', 'styles'))
-      .filter((name) => name.endsWith('.css'))
-      .map((name) => readFileSync(join(root, 'src', 'styles', name), 'utf8'))
-      .join('\n');
-    const defined = new Set([...sources.matchAll(/(--[\w-]+)\s*:/g)].map((match) => match[1]));
-
-    for (const testCase of parsed.cases) {
-      for (const token of Object.keys(testCase.tokens ?? {})) {
-        expect(defined.has(token), testCase.name + ' 断言了未定义的令牌：' + token).toBe(true);
-      }
-    }
-  });
-
-  it('covers both frontends', () => {
-    // 桌面与移动是两个独立构建入口，只测一个等于放弃另一半。
-    const parsed = parseExpectations(readFileSync(file, 'utf8'), 'expectations.json');
-    const frontends = new Set(parsed.cases.map((testCase: BaselineCase) => testCase.frontend ?? 'desktop'));
-    expect(frontends.has('desktop'), '基线必须覆盖桌面端').toBe(true);
-    expect(frontends.has('mobile'), '基线必须覆盖移动端').toBe(true);
-  });
-
-  it('marks mobile cases with a phone viewport', () => {
-    const parsed = parseExpectations(readFileSync(file, 'utf8'), 'expectations.json');
-    for (const testCase of parsed.cases as BaselineCase[]) {
-      if (testCase.frontend !== 'mobile') continue;
-      expect(testCase.viewport, testCase.name + ' 是移动端用例，必须写明手机视口').toBeTruthy();
-    }
-  });
-
-  it('evaluates a matching case as passing', () => {
-    const checks = evaluateCase(
-      { name: 't', tokens: { '--rc-a': '6px' }, probes: [{ label: 'p', html: '<i></i>', expect: { color: 'red' } }] },
-      { tokens: { '--rc-a': '6px' }, probes: [{ label: 'p', found: true, styles: { color: 'red' } }] }
-    );
-    expect(checks.every((check: BaselineCheck) => check.ok)).toBe(true);
-  });
-
-  it('evaluates a mismatching case as failing with expected/actual', () => {
-    const checks = evaluateCase(
-      { name: 't', tokens: { '--rc-a': '6px' } },
-      { tokens: { '--rc-a': '8px' }, probes: [] }
-    );
-    expect(checks[0].ok).toBe(false);
-    expect(checks[0].expected).toBe('6px');
-    expect(checks[0].actual, '不符项必须带上实际值，否则报告没法定位').toBe('8px');
-  });
-});
-
 describe('style lints', () => {
   it('detects double-wrapped rgb(var(--b3-*))', () => {
     // 这个 bug 真实发生过：l2 把 --b3-* 桥成完整色值，l3 又包一层 rgb()，
@@ -274,7 +208,7 @@ describe('target adapters', () => {
 });
 
 describe('cdp layering', () => {
-  const cliFiles = ['verify.mjs', 'watch.mjs', 'open.mjs'];
+  const cliFiles = ['audit.mjs', 'watch.mjs', 'open.mjs'];
   const allFiles = [
     'session.mjs',
     'probes.mjs',
@@ -282,14 +216,15 @@ describe('cdp layering', () => {
     'theme.mjs',
     'targets.mjs',
     'actions.mjs',
-    'expectations.mjs',
     'lints.mjs',
+    'facts.mjs',
+    'invariants.mjs',
     ...cliFiles,
   ];
 
   it('starts the browser only in session.mjs and open.mjs', () => {
     // open.mjs 是人工审计入口，需要可见窗口，天然要自己 launch；
-    // verify/watch 必须复用 session.mjs，否则生命周期无人统一管理。
+    // audit/watch 必须复用 session.mjs，否则生命周期无人统一管理。
     const launchers = allFiles.filter((file) => /puppeteer\.(launch|connect)/.test(stripComments(readCdp(file))));
     expect(launchers.sort()).toEqual(['open.mjs', 'session.mjs']);
   });
@@ -300,45 +235,54 @@ describe('cdp layering', () => {
   });
 
   it('keeps pure modules free of console output', () => {
-    for (const file of ['probes.mjs', 'lints.mjs', 'expectations.mjs', 'theme.mjs', 'targets.mjs', 'actions.mjs']) {
+    // facts/invariants 只产出数据与判定，打印交给 CLI 层。
+    for (const file of [
+      'probes.mjs',
+      'lints.mjs',
+      'theme.mjs',
+      'targets.mjs',
+      'actions.mjs',
+      'facts.mjs',
+      'invariants.mjs',
+    ]) {
       expect(stripComments(readCdp(file)), file + ' 只返回数据，打印交给 CLI 层').not.toMatch(/console\.\w+/);
     }
   });
 
-  it('has verify reuse session.mjs and probes.mjs', () => {
-    const source = stripComments(readCdp('verify.mjs'));
-    expect(source, 'verify 必须复用 session.mjs 的浏览器生命周期').toMatch(/from\s+['"]\.\/session\.mjs['"]/);
-    expect(source, 'verify 必须复用 probes.mjs 的探针').toMatch(/from\s+['"]\.\/probes\.mjs['"]/);
-    expect(source, 'verify 不得自己碰 puppeteer').not.toMatch(/puppeteer/);
+  it('has audit reuse session.mjs and probes.mjs', () => {
+    const source = stripComments(readCdp('audit.mjs'));
+    expect(source, 'audit 必须复用 session.mjs 的浏览器生命周期').toMatch(/from\s+['"]\.\/session\.mjs['"]/);
+    expect(source, 'audit 必须复用 probes.mjs 的探针').toMatch(/from\s+['"]\.\/probes\.mjs['"]/);
+    expect(source, 'audit 不得自己碰 puppeteer').not.toMatch(/puppeteer/);
   });
 
   it('measures on the real page, not in an isolated iframe', () => {
     // iframe 隔离的前提（宿主主题干扰）已被「dev 让思源真正选中本主题」解决，
     // 而 iframe 会漏掉 base.css：实测 line-height 在 iframe 里是 normal、
     // 真实页面是 28px。隔离测量已整体删除，不得以任何形式回来。
-    const source = stripComments(readCdp('verify.mjs'));
-    expect(source, 'verify 不得再走隔离测量（量不到 base.css 与交互态）').not.toMatch(/measureIsolated|iframe/);
+    const source = stripComments(readCdp('audit.mjs'));
+    expect(source, 'audit 不得再走隔离测量（量不到 base.css 与交互态）').not.toMatch(/measureIsolated|iframe/);
     expect(allFiles.includes('sandbox.mjs'), 'sandbox.mjs 已删除；再加回来意味着隔离测量复活').toBe(false);
   });
 
-  it('has verify drive interactions through actions.mjs', () => {
+  it('has audit drive interactions through actions.mjs', () => {
     // 交互是主题/插件真正容易坏的地方：选择器还在但 DOM 结构变了，
     // 静态断言照样绿，实际已经烂了。
-    const source = stripComments(readCdp('verify.mjs'));
-    expect(source, 'verify 必须复用 actions.mjs 驱动交互').toMatch(/from\s+['"]\.\/actions\.mjs['"]/);
+    const source = stripComments(readCdp('audit.mjs'));
+    expect(source, 'audit 必须复用 actions.mjs 驱动交互').toMatch(/from\s+['"]\.\/actions\.mjs['"]/);
   });
 
-  it('keeps target-specific knowledge out of verify', () => {
-    // 主题与插件的差异必须收敛在 targets.mjs；verify 里出现主题/插件的分支判断，
-    // 说明抽象漏了，加第三个被测对象时就要改 verify。
-    const source = stripComments(readCdp('verify.mjs'));
-    expect(source, 'verify 必须通过 targets.mjs 拿被测对象').toMatch(/from\s+['"]\.\/targets\.mjs['"]/);
-    expect(source, 'verify 不得直接读 theme.json 或 pluginsStyle').not.toMatch(/pluginsStyle|public\/theme\.json/);
+  it('keeps target-specific knowledge out of audit', () => {
+    // 主题与插件的差异必须收敛在 targets.mjs；audit 里出现主题/插件的分支判断，
+    // 说明抽象漏了，加第三个被测对象时就要改 audit。
+    const source = stripComments(readCdp('audit.mjs'));
+    expect(source, 'audit 必须通过 targets.mjs 拿被测对象').toMatch(/from\s+['"]\.\/targets\.mjs['"]/);
+    expect(source, 'audit 不得直接读 theme.json 或 pluginsStyle').not.toMatch(/pluginsStyle|public\/theme\.json/);
   });
 
   it('keeps mount judgement in one place', () => {
-    // 挂载判定错了，verify 的读数会被张冠李戴。
-    for (const file of ['verify.mjs', 'open.mjs']) {
+    // 挂载判定错了，audit 的读数会被张冠李戴。
+    for (const file of ['audit.mjs', 'open.mjs']) {
       const source = stripComments(readCdp(file));
       expect(source, file + ' 必须复用 theme.mjs 的挂载判定/主题名').toMatch(/from\s+['"]\.\/theme\.mjs['"]/);
       expect(source, file + ' 不得自己实现 normalizeThemeName').not.toMatch(/function\s+normalizeThemeName/);
@@ -347,7 +291,7 @@ describe('cdp layering', () => {
 
   it('keeps pure modules independent of session.mjs', () => {
     // 反向依赖会让探针被迫关心浏览器生命周期，分层就失效了。
-    for (const file of ['probes.mjs', 'lints.mjs', 'expectations.mjs', 'theme.mjs', 'targets.mjs']) {
+    for (const file of ['probes.mjs', 'lints.mjs', 'theme.mjs', 'targets.mjs']) {
       expect(stripComments(readCdp(file)), file + ' 不得依赖 session.mjs').not.toMatch(
         /from\s+['"]\.\/session\.mjs['"]/
       );

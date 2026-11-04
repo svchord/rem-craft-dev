@@ -151,15 +151,24 @@ export async function reloadPluginCss(page, pluginName, cssText = null) {
  * 实测确认 styleNodeReplaced / instanceReplaced 都为 true。
  * `/api/plugin/*` 没有写接口（实测 404），这条路是思源官方 sample 用的。
  *
+ * 请求体（内核 apicontract.SetPetalEnabledRequest）：
+ *   packageName  string   必填，插件名
+ *   enabled      bool     必填
+ *   app          string   可选，前端实例 ID（SIYUAN_APPID）
+ *
+ * `app` 是每个前端窗口启动时随机生成的标识（Math.random().toString(36)），
+ * 外部无法预先知道；不传则由内核广播到所有前端。所以这里默认不传——
+ * 传一个猜的值只会被忽略，反而让人以为定向生效了。
+ *
  * 这比整页刷新好：不打断用户正在编辑的文档、不重置面板状态。
  *
  * @returns {{ ok: boolean, reason: string|null }}
  */
-export async function reloadPlugin(port, pluginName, { frontend = 'desktop', gapMs = 500 } = {}) {
+export async function reloadPlugin(port, pluginName, { app = null, gapMs = 500 } = {}) {
   const body = (enabled) => ({
     packageName: pluginName,
     enabled,
-    frontend,
+    ...(app ? { app } : {}),
   });
 
   const off = await callKernel(port, '/api/petal/setPetalEnabled', body(false));

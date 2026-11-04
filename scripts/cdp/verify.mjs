@@ -195,8 +195,24 @@ async function main() {
       // 插件：面板 DOM 只在打开后存在，需要真实 DOM 的断言必须先激活。
       if (target.activate) await target.activate(session.page);
 
-      const sheets = await target.resolveCss(session.page);
+      // CSS 从磁盘读（主题 dev/theme.css、插件 index.css），不需要页面。
+      const sheets = await target.resolveCss();
       if (!sheets.length) {
+        // 没有 CSS 时基线里的样式断言会「假通过」：探针插的元素无论如何都有
+        // 默认计算值。与其给出一条绿的假结论，不如明确失败并让人换基线。
+        const hasStyleAssertions = cases.some((testCase) => (testCase.probes ?? []).length > 0);
+        if (hasStyleAssertions) {
+          console.error(
+            PREFIX +
+              '✗ ' +
+              target.kind +
+              '/' +
+              target.name +
+              ' 没有可审计的 CSS，但基线里有样式断言——' +
+              '这些断言会在默认值上假通过。请换用匹配该目标的基线，或改用 selectors/DOM 断言。'
+          );
+          process.exit(1);
+        }
         notes.push(frontend + ' 前端：' + target.name + ' 没有可审计的 CSS，只做 DOM 断言');
       }
       cssLabels = sheets.map((sheet) => sheet.label);

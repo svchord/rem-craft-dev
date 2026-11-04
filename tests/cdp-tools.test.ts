@@ -1,4 +1,5 @@
-import { readFileSync, readdirSync } from 'node:fs';
+import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 // @ts-expect-error 工具脚本是纯 .mjs 且没有 .d.ts，tsc 无法推断其类型；本文件按下面用例里的形状使用它们。
@@ -222,25 +223,51 @@ describe('target adapters', () => {
   });
 
   it('requires a plugin name', () => {
-    expect(() => pluginTarget({}), '插件名是拼 style id 的依据，不能缺').toThrow(/插件名/);
+    expect(() => pluginTarget({}), '插件名是定位插件目录的依据，不能缺').toThrow(/插件名/);
   });
 
-  it('derives the plugin style id from the plugin name', async () => {
-    // 思源把插件 CSS 注入成 <style id="pluginsStyle<name>">，拼错就永远读不到。
+  it('reads plugin CSS from disk, not from the page', async () => {
+    // 实测磁盘 index.css 与思源注入的 <style> 逐字节相同，所以读磁盘即可。
+    // 好处：不依赖插件是否已加载，插件出问题时审计照常跑。
+    // 用临时目录造一个假插件，避免测试依赖本机装了什么。
+    const dir = mkdtempSync(join(tmpdir(), 'rc-plugin-'));
+    try {
+      writeFileSync(join(dir, 'index.css'), '.fake-plugin { color: red }');
+      const target = pluginTarget({ name: 'fake-plugin', pluginDir: dir });
+      const sheets = await target.resolveCss();
+      expect(sheets.length).toBe(1);
+      expect(sheets[0].label).toMatch(/index\.css$/);
+      expect(sheets[0].text).toBe('.fake-plugin { color: red }');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('treats a plugin without index.css as DOM-only instead of failing', async () => {
+    // 有的插件只有 index.js，没有 index.css，不该判成失败。
+    const dir = mkdtempSync(join(tmpdir(), 'rc-plugin-'));
+    try {
+      writeFileSync(join(dir, 'index.js'), '// no css');
+      const target = pluginTarget({ name: 'no-css-plugin', pluginDir: dir });
+      expect(await target.resolveCss(), '无 CSS 时返回空数组').toEqual([]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('reports plugin mount state without crashing on a null page result', async () => {
+    // 页面返回 null 时曾直接崩（Cannot read properties of null）。
     const target = pluginTarget({ name: 'arco-calendar' });
-    const fakePage = {
-      evaluate: (_fn: unknown, id: string) =>
-        Promise.resolve(id === 'pluginsStylearco-calendar' ? '.a{color:red}' : null),
-    };
-    const sheets = await target.resolveCss(fakePage);
-    expect(sheets).toEqual([{ label: 'pluginsStylearco-calendar', text: '.a{color:red}' }]);
+    const mount = await target.mountState({ evaluate: () => Promise.resolve(null) });
+    expect(mount.ok, 'null 要变成可读的错误，不能抛异常').toBe(false);
+    expect(mount.reason).toMatch(/页面不可用/);
   });
 
-  it('treats a plugin without stylesheet as DOM-only instead of failing', async () => {
-    // 无 index.css 的插件（如 Calendar-heatmap）本来就没有这个标签，不该判成失败。
+  it('tolerates a running plugin that injected no stylesheet', async () => {
     const target = pluginTarget({ name: 'Calendar-heatmap' });
-    const fakePage = { evaluate: () => Promise.resolve({ present: false, length: 0 }) };
-    const mount = await target.mountState(fakePage);
+    const mount = await target.mountState({
+      evaluate: () => Promise.resolve({ hasStyle: false, styleLength: 0 }),
+    });
     expect(mount.ok).toBe(true);
     expect(mount.reason).toMatch(/只做 DOM 断言/);
   });

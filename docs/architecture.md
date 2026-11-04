@@ -787,7 +787,7 @@ pnpm build
 | `pnpm watch:theme`   | 监听源码，改动后自动跑 `verify:theme` 并把不符项打在终端          |
 | `pnpm verify:theme`  | 渲染回归：真实页面上量渲染（含交互），与 `expectations.json` 比对 |
 | `pnpm open:theme`    | 人工审计：打开桌面 + 移动端页面（可截图），自己看效果             |
-| `pnpm verify:plugin` | 同一套审计跑在已装插件上（CSS 从页面读）                          |
+| `pnpm verify:plugin` | 同一套审计跑在已装插件上（CSS 读磁盘 index.css）                  |
 
 日常闭环：`pnpm dev` 与 `pnpm watch:theme` 各开一个终端，改 `src/styles/**` 后页面立刻变、
 终端立刻报「渲染是否符合基线」。`open:theme` 留给只有眼睛能判断的事（间距协调、暗色对比度、
@@ -798,22 +798,29 @@ pnpm build
 主题和插件在思源里是两套东西，但**渲染审计的方法相同**：在真实页面上量计算样式
 → 与基线比。差异只在两处，收敛在 `scripts/cdp/targets.mjs`：
 
-| 维度       | 主题                             | 插件                                     |
-| ---------- | -------------------------------- | ---------------------------------------- |
-| CSS 从哪来 | 读磁盘 `dev/theme.css`           | 读页面 `<style id="pluginsStyle<name>">` |
-| 加载判定   | `<link id="themeStyle">` 的 href | 对应 `<style>` 是否存在（无 CSS 时容忍） |
-| 额外状态   | 无                               | `activate()` 打开面板（面板 DOM 才存在） |
+| 维度       | 主题                                   | 插件                                            |
+| ---------- | -------------------------------------- | ----------------------------------------------- |
+| CSS 从哪来 | 读磁盘 `dev/theme.css`（回退 `dist/`） | 读磁盘 `<workspace>/data/plugins/<n>/index.css` |
+| 加载判定   | `<link id="themeStyle">` 的 href       | 插件是否注入 `<style id="pluginsStyle<n>">`     |
+| 额外状态   | 无                                     | `activate()` 打开面板（面板 DOM 才存在）        |
 
-插件从页面读 CSS 而不是读磁盘，有三个好处：读到的一定是实际加载的那份；不用知道插件装在
-哪个目录，换机器也能跑；无 `index.css` 的插件（如 Calendar-heatmap）返回空数组，退化成
-只做 DOM 断言而不是报错。
+**两者都读磁盘。** 实测插件的 `index.css` 与思源注入的 `<style id="pluginsStyle<name>">`
+**逐字节相同**（arco-calendar 275334 字符、siyuan-plugin-publisher 492618 字符），
+所以没有理由绕道从页面读。读磁盘的好处：不依赖插件是否已加载，插件出问题时审计照常跑；
+不需要先把插件点开，纯 CSS 断言不受 UI 状态影响。
+
+插件目录按思源约定推导 `<workspace>/data/plugins/<name>/`，工作区从 `workspace.json` 读；
+也可用 `pluginDir` 显式指定（插件源码在别处、或做 CI 时）。
+
+**没有 CSS 时不允许假通过。** 无 `index.css` 的插件（如 Calendar-heatmap）会返回空数组。
+此时若基线里还有样式断言，探针插入的元素无论如何都有默认计算值——那些断言会「通过」
+但毫无意义。所以 `verify` 直接失败并提示换基线，而不是给一条绿的假结论。
 
 `verify.mjs` 里没有任何「是主题还是插件」的分支——测试强制它必须通过 `targets.mjs` 拿被测
 对象。加第三类被测对象时只改 `targets.mjs`。
 
 > 插件的可观测面比主题窄：面板 DOM 只在打开后才存在，所以纯 CSS 断言（令牌/选择器/
 > 计算样式）是主力，需要真实 DOM 的断言要先用 `activate()` 打开面板。
-> 实测 `arco-calendar` 注入 275KB CSS、`siyuan-plugin-publisher` 注入 492KB。
 
 **`pnpm dev` 让思源真正选中本主题，而不是在页面上打补丁。** 启动时经 kernel API 把
 `themeLight`/`themeDark` 切成 `Rem Craft Dev`（已是它则不动），重建后换 `#themeStyle`

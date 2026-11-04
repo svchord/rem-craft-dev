@@ -2,23 +2,22 @@
  * 被测目标适配器：把「主题」和「插件」的差异收敛到一个接口后面。
  *
  * 为什么需要这一层：主题与插件在思源里是两套东西，但**渲染审计的方法相同**——
- * 都是「拿到 CSS 文本 → 注入 iframe 沙箱 → 量计算样式」。差别只在两处：
- *   1. CSS 从哪来：主题读磁盘产物；插件由思源注入成 <style id="pluginsStyle<name>">，
- *      从页面里读更权威（那是实际加载的那份）。
- *   2. 怎么算「加载成功」：主题看 <link id="themeStyle"> 的 href；插件看 style 标签存在。
+ * 都是「拿到 CSS → 在真实页面上量 → 与基线比」。差别只在两处：
+ *   1. CSS 从哪来：主题读 dev/theme.css，插件读 index.css
+ *   2. 怎么算「加载成功」：主题看 <link id="themeStyle">，插件看插件是否在运行
  *
- * 所以适配器只需要两个能力，沙箱与基线比对完全共用：
- *   resolveCss(page)   → [{ label, text }]   要审计的 CSS 文本
- *   mountState(page)   → { ok, loaded, reason }  确认被测对象确实加载了
+ * 所以适配器只需要两个能力，测量与基线比对完全共用：
+ *   resolveCss()       → [{ label, text }]        要审计的 CSS 文本（都读磁盘）
+ *   mountState(page)   → { ok, loaded, reason }   确认被测对象确实加载了
  *
- * 插件额外的「面板打开后才有 DOM」是另一个维度，用 activate(page) 表达，
- * 只对需要真实 DOM 的断言有用；纯 CSS 审计不需要它。
+ * 插件额外的「面板打开后才有 DOM」用 activate(page) 表达，只对需要真实 DOM 的
+ * 断言有用；纯 CSS 审计不需要它。
  */
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { findWorkspaceDir } from './siyuan.mjs';
 
-const readText = async (file) => {
-  const { readFileSync } = await import('node:fs');
-  return readFileSync(file, 'utf8');
-};
+const readText = (file) => readFileSync(file, 'utf8');
 
 /**
  * 主题适配器。
@@ -35,8 +34,7 @@ export function themeTarget({ cssPath, themeName } = {}) {
       const candidates = cssPath ? [cssPath] : ['./dev/theme.css', './dist/theme.css'];
       for (const candidate of candidates) {
         try {
-          const text = await readText(candidate);
-          return [{ label: candidate, text }];
+          return [{ label: candidate, text: await readText(candidate) }];
         } catch {
           // 试下一个
         }
@@ -45,19 +43,15 @@ export function themeTarget({ cssPath, themeName } = {}) {
     },
 
     async mountState(page) {
-      const state = await page.evaluate(() => {
-        const link = document.getElementById('themeStyle');
-        return { href: link?.getAttribute('href') || null };
-      });
-      if (!state.href) {
+      const href = await page.evaluate(() => document.getElementById('themeStyle')?.getAttribute('href') ?? null);
+      if (!href) {
         return { ok: false, loaded: null, reason: '页面里没有 themeStyle（用的是内置 daylight/midnight）' };
       }
-      const segment = state.href.match(/\/appearance\/themes\/([^/]+)\//)?.[1] ?? null;
+      const segment = href.match(/\/appearance\/themes\/([^/]+)\//)?.[1] ?? null;
       if (!segment) {
-        return { ok: false, loaded: null, reason: 'themeStyle 的 href 不是主题目录路径：' + state.href };
+        return { ok: false, loaded: null, reason: 'themeStyle 的 href 不是主题目录路径：' + href };
       }
-      const loaded = decodeURIComponent(segment);
-      return { ok: true, loaded, reason: null };
+      return { ok: true, loaded: decodeURIComponent(segment), reason: null };
     },
   };
 }
@@ -65,40 +59,63 @@ export function themeTarget({ cssPath, themeName } = {}) {
 /**
  * 插件适配器。
  *
- * CSS 从页面里读（`<style id="pluginsStyle<name>">` 的 textContent），而不是读磁盘：
- *   - 思源注入的就是这份，读到什么就是什么
- *   - 插件可能没有 index.css（如 Calendar-heatmap），此时返回空数组，只做 DOM 断言
- *   - 不需要知道插件装在哪个目录，换机器也能跑
+ * CSS 读磁盘 `index.css`，与主题读 `dev/theme.css` 对称。实测磁盘文件与思源
+ * 注入的 `<style id="pluginsStyle<name>">` **逐字节相同**（arco-calendar
+ * 275334 字符、siyuan-plugin-publisher 492618 字符），所以没有理由绕道从页面读：
+ *   - 读磁盘不依赖插件是否已加载，审计可以在插件出问题时照常跑
+ *   - 不需要先把插件点开，纯 CSS 断言不受 UI 状态影响
  *
- * `activate` 用于打开插件面板（面板 DOM 只在打开后才存在）。默认不激活。
+ * 插件目录按思源约定推导：`<workspace>/data/plugins/<name>/`，工作区从
+ * workspace.json 读。也可以用 pluginDir 显式指定（插件源码在别处、或做 CI 时）。
+ *
+ * 无 index.css 的插件（如 Calendar-heatmap）返回空数组，退化成只做 DOM 断言。
  */
-export function pluginTarget({ name, activate = null } = {}) {
+export function pluginTarget({ name, pluginDir = null } = {}) {
   if (!name) throw new Error('pluginTarget 需要插件名（plugin.json 的 name）');
-  const styleId = 'pluginsStyle' + name;
 
   return {
     kind: 'plugin',
     name,
 
-    async resolveCss(page) {
-      const text = await page.evaluate((id) => document.getElementById(id)?.textContent ?? null, styleId);
-      if (text === null) return [];
-      if (!text.trim()) return [];
-      return [{ label: styleId, text }];
+    /** 插件 CSS 的候选路径，按优先级排。找不到不是错误（有的插件只有 index.js）。 */
+    cssCandidates() {
+      const workspace = process.env.SIYUAN_WORKSPACE || findWorkspaceDir();
+      return [
+        pluginDir ? join(pluginDir, 'index.css') : null,
+        workspace ? join(workspace, 'data', 'plugins', name, 'index.css') : null,
+      ].filter(Boolean);
+    },
+
+    async resolveCss() {
+      const candidates = this.cssCandidates();
+      for (const candidate of candidates) {
+        try {
+          return [{ label: candidate, text: await readText(candidate) }];
+        } catch {
+          // 试下一个
+        }
+      }
+      // 没有 index.css 不算失败：部分插件只有 index.js，退化成 DOM 断言。
+      return [];
     },
 
     async mountState(page) {
-      const state = await page.evaluate((id) => {
-        const el = document.getElementById(id);
-        return { present: Boolean(el), length: el?.textContent?.length ?? 0 };
-      }, styleId);
-      if (!state.present) {
-        // 没有样式表不一定是失败：无 CSS 的插件本来就不会有这个标签。
-        return { ok: true, loaded: null, reason: '插件无样式表（' + styleId + ' 不存在），只做 DOM 断言' };
-      }
-      return { ok: true, loaded: styleId, reason: null };
-    },
+      // 插件是否在运行：有 CSS 的插件会被思源注入 style 标签。
+      // 没有该标签不算失败——可能是无 CSS 插件，也可能是插件没启用，
+      // 后者会让 DOM 断言失败，比在这里硬判更准确。
+      const state = await page.evaluate((pluginName) => {
+        const styleEl = document.getElementById('pluginsStyle' + pluginName);
+        return { hasStyle: Boolean(styleEl), styleLength: styleEl?.textContent?.length ?? 0 };
+      }, name);
 
-    activate: activate ?? (async () => {}),
+      if (!state) {
+        return { ok: false, loaded: null, reason: '页面不可用，读不到插件状态' };
+      }
+      return {
+        ok: true,
+        loaded: state.hasStyle ? 'pluginsStyle' + name + '（' + state.styleLength + ' 字符）' : null,
+        reason: state.hasStyle ? null : '插件没有注入样式表，只做 DOM 断言',
+      };
+    },
   };
 }

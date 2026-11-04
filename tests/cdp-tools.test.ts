@@ -10,7 +10,7 @@ import { frontendUrl, MOBILE_VIEWPORT } from '../scripts/cdp/siyuan.mjs';
 // @ts-expect-error 同上。
 import { parseExpectations, evaluateCase } from '../scripts/cdp/expectations.mjs';
 // @ts-expect-error 同上。
-import { findDoubleWrappedColors, findProblemsIn } from '../scripts/cdp/sandbox.mjs';
+import { findDoubleWrappedColors, findProblemsIn } from '../scripts/cdp/lints.mjs';
 // @ts-expect-error 同上。
 import { pluginTarget, themeTarget } from '../scripts/cdp/targets.mjs';
 
@@ -188,7 +188,7 @@ describe('expectations baseline', () => {
   });
 });
 
-describe('sandbox measurement guards', () => {
+describe('style lints', () => {
   it('detects double-wrapped rgb(var(--b3-*))', () => {
     // 这个 bug 真实发生过：l2 把 --b3-* 桥成完整色值，l3 又包一层 rgb()，
     // rgb(rgb(...)) 是非法值，整条声明被浏览器静默丢弃。
@@ -256,7 +256,7 @@ describe('cdp layering', () => {
     'targets.mjs',
     'actions.mjs',
     'expectations.mjs',
-    'sandbox.mjs',
+    'lints.mjs',
     ...cliFiles,
   ];
 
@@ -272,8 +272,8 @@ describe('cdp layering', () => {
     expect(importers.sort()).toEqual(['open.mjs', 'session.mjs']);
   });
 
-  it('keeps probes.mjs and sandbox.mjs free of console output', () => {
-    for (const file of ['probes.mjs', 'sandbox.mjs', 'expectations.mjs', 'theme.mjs', 'targets.mjs', 'actions.mjs']) {
+  it('keeps pure modules free of console output', () => {
+    for (const file of ['probes.mjs', 'lints.mjs', 'expectations.mjs', 'theme.mjs', 'targets.mjs', 'actions.mjs']) {
       expect(stripComments(readCdp(file)), file + ' 只返回数据，打印交给 CLI 层').not.toMatch(/console\.\w+/);
     }
   });
@@ -288,9 +288,10 @@ describe('cdp layering', () => {
   it('measures on the real page, not in an isolated iframe', () => {
     // iframe 隔离的前提（宿主主题干扰）已被「dev 让思源真正选中本主题」解决，
     // 而 iframe 会漏掉 base.css：实测 line-height 在 iframe 里是 normal、
-    // 真实页面是 28px。默认必须量真实页面。
+    // 真实页面是 28px。隔离测量已整体删除，不得以任何形式回来。
     const source = stripComments(readCdp('verify.mjs'));
-    expect(source, 'verify 不得再走 measureIsolated（量不到 base.css 与交互态）').not.toMatch(/measureIsolated/);
+    expect(source, 'verify 不得再走隔离测量（量不到 base.css 与交互态）').not.toMatch(/measureIsolated|iframe/);
+    expect(allFiles.includes('sandbox.mjs'), 'sandbox.mjs 已删除；再加回来意味着隔离测量复活').toBe(false);
   });
 
   it('has verify drive interactions through actions.mjs', () => {
@@ -317,9 +318,9 @@ describe('cdp layering', () => {
     }
   });
 
-  it('keeps probes.mjs and sandbox.mjs independent of session.mjs', () => {
+  it('keeps pure modules independent of session.mjs', () => {
     // 反向依赖会让探针被迫关心浏览器生命周期，分层就失效了。
-    for (const file of ['probes.mjs', 'sandbox.mjs', 'expectations.mjs', 'theme.mjs', 'targets.mjs']) {
+    for (const file of ['probes.mjs', 'lints.mjs', 'expectations.mjs', 'theme.mjs', 'targets.mjs']) {
       expect(stripComments(readCdp(file)), file + ' 不得依赖 session.mjs').not.toMatch(
         /from\s+['"]\.\/session\.mjs['"]/
       );

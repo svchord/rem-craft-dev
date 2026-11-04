@@ -77,19 +77,38 @@ pnpm verify:theme --baseline          # 把当前渲染整体写成新基线（�
 
 基线用例字段：
 
-| 字段         | 说明                                                                  |
-| ------------ | --------------------------------------------------------------------- |
-| `name`       | 必填                                                                  |
-| `frontend`   | `desktop`（缺省）/ `mobile`；移动端用例必须写 `viewport`              |
-| `viewport`   | `390x844@3` 这种手机视口；移动端不继承文件级的桌面视口                |
-| `attributes` | 沙箱 `<html>` 属性，变体靠它生效（`data-theme-mode`、`data-backend`） |
-| `tokens`     | 令牌期望值                                                            |
-| `selectors`  | `mustHit` / `mustMiss`                                                |
-| `probes`     | 在沙箱里插一段 HTML 再量计算样式：`{ label, html, target, expect }`   |
+| 字段         | 说明                                                                |
+| ------------ | ------------------------------------------------------------------- |
+| `name`       | 必填                                                                |
+| `frontend`   | `desktop`（缺省）/ `mobile`；移动端用例必须写 `viewport`            |
+| `viewport`   | `390x844@3` 这种手机视口；移动端不继承文件级的桌面视口              |
+| `attributes` | 设 `<html>` 属性，变体靠它生效（`data-theme-mode`、`data-backend`） |
+| `actions`    | 交互动作，如 `["contextmenu:.b3-list-item", "wait:600"]`            |
+| `tokens`     | 令牌期望值                                                          |
+| `selectors`  | `mustHit` / `mustMiss`                                              |
+| `probes`     | `{ label, html, target, expect }`；`html` 是插进页面的探针标记      |
 
 期望值可写精确串、`null`（必须为空）或 `re:` 正则。
 
-**关键：verify 在 iframe 隔离沙箱里量，不是主文档。** 这样回归结果与「此刻宿主选了什么主题」无关，也能一次覆盖 dark / density / 移动端 backend 等多个变体，不必真的把思源切来切去。沙箱只注入 `dev/theme.css`。
+**关键：verify 在真实页面上量，不是 iframe。** 探针插进主文档（视口外），拿到与生产一致的级联：`base.css` + 本主题 + 插件样式 + 运行时样式。变体用 `attributes` 驱动 `<html>` 属性，测完 reset。
+
+早先用 iframe 隔离是为了挡宿主主题，但 `pnpm dev` 已让思源真正选中本主题，隔离前提消失；而 iframe 会漏掉 `base.css`——实测 `line-height` 在 iframe 里是 `normal`、真实页面是 `28px`。
+
+### 交互审计
+
+只量初始页面测不到交互态，而交互恰恰最容易坏（选择器还在但 DOM 结构变了，静态断言照样绿）。用 `actions` 驱动：
+
+```json
+{
+  "name": "交互：右键菜单打开后菜单项样式生效",
+  "actions": ["contextmenu:.b3-list-item", "wait:600"],
+  "probes": [{ "label": "menu-item", "target": ".b3-menu__item", "expect": { "display": "flex" } }]
+}
+```
+
+可用动作：`click` / `hover` / `press` / `focus` / `type` / `move` / `wait` / `contextmenu` / `dock` / `attr` / `reset`。
+
+实测要点：`.b3-menu__item` 在菜单打开前**根本不存在**；JS 派发 `contextmenu` **不触发**思源菜单，必须真实鼠标右键；真实指针移动是唯一能驱动 `:hover` 的方式。
 
 ## pnpm dev：热更新
 
@@ -107,18 +126,20 @@ pnpm verify:theme --baseline          # 把当前渲染整体写成新基线（�
 | ---------------------------------------- | -------------------------------------------------------------------- |
 | `--rc-*` 全为空                          | 宿主跑的不是本主题（看输出的 `themeStyle` href）。**不是工具坏了**   |
 | 移动端不加载主题                         | `theme.json` 缺 `frontends`，或改了没重启内核。看 `lightThemes` 条目 |
-| 选择器在真实页面未命中                   | 菜单没展开等 UI 状态问题；沙箱用例不受影响，仍会通过                 |
+| 选择器在真实页面未命中                   | 菜单没展开等 UI 状态问题；交互用例要先 `contextmenu`/`dock` 打开     |
 | 令牌 `(未定义)` 但源码里有               | 主题没挂上，或该令牌只定义在暗色作用域（亮色下为空属正常）           |
 | 截图和实际窗口不一致                     | 没加 `--attach`，量的是新开的无头视口                                |
 | verify 报「静态检查 rgb(var(--b3-...))」 | 双重包装：`--b3-*` 已是完整色值，再包 `rgb()` 整条声明失效           |
 
 ## 使用要点
 
-1. **`data-ui-density` 会被思源运行时还原**（实测写入后约 1 秒内消失）。密度变体在沙箱里
-   用 `attributes` 表达，不要指望真实页面上的静态快照。
+1. **`data-ui-density` 会被思源运行时还原**（实测写入后约 1 秒内消失）。密度变体用
+   `attributes` 表达，测完靠 `reset` 还原，不要指望它一直留在页面上。
 2. 不要为一次测量新写探针脚本 —— 要断言就往 `expectations.json` 加用例；要看效果用
    `pnpm open:theme`。
 3. 没有真实输出就不要声称「样式已生效」，贴命令的真实结果。
 4. 基线变了要区分「预期内的改动」与「回归」：确认是前者才 `--update`；`--baseline` 会整体
    覆盖，慎用。
 5. 改 `theme.json` 后必须重启内核，否则移动端判定不生效。
+6. **交互用例要真的覆盖交互**：断言 `.b3-menu__item` 却不先打开菜单，会因元素不存在而
+   失败；反过来，断言一个不随状态变化的属性（如 `display`），则可能假通过。

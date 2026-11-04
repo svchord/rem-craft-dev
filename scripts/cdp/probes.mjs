@@ -1,19 +1,17 @@
 /**
  * 探针：只读事实，返回纯数据，不打印、不改页面。
  *
- * 测量策略——默认在真实页面上量：
+ * 测量策略——一律在真实页面上量：
  *
- *   为什么不再用 iframe 隔离：
- *   早期用 iframe 是为了挡住宿主主题（Neo 1.1MB、上万条规则）的覆盖。但 `pnpm dev`
- *   现在经 kernel API 让思源真正选中本主题，宿主主题根本不参与级联——隔离的前提
- *   已经消失。而 iframe 只注入被测 CSS，会漏掉思源 `base.css` 与运行时样式，
- *   实测 `line-height` 在 iframe 里是 `normal`、真实页面是 `28px`（来自 base.css）。
+ *   曾经用 iframe 隔离，理由是要挡住宿主主题（Neo 1.1MB、上万条规则）的覆盖。
+ *   但 `pnpm dev` 现在经 kernel API 让思源真正选中本主题，宿主主题根本不参与
+ *   级联——隔离的前提消失了。而 iframe 只注入被测 CSS，会漏掉思源 `base.css`
+ *   与运行时样式：实测 `line-height` 在 iframe 里是 `normal`、真实页面是 `28px`。
  *
- *   所以默认把探针插进主文档（`position:fixed` 放到视口外），拿到的是与生产
- *   完全一致的级联：base.css + 本主题 + 插件样式 + 运行时样式。
+ *   所以探针插进主文档（`position:fixed` 放到视口外），拿到的是与生产完全一致的
+ *   级联：base.css + 本主题 + 插件样式 + 运行时样式。
  *
  *   需要临时改状态（dark/compact）时用 actions 驱动 `<html>` 属性，测完 reset。
- *   `sandbox.mjs` 只保留给「确实需要一个干净级联」的少数场景。
  */
 
 /**

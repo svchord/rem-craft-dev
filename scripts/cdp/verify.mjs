@@ -27,7 +27,7 @@ import { createSession, parseViewport } from './session.mjs';
 import { probeEnvironment, probeLive } from './probes.mjs';
 import { runActions, snapshotRoot } from './actions.mjs';
 import { evaluateCase, parseExpectations, toBaselineCase } from './expectations.mjs';
-import { findProblemsIn } from './sandbox.mjs';
+import { findProblemsIn } from './lints.mjs';
 import { pluginTarget, themeTarget } from './targets.mjs';
 import { judgeMount, readThemeName } from './theme.mjs';
 

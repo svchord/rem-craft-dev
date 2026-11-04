@@ -51,9 +51,9 @@ const NAME = 'vite-plugin-siyuan';
  * 将来要加 `:prod` 之类的插件时，不用改调用方的写法。
  */
 export default function siyuanDev(options = {}) {
-    const { target = null, kind = null, name = null, entry = null, outDir = null, link = true, headless = false, frontend = 'desktop', verify = true, pack = false, assets = true, manifestPath = null, } = options;
-    /** `target` 是新名，`kind` 是旧名。 */
-    const requestedKind = target ?? kind;
+    const { target = null, name = null, entry = null, outDir = null, link = true, headless = false, frontend = 'desktop', verify = true, pack = false, assets = true, manifestPath = null, } = options;
+    /** 显式指定的类型；null 表示从清单推断。 */
+    const requestedKind = target;
     let session = null;
     let starting = null;
     /** 第一次构建不是「变更」：只启动会话，不触发重载。 */
@@ -266,10 +266,6 @@ export default function siyuanDev(options = {}) {
         // 收尾：校验产物 + 打包。用 enforce: 'post' 确保在所有产物写完之后跑，
         // 且校验失败时不打包。它不看 dev——两个环境都校验，只是失败处理不同。
         siyuanPost({
-            cwd: root,
-            get outDir() {
-                return resolve(root, outDir ?? (dev ? './dev' : './dist'));
-            },
             verify,
             pack,
             resolveTarget: () => targetOrNull(resolveTarget(root)),

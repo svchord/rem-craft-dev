@@ -1,8 +1,9 @@
 /**
- * 读主题名：从 manifest 的 name 字段取。
+ * 读主题名：从清单的 name 字段取。
  *
- * 缺省按「当前工作目录下 public/theme.json → dist/theme.json」找，这对任何
- * 思源主题项目都成立，不算预设某个具体主题。要改就用参数覆盖。
+ * 缺省按「当前工作目录下 public/theme.json → dist/theme.json」找。
+ * 与 targets.ts 的 readManifestName 是同一件事，但那边要造 Target、
+ * 这里只想显示个名字；为避免循环依赖，各自保留一小段读文件的代码。
  *
  * @param manifestPaths 候选清单路径，按顺序试
  * @param fallback      都读不到时的兜底值（缺省 null，表示「不知道」）

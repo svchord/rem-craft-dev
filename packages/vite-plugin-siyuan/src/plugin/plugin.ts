@@ -63,11 +63,6 @@ export interface SiYuanPluginOptions {
    * 或清单还没创建时不猜。
    */
   target?: string | null;
-  /**
-   * 同上，旧名。两者等价，`target` 优先。
-   * @deprecated 用 `target`
-   */
-  kind?: string | null;
   /** 显式指定名字；缺省从清单读。 */
   name?: string | null;
   /**
@@ -128,7 +123,6 @@ export interface SiYuanPluginOptions {
 export default function siyuanDev(options: SiYuanPluginOptions = {}): Plugin[] {
   const {
     target = null,
-    kind = null,
     name = null,
     entry = null,
     outDir = null,
@@ -141,8 +135,8 @@ export default function siyuanDev(options: SiYuanPluginOptions = {}): Plugin[] {
     manifestPath = null,
   } = options;
 
-  /** `target` 是新名，`kind` 是旧名。 */
-  const requestedKind = target ?? kind;
+  /** 显式指定的类型；null 表示从清单推断。 */
+  const requestedKind = target;
 
   let session: DevSession | null = null;
   let starting: Promise<DevSession> | null = null;
@@ -364,10 +358,6 @@ export default function siyuanDev(options: SiYuanPluginOptions = {}): Plugin[] {
     // 收尾：校验产物 + 打包。用 enforce: 'post' 确保在所有产物写完之后跑，
     // 且校验失败时不打包。它不看 dev——两个环境都校验，只是失败处理不同。
     siyuanPost({
-      cwd: root,
-      get outDir() {
-        return resolve(root, outDir ?? (dev ? './dev' : './dist'));
-      },
       verify,
       pack,
       resolveTarget: () => targetOrNull(resolveTarget(root)),

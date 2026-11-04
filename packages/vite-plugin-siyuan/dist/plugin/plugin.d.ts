@@ -14,11 +14,6 @@ export interface SiYuanPluginOptions {
      * 或清单还没创建时不猜。
      */
     target?: string | null;
-    /**
-     * 同上，旧名。两者等价，`target` 优先。
-     * @deprecated 用 `target`
-     */
-    kind?: string | null;
     /** 显式指定名字；缺省从清单读。 */
     name?: string | null;
     /**

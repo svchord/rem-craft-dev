@@ -17,6 +17,7 @@ import { join } from 'node:path';
 import { reloadPlugin, reloadPluginCss, reloadThemeCss, selectTheme } from './kernel.js';
 import { registerTargetType, targetType } from './target-types.js';
 import { isSemver } from './verify.js';
+import { judgeMount } from './theme.js';
 import { findWorkspaceDir } from './siyuan.js';
 import { resolveInstallDir } from './workspace.js';
 const readText = (file) => Promise.resolve(readFileSync(file, 'utf8'));
@@ -110,7 +111,10 @@ registerTargetType('theme', {
             });
         }
         const css = readOutput('theme.css');
-        if (css && css.includes('@layer')) {
+        // 只看规则，不看注释：watch 产物没压缩，注释里常写着
+        // 「base.css 未使用 @layer」这类说明，直接 includes 会误报（实测踩过）。
+        const withoutComments = css?.replace(/\/\*[\s\S]*?\*\//g, '') ?? '';
+        if (withoutComments.includes('@layer')) {
             issues.push({
                 message: 'theme.css 含 @layer，会被 base.css（未分层）压制',
                 hint: '移除 @layer 包装，让主题规则保持 unlayered。',
@@ -155,16 +159,12 @@ registerTargetType('theme', {
         }
         throw new Error(`找不到主题 CSS：试过 ${candidates.join('、')}`);
     },
-    async mountState(page) {
+    async mountState(page, { name }) {
         const href = await page.evaluate(() => document.getElementById('themeStyle')?.getAttribute('href') ?? null);
-        if (!href) {
-            return { ok: false, loaded: null, reason: '页面里没有 themeStyle（用的是内置 daylight/midnight）' };
-        }
-        const segment = href.match(/\/appearance\/themes\/([^/]+)\//)?.[1] ?? null;
-        if (!segment) {
-            return { ok: false, loaded: null, reason: `themeStyle 的 href 不是主题目录路径：${href}` };
-        }
-        return { ok: true, loaded: decodeURIComponent(segment), reason: null };
+        // 复用 judgeMount：它处理了前缀匹配（发布版 X 与本地目录 X Dev 算同一个主题）
+        // 和名称归一化，之前这里自己写一遍简单解析会漏掉这些。
+        const judgement = judgeMount(href, name);
+        return { ok: judgement.ok, loaded: judgement.loaded, reason: judgement.reason };
     },
 }, { detect: (cwd) => hasManifest(cwd, 'theme.json') });
 registerTargetType('plugin', {

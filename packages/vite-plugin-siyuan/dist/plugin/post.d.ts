@@ -16,10 +16,6 @@ export declare const PACKAGE_NAME = "package.zip";
 export interface PostPluginOptions {
     /** 取被测目标；拿不到就跳过校验。 */
     resolveTarget: () => Target | null;
-    /** 项目根目录。 */
-    cwd: string;
-    /** 产物目录（绝对路径）。 */
-    outDir: string;
     /** 是否校验。 */
     verify: boolean;
     /** 是否打包（名字固定为 package.zip）。 */

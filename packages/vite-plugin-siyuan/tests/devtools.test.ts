@@ -21,9 +21,13 @@ import { writeZip } from '../src/plugin/post.ts';
 
 const root = join(import.meta.dirname, '..');
 const cdpDir = join(root, 'src');
-const readCdp = (file: string) => {
-  // 重组后源码按层放：先在子目录里找，找不到再回顶层。
-  for (const layer of ['core', 'dev', 'plugin', 'cli', '']) {
+const readCdp = (file: string, preferredLayer?: string) => {
+  // 重组后源码按层放。允许指定层——core/targets.ts 与 cli/targets.ts 同名，
+  // 不指定时按 core → dev → plugin → cli → 顶层 的顺序找。
+  const layers = preferredLayer
+    ? [preferredLayer, ...['core', 'dev', 'plugin', 'cli', ''].filter((l) => l !== preferredLayer)]
+    : ['core', 'dev', 'plugin', 'cli', ''];
+  for (const layer of layers) {
     const candidate = layer ? join(cdpDir, layer, file) : join(cdpDir, file);
     if (existsSync(candidate)) return readFileSync(candidate, 'utf8');
   }
@@ -682,9 +686,9 @@ describe('vite plugin shape', () => {
     const auto = siyuanVitePlugin();
     const explicit = siyuanVitePlugin({ target: 'plugin' });
     expect(auto.map((plugin) => plugin.name)).toEqual(explicit.map((plugin) => plugin.name));
-    // 旧名 kind 仍可用（兼容），target 优先。
-    const legacy = siyuanVitePlugin({ kind: 'theme' });
-    expect(legacy.map((plugin) => plugin.name)).toEqual(auto.map((plugin) => plugin.name));
+    // 不再有 kind 别名——一个概念只该有一个入参。
+    const source = stripComments(readCdp('plugin.ts'));
+    expect(source, '插件选项不该有 deprecated 的 kind 别名').not.toMatch(/@deprecated/);
   });
 
   it('bundles the asset contract so public/ changes rebuild the project', () => {
@@ -700,6 +704,46 @@ describe('vite plugin shape', () => {
     // 可关闭：调用方自己接管时不该被强制。
     const bare = siyuanVitePlugin({ assets: false });
     expect(bare.some((plugin) => plugin.name === 'vite-plugin-siyuan:assets')).toBe(false);
+  });
+
+  it('shares mount judgement between theme.ts and the descriptor', () => {
+    // 之前 judgeMount 支持前缀匹配（发布版 X 与本地 X Dev 算同一个），
+    // 但 theme 描述符的 mountState 自己又写了一遍简单解析，行为不一致。
+    const targets = stripComments(readCdp('targets.ts'));
+    expect(targets, 'mountState 必须复用 judgeMount').toMatch(/judgeMount\(href/);
+    expect(targets, '不该再自己正则解析 themeStyle').not.toMatch(/appearance\\\/themes/);
+  });
+
+  it('keeps audit out of measure-cli and shares target resolution', () => {
+    // measure-cli 之前 678 行，audit 的 235 行挤在里面；且 resolveTarget
+    // 与 audit 的 resolveTargetFrom 各写一份。现在拆开并共用 cli/targets.ts。
+    const measure = stripComments(readCdp('measure-cli.ts'));
+    expect(measure, '不该再定义 runAudit').not.toMatch(/function runAudit/);
+    expect(measure, 'audit 分支只做转发').toMatch(/await runAudit\(parsed\)/);
+
+    const audit = stripComments(readCdp('audit.ts', 'cli'));
+    expect(audit, 'audit 应独立成文件并导出').toMatch(/export async function runAudit/);
+    expect(audit, '不该再自己写 resolveTargetFrom').not.toMatch(/function resolveTargetFrom/);
+
+    const shared = stripComments(readCdp('targets.ts', 'cli'));
+    expect(shared, '目标解析应集中一份').toMatch(/export function resolveTargetFromArgs/);
+  });
+
+  it('lets the post plugin own its config instead of reading a shared getter', () => {
+    // 三个插件共享闭包里的 root/dev 可变状态、靠 get outDir() 延迟求值，
+    // 是最容易出竞味的结构。post 现在自己从 configResolved 拿配置。
+    const post = stripComments(readCdp('post.ts'));
+    expect(post, 'post 要有自己的 configResolved').toMatch(/configResolved\(resolved\)/);
+    expect(post, 'PostPluginOptions 不该再要 cwd/outDir').not.toMatch(/PostPluginOptions[\s\S]*cwd: string/);
+
+    const pluginSource = stripComments(readCdp('plugin.ts'));
+    expect(pluginSource, 'siyuanPost 调用不该再传 get outDir()').not.toMatch(/get outDir\(\)/);
+    expect(pluginSource, 'siyuanPost 调用不该再传 cwd').not.toMatch(/siyuanPost\(\{[\s\S]*cwd: root/);
+  });
+
+  it('has no deprecated kind alias on the plugin options', () => {
+    const source = stripComments(readCdp('plugin.ts'));
+    expect(source, '一个概念只该有一个入参名').not.toMatch(/@deprecated/);
   });
 
   it('keeps both dev shapes sharing one session layer', () => {
@@ -1183,6 +1227,24 @@ describe('artifact verification', () => {
       const result = verifyTarget(themeTarget({ name: 'T', cwd: dir }), { root: dir, outDir: join(dir, 'dist') });
       expect(result.ok).toBe(false);
       expect(result.issues.map((i) => i.message).join()).toMatch(/@layer/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('ignores @layer mentioned only in a comment', () => {
+    // watch 产物不压缩，注释里常写着「base.css 未使用 @layer」这类说明。
+    // 之前直接 includes('@layer') 会在 watch 模式误报、生产模式正常，
+    // 两个环境行为不一致。实测踩过，这里固定住。
+    const dir = makeProject({
+      'package.json': JSON.stringify({ version: '1.0.0' }),
+      'public/theme.json': JSON.stringify({ name: 'T', author: 'a', url: 'u', version: '1.0.0', modes: ['light'] }),
+      'dist/theme.css': '/* 所有覆盖规则必须保持 unlayered（base.css 未使用 @layer） */\n.a{}',
+      'dist/theme.json': '{}',
+    });
+    try {
+      const result = verifyTarget(themeTarget({ name: 'T', cwd: dir }), { root: dir, outDir: join(dir, 'dist') });
+      expect(result.ok, JSON.stringify(result.issues)).toBe(true);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

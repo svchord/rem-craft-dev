@@ -25,7 +25,7 @@
  * 打包只在生产做（开发时打 zip 没意义）。
  */
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { deflateRawSync } from 'node:zlib';
 import { formatIssues, verifyTarget } from '../core/verify.js';
 /**
@@ -132,12 +132,20 @@ export function writeZip(dir, outFile) {
  * 收尾插件：产物校验 + 打包。
  */
 export function siyuanPost(options) {
-    const { resolveTarget, cwd, outDir, verify, pack, log } = options;
+    const { resolveTarget, verify, pack, log } = options;
+    // 自己从 Vite 拿项目根与产物目录，不依赖外层闭包的可变 root/dev——
+    // 三个插件共享可变状态 + getter 延迟求值是最容易出竞味的结构。
+    let root = process.cwd();
+    let outDir = '';
     return {
         name: 'vite-plugin-siyuan:post',
         // post 保证在所有产物写完之后跑。
         enforce: 'post',
         apply: 'build',
+        configResolved(resolved) {
+            root = resolved.root;
+            outDir = resolve(root, resolved.build.outDir);
+        },
         writeBundle() {
             // Vite 自己提供的真实状态：-w / --watch / config 里的 watch 都已归一化。
             const isWatch = Boolean(this.meta?.watchMode);
@@ -148,7 +156,7 @@ export function siyuanPost(options) {
                     log('跳过校验：识别不到被测类型');
                 }
                 else {
-                    const result = verifyTarget(target, { root: cwd, outDir });
+                    const result = verifyTarget(target, { root, outDir });
                     if (!result.ok) {
                         const text = formatIssues(result.issues);
                         if (isWatch) {
@@ -172,7 +180,7 @@ export function siyuanPost(options) {
                     return;
                 }
                 try {
-                    const outFile = join(cwd, PACKAGE_NAME);
+                    const outFile = join(root, PACKAGE_NAME);
                     const result = writeZip(outDir, outFile);
                     log(`已打包：${PACKAGE_NAME}（${result.files} 个文件，${result.bytes} 字节）`);
                 }

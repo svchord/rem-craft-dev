@@ -1,18 +1,21 @@
 /**
  * 主题身份与挂载判定：只读文件 + 纯字符串处理，不碰浏览器。
  *
- * 回答两个问题：
- *   1. 本主题叫什么（目录名与 manifest 的 name 一致）
- *   2. 页面上跑的是不是本主题
+ * 这里是**纯逻辑**，具体实现见 targets.ts 的 theme 描述符：
+ *   mountState() 用 judgeMount() 判断页面挂的是不是本主题
  *
- * 不预设任何具体主题名——manifest 路径与兜底名都由调用方给。
+ * 之前这里另写了一份挂载解析、描述符又另写一份，行为不一致
+ * （judgeMount 支持前缀匹配，mountState 不支持）。现在单一来源。
+ *
+ * 不 import targets.ts，避免循环依赖（那边要 import 本文件）。
  */
 import { readFileSync } from 'node:fs';
 /**
- * 读主题名：从 manifest 的 name 字段取。
+ * 读主题名：从清单的 name 字段取。
  *
- * 缺省按「当前工作目录下 public/theme.json → dist/theme.json」找，这对任何
- * 思源主题项目都成立，不算预设某个具体主题。要改就用参数覆盖。
+ * 缺省按「当前工作目录下 public/theme.json → dist/theme.json」找。
+ * 与 targets.ts 的 readManifestName 是同一件事，但那边要造 Target、
+ * 这里只想显示个名字；为避免循环依赖，各自保留一小段读文件的代码。
  *
  * @param manifestPaths 候选清单路径，按顺序试
  * @param fallback      都读不到时的兜底值（缺省 null，表示「不知道」）

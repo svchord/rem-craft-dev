@@ -84,12 +84,21 @@ export interface BuildContext {
 /**
  * 描述符产出的构建片段，会被 mergeConfig 进用户配置。
  *
- * 只放「思源加载机制决定的」部分；`input` / `lib` / `minify` 这些由项目决定。
+ * 只放「思源加载机制决定的」部分；`minify` / `sourcemap` / `target` 这些归项目。
+ *
+ * 统一用 `rollupOptions.input` 而不是 `lib`：
+ *   实测 CSS 入口不能走 lib —— lib 隐含 `cssCodeSplit: false`，Vite 直接报错
+ *   （"rolldownOptions.input should not include CSS files"），而主题是纯 CSS 入口。
+ *   插件那边用普通 input + `output.format: 'cjs'` 产出的仍是 CJS 单文件，
+ *   文件名还能用 `entryFileNames` 精确控制（lib 模式会产出 `index.cjs`，得再改名）。
+ *   所以两种模式共用 input，差别只在 output。
  */
 export interface TargetBuildSpec {
     /** 产物相对目录，如 `./dev`。 */
     outDir?: string;
-    /** rollup 产物命名规则。 */
+    /** rollup 的 input；entry 入参解析后的绝对路径。 */
+    input?: string;
+    /** rollup 产物命名与模块格式。 */
     rollupOutput?: {
         /** 资源文件命名（CSS 就在这里定名）。 */
         assetFileNames?: (info: {
@@ -97,9 +106,18 @@ export interface TargetBuildSpec {
         }) => string;
         /** JS 入口命名。 */
         entryFileNames?: string;
+        /** 模块格式。插件必须是 cjs（思源用 window.eval 执行 CJS 包装）。 */
+        format?: 'cjs' | 'es';
     };
+    /** 必须保持外部的模块。 */
+    external?: string[];
     /** 产物目录不该在 watch 时清空——思源正读着它。 */
     emptyOutDir?: boolean;
+}
+/** buildSpec 的输入。 */
+export interface TargetBuildSpecOptions {
+    /** 入口文件的绝对路径；不给则用描述符的默认入口。 */
+    entry?: string | null;
 }
 export interface TargetDescriptor {
     /** 清单文件名，如 'theme.json'。 */
@@ -124,11 +142,11 @@ export interface TargetDescriptor {
     /**
      * 生成构建配置片段（可选）。
      *
-     * 产物命名由思源的加载机制决定：主题读 `theme.css`、插件读 `index.js` +
-     * `index.css`。让每个项目自己写 `assetFileNames`，写错就是静默失效——
-     * 思源找不到文件不会报错，只是什么都不显示。
+     * 产物命名与模块格式由思源的加载机制决定：主题读 `theme.css`、插件读
+     * `index.js` + `index.css`，且插件必须是 CJS 单文件（`window.eval` 执行）。
+     * 让每个项目自己写，写错就是静默失效——思源找不到文件不会报错。
      */
-    buildSpec?(context: BuildContext): TargetBuildSpec;
+    buildSpec?(context: BuildContext, options: TargetBuildSpecOptions): TargetBuildSpec;
     /**
      * 让页面用上新产物。
      * 主题换 `<link>` 的 href；插件 CSS 换 `<style>` 文本、JS 走 kernel 重建实例。

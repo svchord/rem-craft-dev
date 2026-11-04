@@ -1,0 +1,38 @@
+feat(plugin): 统一 entry 入参，构建配置按类型注入且补缺不覆盖
+
+## entry 统一
+
+入口只是「从哪开始构建」，主题给 CSS、插件给 TSX，差别在产物形态不在入口概念。
+现在两种类型都传同一个 entry 入参，由类型描述符决定产物：
+
+  theme  entry: src/styles/index.css  -> theme.css
+  plugin entry: src/index.tsx         -> index.js (CJS) + index.css
+
+## 实测否掉了 build.lib
+
+两个问题：
+1. lib 隐含 cssCodeSplit: false，CSS 入口直接报错
+   "rolldownOptions.input should not include CSS files"
+2. lib 让插件产出 index.cjs 而非 index.js，还得靠 fileName 改名
+
+普通 input + output.format=cjs 反而更直接：产出真 CJS（require("siyuan")），
+文件名用 entryFileNames 精确控制。所以两种模式统一用 rollupOptions.input。
+
+## 注入改补缺
+
+原本 config() 返回新对象，会覆盖用户已写的 build.outDir 等。
+改成就地 ??= 补缺，与 electron-vite、@samrum/vite-plugin-web-extension 一致：
+用户配了就用用户的，没配才用包按类型生成的。
+
+## 父项目
+
+vite.config.ts 现在只传 enabled + entry，不再写 outDir / input /
+rollupOptions.output。剩下的是真正的项目偏好：minify / sourcemap / target、
+别名、要不要打 package.zip。
+
+## 验证
+
+- 包内 64 -> 66 测试
+- 实跑主题：watch 落 dev/theme.css，热重载 6->53->6px 生效
+- 实跑插件（临时项目）：dist/index.js 是 CJS，含 require("siyuan")，siyuan 保持 external
+- pnpm check 全绿

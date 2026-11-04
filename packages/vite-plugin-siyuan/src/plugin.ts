@@ -33,6 +33,7 @@
  *   CLI     dev.ts 自己 spawn vite build --watch
  *   插件    宿主 vite 跑构建，本插件在 writeBundle 里喂变更给会话
  */
+import { resolve } from 'node:path';
 import type { Plugin } from 'vite';
 import siyuanAssets from './assets.ts';
 import { startDevSession } from './dev-session.ts';
@@ -68,6 +69,21 @@ export interface SiYuanPluginOptions {
   kind?: string | null;
   /** 显式指定名字；缺省从清单读。 */
   name?: string | null;
+  /**
+   * 构建入口，相对项目根。两种类型都接受：
+   *
+   *   主题  entry: 'src/styles/index.css'   → rollupOptions.input
+   *   插件  entry: 'src/index.tsx'          → rollupOptions.input + output.format='cjs'
+   *
+   * 为什么要统一：入口本来就只是「从哪开始构建」，主题是 CSS、插件是 TSX，
+   * 差别在产物形态而不在入口概念。产物形态由类型描述符决定（主题产出
+   * theme.css、插件产出 index.js CJS 单文件），项目只需要说清楚入口在哪。
+   *
+   * 不传则保留项目自己写在 `rollupOptions.input` / `build.lib` 里的配置。
+   * 注意**不要用 `build.lib`**：lib 隐含 `cssCodeSplit: false`，与 CSS 入口冲突
+   * （实测 Vite 报错），而且插件会产出 `index.cjs` 而非 `index.js`。
+   */
+  entry?: string | null;
   /** 产物目录；缺省取类型描述符的值（通常是 ./dev）。 */
   outDir?: string | null;
   /** 是否建立链接，缺省 true。 */
@@ -100,6 +116,7 @@ export default function siyuanDev(options: SiYuanPluginOptions = {}): Plugin[] {
     target = null,
     kind = null,
     name = null,
+    entry = null,
     outDir = null,
     link = true,
     headless = false,
@@ -126,7 +143,7 @@ export default function siyuanDev(options: SiYuanPluginOptions = {}): Plugin[] {
    * `config()` 早于 `configResolved`，此时 `root` 还是 process.cwd()——
    * 但 Vite 调用 `config()` 时 cwd 就是项目根，所以够用。
    */
-  function resolveBuildSpec(context: BuildContext): TargetBuildSpec | null {
+  function resolveBuildSpec(context: BuildContext, entryOption: string | null): TargetBuildSpec | null {
     let resolvedKind = requestedKind;
     if (!resolvedKind) {
       const detected = detectTargetType(context.root);
@@ -138,7 +155,10 @@ export default function siyuanDev(options: SiYuanPluginOptions = {}): Plugin[] {
       resolvedKind = detected.kind;
     }
     try {
-      return createTarget(resolvedKind, { cwd: context.root }).buildSpec(context);
+      const target = createTarget(resolvedKind, { cwd: context.root });
+      // entry 是相对项目根的路径，解析成绝对路径再交给 rollup。
+      const entry = entryOption ? resolve(context.root, entryOption) : null;
+      return target.buildSpec(context, { entry });
     } catch {
       return null;
     }
@@ -189,37 +209,42 @@ export default function siyuanDev(options: SiYuanPluginOptions = {}): Plugin[] {
       apply: 'build',
 
       /**
-       * 注入构建配置：产物名由思源的加载机制决定，不该让每个项目自己写。
+       * 注入构建配置：入口、产物名、模块格式都由思源的加载机制决定。
        *
-       * 主题读固定文件名 `theme.css`；插件读 `index.js` + `index.css`。
-       * 名字写错思源不会报错，只是静默加载不到——这类错误交给项目去防太不可靠，
-       * 所以由类型描述符定死。
+       * 全部用 `??=` 补缺，**不覆盖用户已写的值**——社区里 electron-vite 与
+       * @samrum/vite-plugin-web-extension 都是这个模式（`config.build ??= {}`）。
+       * 这样项目想换个产物目录时仍能覆盖，不需要关掉插件。
        *
-       * 只注入「思源决定的」部分；`input` / `lib` / `minify` 仍归项目。
+       * 只注入「思源决定的」部分；minify / sourcemap / target 归项目。
        */
       config(userConfig, env) {
         const watch = Boolean(userConfig.build?.watch);
         const context = { command: env.command, watch, root };
-        const spec = resolveBuildSpec(context);
+        const spec = resolveBuildSpec(context, entry);
         if (!spec) return undefined;
 
-        const resolvedOutDir = outDir ?? spec.outDir;
-        return {
-          build: {
-            ...(resolvedOutDir ? { outDir: resolvedOutDir } : {}),
-            ...(spec.emptyOutDir === undefined ? {} : { emptyOutDir: spec.emptyOutDir }),
-            ...(spec.rollupOutput
-              ? {
-                  rollupOptions: {
-                    output: {
-                      ...(spec.rollupOutput.entryFileNames ? { entryFileNames: spec.rollupOutput.entryFileNames } : {}),
-                      ...(spec.rollupOutput.assetFileNames ? { assetFileNames: spec.rollupOutput.assetFileNames } : {}),
-                    },
-                  },
-                }
-              : {}),
-          },
-        };
+        const build = (userConfig.build ??= {});
+        build.outDir ??= outDir ?? spec.outDir;
+
+        if (spec.emptyOutDir !== undefined) build.emptyOutDir ??= spec.emptyOutDir;
+
+        if (spec.input || spec.rollupOutput || spec.external) {
+          const rollupOptions = (build.rollupOptions ??= {});
+          if (spec.input) rollupOptions.input ??= spec.input;
+          if (spec.external) rollupOptions.external ??= spec.external;
+
+          // output 可能是数组（多入口拆分），那种情况不插手——项目自己在管。
+          if (spec.rollupOutput && !Array.isArray(rollupOptions.output)) {
+            const output: Record<string, unknown> = (rollupOptions.output ??= {}) as Record<string, unknown>;
+            const specOutput = spec.rollupOutput;
+            output.format ??= specOutput.format;
+            output.entryFileNames ??= specOutput.entryFileNames;
+            output.assetFileNames ??= specOutput.assetFileNames;
+          }
+        }
+
+        // 原地改，不返回：返回对象会被 Vite 当作用户配置合并，语义容易搞混。
+        return undefined;
       },
 
       configResolved(resolved) {

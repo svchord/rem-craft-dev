@@ -681,14 +681,36 @@ describe('vite plugin shape', () => {
     expect(theme?.emptyOutDir, 'watch 时不能清空产物目录').toBe(false);
     expect(theme?.rollupOutput?.assetFileNames?.({ name: 'a.css' })).toBe('theme.css');
     expect(theme?.rollupOutput?.entryFileNames, '主题没有 JS 产物').toBeUndefined();
+    expect(theme?.rollupOutput?.format, '主题不需要指定模块格式').toBeUndefined();
 
     const plugin = pluginTarget({ name: 'p' }).buildSpec(context);
     expect(plugin?.rollupOutput?.assetFileNames?.({ name: 'a.css' })).toBe('index.css');
     expect(plugin?.rollupOutput?.entryFileNames, '插件必须是 CJS 单文件').toBe('[name].js');
+    expect(plugin?.rollupOutput?.format, '思源用 window.eval 执行 CJS 包装').toBe('cjs');
+    expect(plugin?.external, 'siyuan/process 必须保持外部').toEqual(['siyuan', 'process']);
 
     // 非 watch 时产物进 dist/。
     const prod = themeTarget({ name: 'T' }).buildSpec({ command: 'build', watch: false, root: '/tmp/x' });
     expect(prod?.outDir).toBe('./dist');
+  });
+
+  it('takes one entry option for both kinds', () => {
+    // 入口只是「从哪开始构建」，主题是 CSS、插件是 TSX，差别在产物形态不在入口概念。
+    // 实测：lib 模式不能用于 CSS 入口（隐含 cssCodeSplit:false 会报错），
+    // 且 lib 让插件产出 index.cjs 而非 index.js——所以两种都用普通 input。
+    const context = { command: 'build' as const, watch: true, root: '/tmp/x' };
+
+    const theme = themeTarget({ name: 'T' }).buildSpec(context, { entry: '/x/src/styles/index.css' });
+    expect(theme?.input).toBe('/x/src/styles/index.css');
+    expect(theme?.rollupOutput?.format, 'CSS 入口不需要 format').toBeUndefined();
+
+    const plugin = pluginTarget({ name: 'p' }).buildSpec(context, { entry: '/x/src/index.tsx' });
+    expect(plugin?.input).toBe('/x/src/index.tsx');
+    expect(plugin?.rollupOutput?.format).toBe('cjs');
+
+    // 不传 entry 时不给 input——让项目自己在 rollupOptions.input 里写。
+    const noEntry = themeTarget({ name: 'T' }).buildSpec(context);
+    expect(noEntry?.input, '不传 entry 就不该硬塞 input').toBeUndefined();
   });
 
   it('injects the build config through the vite config hook', () => {
@@ -697,6 +719,15 @@ describe('vite plugin shape', () => {
     const dev = plugins.find((item) => item.name.includes(':dev'));
     expect(typeof dev?.config, '必须用 config() 注入 build 配置').toBe('function');
     expect(typeof (dev as { configResolved?: unknown }).configResolved, '仍需 configResolved 拿 root').toBe('function');
+  });
+
+  it('fills gaps instead of overwriting user build config', () => {
+    // 社区做法（electron-vite、@samrum/vite-plugin-web-extension）都是 `??=`：
+    // 用户已写的值优先。写成覆盖的话，项目想换产物目录就只能关掉插件。
+    const source = stripComments(readCdp('plugin.ts'));
+    expect(source, '注入必须用 ??= 补缺，不能覆盖').toMatch(/\?\?=/);
+    expect(source, '不得直接赋值 build.outDir').not.toMatch(/build\.outDir\s*=[^=]/);
+    expect(source, '不得直接赋值 rollupOptions').not.toMatch(/build\.rollupOptions\s*=[^=]/);
   });
 });
 

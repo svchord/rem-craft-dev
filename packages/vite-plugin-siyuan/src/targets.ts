@@ -23,6 +23,7 @@ import type {
   MountState,
   ReloadResult,
   TargetBuildSpec,
+  TargetBuildSpecOptions,
   TargetContext,
   TargetDescriptor,
 } from './target-types.ts';
@@ -89,13 +90,17 @@ registerTargetType(
 
     /**
      * 主题产物只有一份 CSS，且思源按固定文件名 `<theme>/theme.css` 加载。
-     * 名字错了不会报错，只是主题不生效——所以由描述符定死，项目不用写。
+     * 名字错了不会报错，只是主题不生效——所以由描述符定死。
+     *
+     * 注意不能走 lib 模式：lib 隐含 `cssCodeSplit: false`，而 CSS 入口与那个选项
+     * 冲突（Vite 直接报错）。所以统一用普通 input。
      */
-    buildSpec({ watch }) {
+    buildSpec({ watch }, { entry }) {
       return {
         outDir: watch ? './dev' : './dist',
         // watch 时不能清空产物目录：思源正从那里读文件。
         emptyOutDir: false,
+        input: entry ?? undefined,
         rollupOutput: {
           assetFileNames: (info) => (info.name?.endsWith('.css') ? 'theme.css' : (info.name ?? 'asset')),
         },
@@ -187,18 +192,23 @@ registerTargetType(
 
     /**
      * 插件的产物名是思源写死的：`index.js`（CJS 单文件，被 window.eval 执行）
-     * 与 `index.css`（内联进 `<style>`）。名字错了思源静默加载不到，
-     * 所以由描述符定死，项目不用写 assetFileNames / entryFileNames。
+     * 与 `index.css`（内联进 `<style>`）。名字错了思源静默加载不到。
      *
-     * 注意 `lib` 配置仍归项目：entry 路径、formats 取决于它用 TSX 还是别的。
+     * 不用 lib 模式：lib 会产出 `index.cjs`，还得再改名；普通 input +
+     * `output.format: 'cjs'` 反而更直接，`entryFileNames` 就能精确控制。
+     *
+     * `siyuan` 与 `process` 必须 external：前者由前端 polyfill，后者由思源注入。
      */
-    buildSpec({ watch }) {
+    buildSpec({ watch }, { entry }) {
       return {
         outDir: watch ? './dev' : './dist',
         emptyOutDir: false,
+        input: entry ?? undefined,
+        external: ['siyuan', 'process'],
         rollupOutput: {
           entryFileNames: '[name].js',
           assetFileNames: (info) => (info.name?.endsWith('.css') ? 'index.css' : (info.name ?? 'asset')),
+          format: 'cjs',
         },
       };
     },
@@ -311,7 +321,7 @@ export interface Target {
    * 生成构建配置片段；描述符没实现时返回 null。
    * 插件用它注入 `build.rollupOptions.output`，项目不必自己写产物命名。
    */
-  buildSpec(context: BuildContext): TargetBuildSpec | null;
+  buildSpec(context: BuildContext, options?: TargetBuildSpecOptions): TargetBuildSpec | null;
   /** 开发前让宿主用上它（可选）。 */
   activate: ((page: Page | null, options?: { port?: number | null }) => Promise<ActivateResult>) | null;
 }
@@ -371,8 +381,8 @@ export function createTarget(kind: string, options: CreateTargetOptions = {}): T
     }),
 
     /** 生成构建配置片段；描述符没实现就返回 null。 */
-    buildSpec: (context: BuildContext) =>
-      typeof descriptor.buildSpec === 'function' ? descriptor.buildSpec(context) : null,
+    buildSpec: (context: BuildContext, options: TargetBuildSpecOptions = {}) =>
+      typeof descriptor.buildSpec === 'function' ? descriptor.buildSpec(context, options) : null,
 
     /** 链接目标目录：<workspace>/data/<subdir>。 */
     installDir: (opts = {}) =>

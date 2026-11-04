@@ -26,6 +26,7 @@ export default defineConfig({
 ```ts
 siyuan({
   target: 'theme', // 'theme' | 'plugin'，缺省从 public/ 清单推断
+  entry: 'src/styles/index.css', // 入口；主题给 CSS，插件给 TSX/TS
   name: 'My Theme', // 缺省从清单读
   outDir: './dev', // 覆盖产物目录；缺省由类型决定（watch→dev，否则→dist）
   link: true, // 是否链接到 <workspace>/data/<subdir>/
@@ -39,15 +40,33 @@ siyuan({
 **`target` 与自动推断**：缺省看 `public/` 下有 `theme.json` 还是 `plugin.json`。
 清单还没创建、或两者并存时，显式传 `target` 更可靠。
 
-### 构建配置由插件注入
+### entry 统一，产物形态随类型
 
-父项目**不用写** `build.outDir` 和 `rollupOptions.output`——它们随类型不同：
+入口只是「从哪开始构建」，两种类型都传同一个 `entry`：
+
+```ts
+siyuan({ target: 'theme', entry: 'src/styles/index.css' }); // → theme.css
+siyuan({ target: 'plugin', entry: 'src/index.tsx' }); // → index.js (CJS) + index.css
+```
+
+差别在产物形态，由类型描述符决定，项目不用管。父项目**不用写**
+`build.outDir`、`rollupOptions.input`、`rollupOptions.output`：
 
 |            | 主题                     | 插件                      |
 | ---------- | ------------------------ | ------------------------- |
 | 产物目录   | `dev/`（watch）/ `dist/` | 同上                      |
 | CSS 产物名 | `theme.css`              | `index.css`               |
 | JS 产物名  | 无                       | `[name].js`（CJS 单文件） |
+| 模块格式   | 不需要                   | `cjs`                     |
+| external   | 无                       | `siyuan`、`process`       |
+
+> **为什么不用 `build.lib`？** 实测两个问题：lib 隐含 `cssCodeSplit: false`，
+> CSS 入口直接报错（`rolldownOptions.input should not include CSS files`）；
+> 且 lib 让插件产出 `index.cjs` 而非 `index.js`，还得再改名。
+> 普通 `input` + `output.format: 'cjs'` 反而更直接。
+
+**注入是补缺，不覆盖**（和 `electron-vite`、`@samrum/vite-plugin-web-extension`
+的做法一致）：所有字段用 `??=`，项目自己写了就优先用项目的。
 
 这些名字由思源的加载机制定死：主题读 `<theme>/theme.css`，插件读 `index.js` +
 `index.css` 并 `window.eval` 执行。**名字写错思源不报错，只是静默加载不到**，

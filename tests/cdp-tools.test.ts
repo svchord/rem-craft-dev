@@ -1,106 +1,30 @@
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 // @ts-expect-error 工具脚本是纯 .mjs 且没有 .d.ts，tsc 无法推断其类型；本文件按下面用例里的形状使用它们。
-import { parseSelectors, probeTokens } from '../scripts/cdp/probes.mjs';
-// @ts-expect-error 同上；补齐声明文件属于 scripts/cdp 的改动范围，不在本测试文件里做。
-import { parseViewport, runActions } from '../scripts/cdp/session.mjs';
+import { probeTokens } from '../scripts/cdp/probes.mjs';
+// @ts-expect-error 同上。
+import { parseViewport, viewportFor } from '../scripts/cdp/session.mjs';
+// @ts-expect-error 同上。
+import { frontendUrl, MOBILE_VIEWPORT } from '../scripts/cdp/siyuan.mjs';
+// @ts-expect-error 同上。
+import { parseExpectations, evaluateCase } from '../scripts/cdp/expectations.mjs';
+// @ts-expect-error 同上。
+import { findDoubleWrappedColors } from '../scripts/cdp/sandbox.mjs';
 
 const root = join(import.meta.dirname, '..');
 const cdpDir = join(root, 'scripts', 'cdp');
 const readCdp = (file: string) => readFileSync(join(cdpDir, file), 'utf8');
+
+/** .mjs 没有 .d.ts，这里把基线结构显式写出来，避免 tsc 把参数推成 any。 */
+type BaselineCase = { name: string; frontend?: string; viewport?: string; tokens?: Record<string, string> };
+type BaselineCheck = { ok: boolean; expected: unknown; actual: string };
 
 /**
  * 架构断言只看代码本身：注释里提到 puppeteer.launch / console.log 不算违规。
  * 行注释用 `(?<!:)` 保护 `http://`，否则 siyuan.mjs 里的 URL 会把后半行吃掉。
  */
 const stripComments = (source: string) => source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(?<!:)\/\/[^\n]*/g, '');
-
-describe('parseSelectors', () => {
-  it('ignores selectors that only live in comments', () => {
-    const css = `/* .commented-out { color: red } */
-    .b3-menu__item { color: red }`;
-    expect(parseSelectors(css), '注释里的选择器不得进入清单').toEqual(['.b3-menu__item']);
-  });
-
-  it('splits comma groups into separate selectors', () => {
-    const selectors = parseSelectors('.b3-menu__item, .b3-menu__separator { color: red }');
-    expect(selectors, '逗号分组必须拆开，否则命中率统计会把整串当成一个选择器').toEqual([
-      '.b3-menu__item',
-      '.b3-menu__separator',
-    ]);
-  });
-
-  it('skips at-rules but keeps the rules nested inside them', () => {
-    const css = `@import './l0-tokens.css';
-    @font-face { font-family: X; src: url(x.woff2) }
-    @media (max-width: 600px) { .dock__item { display: none } }`;
-    const selectors = parseSelectors(css);
-    expect(selectors, '@media 自身的 prelude 不是选择器，内层规则必须保留').toEqual(['.dock__item']);
-    expect(
-      selectors.some((selector: string) => selector.startsWith('@')),
-      'at-rule prelude 泄漏进选择器清单会让命中率统计失真'
-    ).toBe(false);
-  });
-
-  it('deduplicates repeated selectors', () => {
-    const css = `.b3-menu__item { color: red }
-    .b3-menu__item { padding: 0 }
-    .dock__item { color: blue }`;
-    expect(parseSelectors(css), '同一选择器多次出现应只保留一次').toEqual(['.b3-menu__item', '.dock__item']);
-  });
-
-  // @keyframes 的 from/to/百分比是动画关键帧，不是选择器；漏掉会让 audit 报出一堆永远 miss 的假条目。
-  it('drops @keyframes blocks instead of treating keyframes as selectors', () => {
-    const css = `@keyframes spin { from { opacity: 0 } to { opacity: 1 } }
-    @-webkit-keyframes k { 0% { opacity: 0 } 100% { opacity: 1 } }
-    .b3-menu__item { color: red }`;
-    expect(parseSelectors(css), '关键帧不得进入选择器清单').toEqual(['.b3-menu__item']);
-  });
-
-  // 属性值与 :is()/:not() 里可以合法出现逗号，按裸逗号切分会切出永远 miss 的假选择器。
-  it('splits only on top-level commas', () => {
-    const css = `[data-x="a,b"] { color: red }
-    :is(.a, .b) .c { color: blue }
-    .d, .e { color: green }`;
-    expect(parseSelectors(css), '引号与括号内的逗号不是分隔符').toEqual([
-      '[data-x="a,b"]',
-      ':is(.a, .b) .c',
-      '.d',
-      '.e',
-    ]);
-  });
-
-  // 构建产物不在版本库里（.gitignore 忽略 dist/dev），CI 上跳过，本地构建后自动生效。
-  const builtCss = [join(root, 'dist', 'theme.css'), join(root, 'dev', 'theme.css')].find(existsSync) ?? '';
-
-  it.skipIf(!builtCss)('parses a real theme build', () => {
-    const selectors = parseSelectors(readFileSync(builtCss, 'utf8'));
-    expect(selectors.length, '真实产物应解析出多个选择器').toBeGreaterThan(5);
-    expect(selectors, '主题产物必须包含 .b3-menu__item 规则').toContain('.b3-menu__item');
-    expect(
-      selectors.some((selector: string) => selector.includes('/*') || selector.startsWith('@')),
-      '真实产物里不应残留注释或 at-rule'
-    ).toBe(false);
-  });
-
-  // dist 与 dev 都被 .gitignore 忽略，CI 上没有产物；源码是版本库里的，能保证这条断言始终有效。
-  it('parses the committed theme sources', () => {
-    const stylesDir = join(root, 'src', 'styles');
-    const css = readdirSync(stylesDir)
-      .filter((file) => file.endsWith('.css'))
-      .map((file) => readFileSync(join(stylesDir, file), 'utf8'))
-      .join('\n');
-    const selectors = parseSelectors(css);
-
-    expect(selectors.length, '主题源码应解析出多个选择器').toBeGreaterThan(5);
-    expect(selectors, '主题源码必须包含 .b3-menu__item 规则').toContain('.b3-menu__item');
-    expect(
-      selectors.filter((selector: string) => selector.startsWith('@') || selector.includes('/*')),
-      '注释与 at-rule 不得进入选择器清单'
-    ).toEqual([]);
-  });
-});
 
 describe('parseViewport', () => {
   it('parses 宽x高 with the default device scale factor', () => {
@@ -127,14 +51,35 @@ describe('parseViewport', () => {
       height: 1000,
       deviceScaleFactor: 1,
     });
-    const fallback = { width: 800, height: 600, deviceScaleFactor: 2 };
-    expect(parseViewport(undefined, fallback), '显式 fallback 必须被采用').toEqual(fallback);
   });
 
   it('throws on malformed values', () => {
     for (const value of ['1280', 'abc', '1280x764@', '1280 x 764']) {
       expect(() => parseViewport(value), '非法视口必须报错而不是静默套用默认值：' + value).toThrow(/viewport/);
     }
+  });
+});
+
+describe('frontend selection', () => {
+  it('builds desktop and mobile URLs from separate build entries', () => {
+    expect(frontendUrl(6806, 'desktop')).toMatch(/\/stage\/build\/desktop\/\?r=/);
+    expect(frontendUrl(6806, 'mobile')).toMatch(/\/stage\/build\/mobile\/\?r=/);
+  });
+
+  it('rejects unknown frontends', () => {
+    expect(() => frontendUrl(6806, 'tablet'), '拼错前端必须报错，而不是静默用桌面').toThrow(/未知前端/);
+  });
+
+  it('defaults to the desktop entry', () => {
+    expect(frontendUrl(6806)).toMatch(/\/stage\/build\/desktop\//);
+  });
+
+  it('uses the phone viewport for mobile unless one is given', () => {
+    // 移动端不是「桌面缩小版」：它有独立构建，视口也必须是手机预设，否则断点全错。
+    expect(viewportFor('mobile', undefined)).toEqual(MOBILE_VIEWPORT);
+    expect(viewportFor('desktop', undefined).width, '桌面缺省保持 1600').toBe(1600);
+    const explicit = { width: 800, height: 600, deviceScaleFactor: 1 };
+    expect(viewportFor('mobile', explicit), '显式视口优先').toEqual(explicit);
   });
 });
 
@@ -179,68 +124,137 @@ describe('probeTokens', () => {
   });
 });
 
-describe('runActions validation', () => {
-  // 只覆盖「在碰页面之前就抛错」的分支，因此不需要浏览器。
-  const session = { page: {} };
+describe('expectations baseline', () => {
+  const file = join(root, 'expectations.json');
 
-  it('accepts an empty action list without touching the page', async () => {
-    await expect(runActions(session, []), '空动作列表应原样返回空日志').resolves.toEqual([]);
-  });
-
-  it('rejects unknown verbs with the available verb list', async () => {
-    await expect(runActions(session, ['nope:1']), '拼错动词必须报错，而不是静默跳过').rejects.toThrow(/未知动作/);
-  });
-
-  it('rejects axis actions without a value', async () => {
-    for (const action of ['style:', 'palette:', 'mode:', 'density:']) {
-      await expect(runActions(session, [action]), action + ' 缺取值必须报错').rejects.toThrow(/需要一个取值/);
+  it('is valid and non-empty', () => {
+    const parsed = parseExpectations(readFileSync(file, 'utf8'), 'expectations.json');
+    expect(parsed.cases.length, '基线至少要有一个用例').toBeGreaterThan(0);
+    for (const testCase of parsed.cases) {
+      expect(testCase.name.length, '用例必须有名字，否则报告里分不清是哪条').toBeGreaterThan(0);
     }
   });
 
-  it('rejects malformed attr and doc actions', async () => {
-    await expect(runActions(session, ['attr:data-frontend']), 'attr 缺 = 必须报错').rejects.toThrow(/名=值/);
-    await expect(runActions(session, ['doc:custom-rc-width']), 'doc 缺 = 必须报错').rejects.toThrow(/名=值/);
-    await expect(runActions(session, ['feature:']), 'feature 缺名称必须报错').rejects.toThrow(/需要名称/);
-  });
-});
+  it('only asserts tokens the theme actually defines', () => {
+    // 断言一个主题不存在的令牌，会永远读成空串并永远失败——基线写错最难查。
+    const parsed = parseExpectations(readFileSync(file, 'utf8'), 'expectations.json');
+    const sources = readdirSync(join(root, 'src', 'styles'))
+      .filter((name) => name.endsWith('.css'))
+      .map((name) => readFileSync(join(root, 'src', 'styles', name), 'utf8'))
+      .join('\n');
+    const defined = new Set([...sources.matchAll(/(--[\w-]+)\s*:/g)].map((match) => match[1]));
 
-describe('cdp layering', () => {
-  const cliFiles = ['inspect.mjs', 'audit.mjs'];
-  const allFiles = ['session.mjs', 'probes.mjs', 'siyuan.mjs', ...cliFiles];
-
-  it('starts the browser only in session.mjs', () => {
-    for (const file of allFiles) {
-      const source = stripComments(readCdp(file));
-      for (const call of ['puppeteer.launch', 'puppeteer.connect']) {
-        const found = source.includes(call);
-        const detail = found ? '不该出现 ' + call + '：' : 'session.mjs 里找不到 ' + call + '：';
-        expect(found, detail + file).toBe(file === 'session.mjs');
+    for (const testCase of parsed.cases) {
+      for (const token of Object.keys(testCase.tokens ?? {})) {
+        expect(defined.has(token), testCase.name + ' 断言了未定义的令牌：' + token).toBe(true);
       }
     }
   });
 
-  it('imports puppeteer-core only in session.mjs', () => {
-    const importers = allFiles.filter((file) => /from\s+['"]puppeteer-core['"]/.test(stripComments(readCdp(file))));
-    expect(importers, '浏览器依赖必须收敛在 session.mjs，否则生命周期无人统一管理').toEqual(['session.mjs']);
+  it('covers both frontends', () => {
+    // 桌面与移动是两个独立构建入口，只测一个等于放弃另一半。
+    const parsed = parseExpectations(readFileSync(file, 'utf8'), 'expectations.json');
+    const frontends = new Set(parsed.cases.map((testCase: BaselineCase) => testCase.frontend ?? 'desktop'));
+    expect(frontends.has('desktop'), '基线必须覆盖桌面端').toBe(true);
+    expect(frontends.has('mobile'), '基线必须覆盖移动端').toBe(true);
   });
 
-  it('keeps probes.mjs free of console output', () => {
-    expect(stripComments(readCdp('probes.mjs')), '探针只返回数据，打印交给 CLI 层').not.toMatch(/console\.\w+/);
-  });
-
-  it('has the CLI layer reuse session.mjs and probes.mjs', () => {
-    for (const file of cliFiles) {
-      const source = stripComments(readCdp(file));
-      expect(source, file + ' 必须复用 session.mjs 的浏览器生命周期').toMatch(/from\s+['"]\.\/session\.mjs['"]/);
-      expect(source, file + ' 必须复用 probes.mjs 的探针').toMatch(/from\s+['"]\.\/probes\.mjs['"]/);
-      expect(source, file + ' 不得自己碰 puppeteer').not.toMatch(/puppeteer/);
+  it('marks mobile cases with a phone viewport', () => {
+    const parsed = parseExpectations(readFileSync(file, 'utf8'), 'expectations.json');
+    for (const testCase of parsed.cases as BaselineCase[]) {
+      if (testCase.frontend !== 'mobile') continue;
+      expect(testCase.viewport, testCase.name + ' 是移动端用例，必须写明手机视口').toBeTruthy();
     }
   });
 
-  it('has probes.mjs stay independent of session.mjs', () => {
-    // 反向依赖会让探针被迫关心浏览器生命周期，分层就失效了。
-    expect(stripComments(readCdp('probes.mjs')), 'probes.mjs 不得依赖 session.mjs').not.toMatch(
-      /from\s+['"]\.\/session\.mjs['"]/
+  it('evaluates a matching case as passing', () => {
+    const checks = evaluateCase(
+      { name: 't', tokens: { '--rc-a': '6px' }, probes: [{ label: 'p', html: '<i></i>', expect: { color: 'red' } }] },
+      { tokens: { '--rc-a': '6px' }, probes: [{ label: 'p', found: true, styles: { color: 'red' } }] }
     );
+    expect(checks.every((check: BaselineCheck) => check.ok)).toBe(true);
+  });
+
+  it('evaluates a mismatching case as failing with expected/actual', () => {
+    const checks = evaluateCase(
+      { name: 't', tokens: { '--rc-a': '6px' } },
+      { tokens: { '--rc-a': '8px' }, probes: [] }
+    );
+    expect(checks[0].ok).toBe(false);
+    expect(checks[0].expected).toBe('6px');
+    expect(checks[0].actual, '不符项必须带上实际值，否则报告没法定位').toBe('8px');
+  });
+});
+
+describe('sandbox measurement guards', () => {
+  it('detects double-wrapped rgb(var(--b3-*))', () => {
+    // 这个 bug 真实发生过：l2 把 --b3-* 桥成完整色值，l3 又包一层 rgb()，
+    // rgb(rgb(...)) 是非法值，整条声明被浏览器静默丢弃。
+    const problems = findDoubleWrappedColors('.a { color: rgb(var(--b3-theme-on-surface)) }');
+    expect(problems).toHaveLength(1);
+    expect(problems[0].token).toBe('--b3-theme-on-surface');
+  });
+
+  it('accepts the correct single wrap', () => {
+    expect(findDoubleWrappedColors('.a { color: var(--b3-theme-on-surface) }')).toEqual([]);
+    expect(findDoubleWrappedColors('.a { color: rgb(var(--rc-brand-8)) }'), '--rc-* 存的是通道，rgb() 是对的').toEqual(
+      []
+    );
+  });
+});
+
+describe('cdp layering', () => {
+  const cliFiles = ['verify.mjs', 'watch.mjs', 'open.mjs'];
+  const allFiles = [
+    'session.mjs',
+    'probes.mjs',
+    'siyuan.mjs',
+    'theme.mjs',
+    'expectations.mjs',
+    'sandbox.mjs',
+    ...cliFiles,
+  ];
+
+  it('starts the browser only in session.mjs and open.mjs', () => {
+    // open.mjs 是人工审计入口，需要可见窗口，天然要自己 launch；
+    // verify/watch 必须复用 session.mjs，否则生命周期无人统一管理。
+    const launchers = allFiles.filter((file) => /puppeteer\.(launch|connect)/.test(stripComments(readCdp(file))));
+    expect(launchers.sort()).toEqual(['open.mjs', 'session.mjs']);
+  });
+
+  it('imports puppeteer-core only in the two browser owners', () => {
+    const importers = allFiles.filter((file) => /from\s+['"]puppeteer-core['"]/.test(stripComments(readCdp(file))));
+    expect(importers.sort()).toEqual(['open.mjs', 'session.mjs']);
+  });
+
+  it('keeps probes.mjs and sandbox.mjs free of console output', () => {
+    for (const file of ['probes.mjs', 'sandbox.mjs', 'expectations.mjs', 'theme.mjs']) {
+      expect(stripComments(readCdp(file)), file + ' 只返回数据，打印交给 CLI 层').not.toMatch(/console\.\w+/);
+    }
+  });
+
+  it('has verify reuse session.mjs and probes.mjs', () => {
+    const source = stripComments(readCdp('verify.mjs'));
+    expect(source, 'verify 必须复用 session.mjs 的浏览器生命周期').toMatch(/from\s+['"]\.\/session\.mjs['"]/);
+    expect(source, 'verify 必须复用 probes.mjs 的探针').toMatch(/from\s+['"]\.\/probes\.mjs['"]/);
+    expect(source, 'verify 不得自己碰 puppeteer').not.toMatch(/puppeteer/);
+  });
+
+  it('keeps mount judgement in one place', () => {
+    // 挂载判定错了，verify 的读数会被张冠李戴。
+    for (const file of ['verify.mjs', 'open.mjs']) {
+      const source = stripComments(readCdp(file));
+      expect(source, file + ' 必须复用 theme.mjs 的挂载判定/主题名').toMatch(/from\s+['"]\.\/theme\.mjs['"]/);
+      expect(source, file + ' 不得自己实现 normalizeThemeName').not.toMatch(/function\s+normalizeThemeName/);
+    }
+  });
+
+  it('keeps probes.mjs and sandbox.mjs independent of session.mjs', () => {
+    // 反向依赖会让探针被迫关心浏览器生命周期，分层就失效了。
+    for (const file of ['probes.mjs', 'sandbox.mjs', 'expectations.mjs', 'theme.mjs']) {
+      expect(stripComments(readCdp(file)), file + ' 不得依赖 session.mjs').not.toMatch(
+        /from\s+['"]\.\/session\.mjs['"]/
+      );
+    }
   });
 });

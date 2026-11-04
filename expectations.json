@@ -1,0 +1,156 @@
+{
+  "viewport": "1600x1000@1",
+  "cases": [
+    {
+      "name": "light 默认：令牌与菜单项配方",
+      "tokens": {
+        "--rc-radius-base": "6px",
+        "--rc-brand-8": "0 82 217",
+        "--rc-bg-page": "246 246 246",
+        "--rc-text-primary": "32 32 36",
+        "--b3-theme-primary": "rgb(0 82 217)",
+        "--b3-theme-background": "rgb(246 246 246)",
+        "--b3-border-radius": "6px"
+      },
+      "probes": [
+        {
+          "label": "menu-item",
+          "html": "<div class=\"b3-menu__item\">item</div>",
+          "target": ".b3-menu__item",
+          "expect": {
+            "display": "flex",
+            "gap": "8px",
+            "padding-top": "8px",
+            "padding-left": "12px",
+            "border-radius": "6px",
+            "color": "rgb(95, 99, 104)"
+          }
+        },
+        {
+          "label": "menu-separator",
+          "html": "<div class=\"b3-menu__separator\"></div>",
+          "target": ".b3-menu__separator",
+          "expect": {
+            "border-top-color": "rgb(224, 224, 224)",
+            "border-top-width": "1px"
+          }
+        }
+      ]
+    },
+    {
+      "name": "dark：暗色令牌覆盖与菜单项颜色",
+      "attributes": { "data-theme-mode": "dark" },
+      "tokens": {
+        "--rc-neutral-1": "28 29 32",
+        "--rc-bg-page": "38 39 43",
+        "--rc-text-primary": "236 237 240",
+        "--b3-theme-background": "rgb(38 39 43)"
+      },
+      "probes": [
+        {
+          "label": "menu-item",
+          "html": "<div class=\"b3-menu__item\">item</div>",
+          "target": ".b3-menu__item",
+          "expect": {
+            "color": "rgb(176, 179, 186)"
+          }
+        }
+      ]
+    },
+    {
+      "name": "compact 密度：菜单项内边距收窄",
+      "attributes": { "data-ui-density": "compact" },
+      "probes": [
+        {
+          "label": "menu-item",
+          "html": "<div class=\"b3-menu__item\">item</div>",
+          "target": ".b3-menu__item",
+          "expect": {
+            "padding-top": "4px"
+          }
+        }
+      ]
+    },
+    {
+      "name": "文档级属性：custom-rc-width=wide 限制行宽",
+      "probes": [
+        {
+          "label": "wysiwyg-wide",
+          "html": "<div class=\"protyle\" custom-rc-width=\"wide\"><div class=\"protyle-wysiwyg\"></div></div>",
+          "target": ".protyle-wysiwyg",
+          "expect": {
+            "max-width": "re:^\\d+(\\.\\d+)?px$"
+          }
+        },
+        {
+          "label": "wysiwyg-default",
+          "html": "<div class=\"protyle\"><div class=\"protyle-wysiwyg\"></div></div>",
+          "target": ".protyle-wysiwyg",
+          "expect": {
+            "max-width": "none"
+          }
+        }
+      ]
+    },
+    {
+      "name": "块级属性：custom-rc-flat=true 去掉圆角",
+      "probes": [
+        {
+          "label": "flat-block",
+          "html": "<div class=\"b3-menu__item\" custom-rc-flat=\"true\"></div>",
+          "target": ".b3-menu__item",
+          "expect": {
+            "border-radius": "0px"
+          }
+        },
+        {
+          "label": "normal-block",
+          "html": "<div class=\"b3-menu__item\"></div>",
+          "target": ".b3-menu__item",
+          "expect": {
+            "border-radius": "6px"
+          }
+        }
+      ]
+    },
+    {
+      "name": "移动端 ios：触摸目标不小于 44px",
+      "frontend": "mobile",
+      "viewport": "390x844@3",
+      "attributes": { "data-backend": "ios" },
+      "probes": [
+        {
+          "label": "menu-item",
+          "html": "<div class=\"b3-menu__item\">item</div>",
+          "target": ".b3-menu__item",
+          "expect": {
+            "display": "flex",
+            "padding-top": "8px",
+            "border-radius": "6px"
+          }
+        }
+      ]
+    },
+    {
+      "name": "移动端 android：令牌与桌面一致",
+      "frontend": "mobile",
+      "viewport": "390x844@3",
+      "attributes": { "data-backend": "android" },
+      "tokens": {
+        "--rc-radius-base": "6px",
+        "--rc-brand-8": "0 82 217",
+        "--b3-theme-background": "rgb(246 246 246)"
+      },
+      "probes": [
+        {
+          "label": "menu-item",
+          "html": "<div class=\"b3-menu__item\">item</div>",
+          "target": ".b3-menu__item",
+          "expect": {
+            "color": "rgb(95, 99, 104)"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -84,7 +84,18 @@ export async function findKernelPort() {
   throw new Error('无法定位 SiYuan kernel 端口：确认思源已启动，或设置 SIYUAN_PORT');
 }
 
-export function frontendUrl(port) {
+/** 前端入口。桌面与移动是两个独立构建，路径不同（见 architecture.md §8.3）。 */
+const FRONTENDS = {
+  desktop: 'desktop',
+  mobile: 'mobile',
+};
+
+export function frontendUrl(port, frontend = 'desktop') {
+  const entry = FRONTENDS[frontend];
+  if (!entry) throw new Error('未知前端：' + frontend + '（可用：' + Object.keys(FRONTENDS).join(' / ') + '）');
   const r = Math.random().toString(36).slice(2, 9);
-  return 'http://127.0.0.1:' + port + '/stage/build/desktop/?r=' + r;
+  return 'http://127.0.0.1:' + port + '/stage/build/' + entry + '/?r=' + r;
 }
+
+/** 移动端视口预设：390x844 覆盖主流手机宽度。 */
+export const MOBILE_VIEWPORT = { width: 390, height: 844, deviceScaleFactor: 3, isMobile: true, hasTouch: true };

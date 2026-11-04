@@ -11,19 +11,19 @@
   "scripts": {
     "dev": "node ./scripts/dev-live.mjs",
     "build": "pnpm run clean && pnpm run check:manifest && pnpm run type-check && vite build && pnpm run check:dist",
-    "check": "pnpm run check:manifest && pnpm run format:check && pnpm run type-check && pnpm run test",
+    "check": "pnpm run check:manifest && pnpm run format:check && pnpm run lint && pnpm run type-check && pnpm run test",
     "check:manifest": "node ./scripts/check_manifest.mjs",
     "check:dist": "node ./scripts/check_dist.mjs",
     "clean": "node ./scripts/clean.js",
     "type-check": "tsc --build --force",
     "test": "vitest run",
-    "lint": "oxlint src scripts",
+    "lint": "oxlint --deny-warnings src scripts",
     "format": "oxfmt .",
     "format:check": "oxfmt --check .",
     "make-link": "node --no-warnings ./scripts/make_dev_link.js",
-    "make-install": "pnpm run build && node --no-warnings ./scripts/make_install.js",
-    "audit:theme": "node ./scripts/cdp/audit.mjs",
-    "inspect": "node ./scripts/cdp/inspect.mjs"
+    "verify:theme": "node ./scripts/cdp/verify.mjs",
+    "watch:theme": "node ./scripts/cdp/watch.mjs",
+    "open:theme": "node ./scripts/cdp/open.mjs"
   },
   "devDependencies": {
     "@semantic-release/changelog": "^7.0.0",

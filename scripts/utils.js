@@ -170,11 +170,6 @@ export function cmpPath(path1, path2) {
   return normalize(path1) === normalize(path2);
 }
 
-export function copyDirectory(srcDir, dstDir) {
-  fs.mkdirSync(dstDir, { recursive: true });
-  fs.cpSync(srcDir, dstDir, { recursive: true });
-}
-
 /**
  * Make a directory symlink.
  * 与 arco 的差异：Windows 未开开发者模式时 symlink 会 EPERM，
@@ -193,7 +188,7 @@ export function makeSymbolicLink(srcPath, targetPath) {
   if (targetStat) {
     if (!targetStat.isSymbolicLink()) {
       error(`Failed! ${targetPath} already exists and is not a symbolic link.`);
-      error('Rename or remove it first, or use "pnpm make-install" to copy the build instead.');
+      error('Rename or remove it first, then run "pnpm make-link" again.');
       process.exit(1);
     }
     const existingTarget = path.resolve(path.dirname(targetPath), fs.readlinkSync(targetPath));
@@ -222,7 +217,6 @@ export function makeSymbolicLink(srcPath, targetPath) {
       error('Choose one of these options:');
       error('  1. Windows: enable Developer Mode (Settings -> System -> For developers), then retry.');
       error('  2. Run the terminal as Administrator, then retry.');
-      error('  3. Run "pnpm make-install" to copy dist/ into the theme directory instead.');
       error(`\tJunction error: ${junctionCause.message}`);
       process.exit(1);
     }

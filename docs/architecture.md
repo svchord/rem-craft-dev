@@ -779,11 +779,51 @@ pnpm build
 
 ### 10.2 本地验证（需要思源）
 
-| 工具                      | 用途                                              |
-| ------------------------- | ------------------------------------------------- |
-| `pnpm dev`                | Vite dev server + 可见浏览器 + 自动 HMR           |
-| `pnpm inspect <selector>` | 读取真实计算样式与命中规则                        |
-| `pnpm audit:theme`        | 契约体检：令牌解析 + 选择器命中率（思源升级回归） |
+只保留三件事对应的工具，外加一个人工入口：
+
+| 工具                | 用途                                                        |
+| ------------------- | ----------------------------------------------------------- |
+| `pnpm dev`          | 构建 watch + 可见浏览器 + 让思源重载主题（F5 后仍是本主题） |
+| `pnpm watch:theme`  | 监听源码，改动后自动跑 `verify:theme` 并把不符项打在终端    |
+| `pnpm verify:theme` | 渲染回归：隔离沙箱里量真实渲染，与 `expectations.json` 比对 |
+| `pnpm open:theme`   | 人工审计：打开桌面 + 移动端页面（可截图），自己看效果       |
+
+日常闭环：`pnpm dev` 与 `pnpm watch:theme` 各开一个终端，改 `src/styles/**` 后页面立刻变、
+终端立刻报「渲染是否符合基线」。`open:theme` 留给只有眼睛能判断的事（间距协调、暗色对比度、
+移动端触摸目标挤不挤），它不是替代 `verify:theme`，而是第二双眼睛。
+
+**`pnpm dev` 让思源真正选中本主题，而不是在页面上打补丁。** 启动时经 kernel API 把
+`themeLight`/`themeDark` 切成 `Rem Craft Dev`（已是它则不动），重建后换 `#themeStyle`
+的 href 让思源重新加载。这样预览、`verify:theme`、生产用的是同一套级联。
+
+对比过另一种做法（注入 `<style>` + 临时禁用宿主主题）：注入只能模拟「本主题叠在宿主之上」，
+而真实级联里本主题是**替代**宿主主题，两者在 `--b3-*` 上结果不同——注入方式下
+`--b3-theme-background` 读到宿主的 `#feffff`，切主题后才是本主题的 `rgb(246 246 246)`。
+
+**为什么 `verify:theme` 仍在隔离沙箱里量**：开发时若临时切到别的主题（或本主题未挂载），
+主文档读数会反映那个主题。沙箱只注入 `dev/theme.css`，保证回归结果与「此刻宿主选了什么」
+无关，同时也能一次覆盖多个变体（dark / density / 移动端 backend）而不必真的切来切去。
+
+#### 移动端
+
+桌面与移动是**两个独立构建入口**（`/stage/build/desktop/` 与 `/stage/build/mobile/`），
+`verify:theme` 按用例的 `frontend` 字段分组，各自开一次会话，移动端用 390x844@3 视口。
+
+**移动端要能加载自定义主题，`theme.json` 必须有 `frontends` 字段。** 思源的判定逻辑是：
+
+```js
+const canLoad = (theme, frontend) => {
+  if (theme.name === 'daylight' || theme.name === 'midnight') return true;
+  const meta = findThemeMeta(theme); // 从 lightThemes/darkThemes 找
+  return !!meta && (meta.frontends.includes('all') || meta.frontends.includes(frontend));
+};
+```
+
+没有 `frontends` 时 `meta.frontends` 为 undefined，移动端（`browser-mobile`）就永远不加载
+——桌面端不受影响，所以很容易漏。写 `["all"]` 最省事。
+
+> 改 `theme.json` 后**必须重启思源内核**：清单只在启动时索引，内核不会热重载它。
+> 验证方式：`lightThemes` 里该主题的条目应带上 `frontends: ["all"]`。
 
 模拟切换：浏览器控制台执行
 
@@ -792,7 +832,8 @@ document.documentElement.dataset.rcStyle = 'fluent';
 document.documentElement.dataset.rcPalette = 'shadcn';
 ```
 
-再用 `pnpm inspect` 核对计算样式是否随之变化。
+再跑 `pnpm verify:theme` 核对渲染是否随之变化（要断言某个两轴组合，就在
+`expectations.json` 里加一条带 `attributes` 的用例）。
 
 ---
 

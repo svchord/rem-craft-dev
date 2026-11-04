@@ -1,118 +1,124 @@
 ---
 name: siyuan-theme-measure
-description: 用 scripts/cdp 的测量工具在真实思源前端里读取主题的渲染结果。当需要确认「某个选择器渲染成什么样」「主题令牌解析出什么值」「思源升级后主题是否还挂得上」，或需要在暗色/hover/变体等特定状态下测量时使用。不要为此新写脚本。
+description: 用 scripts/cdp 的工具改主题样式并验证真实渲染。当需要「改完样式看效果」「判断渲染是否符合预期」「在桌面端或移动端审计实际渲染」「人工打开页面看效果」时使用。不要为此新写脚本。
 ---
 
 # 思源主题测量工具
 
-回答「渲染出来到底是什么样」时用这套工具，**不要新写脚本**。两个命令：`pnpm inspect` 看细节，`pnpm audit:theme` 看整体。
+回答「渲染出来到底是什么样」时用这套工具，**不要新写脚本**。四个命令覆盖三件事加一个人工入口：
+
+| 用途                 | 命令                |
+| -------------------- | ------------------- |
+| 改样式自动热更新     | `pnpm dev`          |
+| 渲染回归（自动审计） | `pnpm verify:theme` |
+| 改完自动回归         | `pnpm watch:theme`  |
+| 人工审计（看页面）   | `pnpm open:theme`   |
 
 ## 前置条件
 
 1. **思源必须在运行**（工具靠 `port.json` 的 PID→端口映射找 kernel；找不到会提示设 `SIYUAN_PORT`）。
 2. 需要 Chrome 或 Edge（自动按候选路径查找，可用 `CHROME_PATH` 覆盖）。
 3. 需要 CSS 产物 `./dev/theme.css` 或 `./dist/theme.css`；缺失时先 `pnpm dev` 或 `pnpm exec vite build`。
+4. **移动端用例要求 `theme.json` 有 `frontends` 字段**（见下）。
 
-## 命令名（别猜）
-
-| 用途           | 命令                        |
-| -------------- | --------------------------- |
-| 测量单个选择器 | `pnpm inspect '<selector>'` |
-| 契约体检       | `pnpm audit:theme`          |
-
-> **不要写 `pnpm audit`**。它是 pnpm 内置的安全审计命令，会盖掉同名脚本，输出 `No known vulnerabilities found` —— 看起来像成功，实际根本没跑本工具。
-
-## pnpm inspect：测量细节
+## 日常闭环（改样式时用这个）
 
 ```bash
-pnpm inspect '.b3-menu__item'                 # 计算样式
-pnpm inspect '.b3-menu__item' --rules         # 命中的 CSS 规则与来源样式表
-pnpm inspect '.dock__item' --all              # 每个选择器取 5 个匹配，而非首个
-pnpm inspect '.protyle-wysiwyg' --json        # 结构化输出
-pnpm inspect '.protyle-wysiwyg' --shot        # 整页截图到 ./inspect.png
-pnpm inspect --viewport 1280x764@2 --shot     # 指定视口与 DPR
+# 终端 A：构建 watch + 可见浏览器 + 让思源重载主题（改完立刻变，F5 后仍生效）
+pnpm dev
+
+# 终端 B：监听 src/styles/**，改动后自动跑桌面 + 移动端渲染回归
+pnpm watch:theme
 ```
 
-位置参数是选择器，可给多个；不给则测一组缺省节点。
+改 `src/styles/**` → A 里页面自动更新 → B 里自动打印 `✓` 或具体哪项不符（期望 vs 实际），
+并按 `[desktop]` / `[mobile]` 标注前端。不符项直接给出令牌名/选择器名，照着改即可。
 
-### `--do`：先把页面驱动到目标状态
+## pnpm open:theme：人工审计
 
-**暗色、hover、变体、功能开关这些默认状态测不到的东西，必须用 `--do` 进入状态再测。** 这是本工具区别于「直接读 CSS 源码」的关键。
+自动回归回答「数值对不对」，但间距协调、暗色对比度、移动端触摸目标挤不挤只有眼睛能判断。
 
 ```bash
-pnpm inspect --do mode:dark --token --b3-theme-background
-pnpm inspect --do style:fluent --token --rc-brand-8
-pnpm inspect --do 'hover:.b3-menu__item' --rules
-pnpm inspect --do mode:dark,wait:300 '.protyle-wysiwyg'
+pnpm open:theme                 # 桌面 + 移动端两个标签页，可直接交互
+pnpm open:theme --frontend mobile
+pnpm open:theme --shot          # 各截一张图到 ./shots/
+pnpm open:theme --dev           # 同时起 pnpm dev，改样式即时生效
 ```
 
-`--do` 可重复；单个 `--do` 内用逗号分隔多个动作。可用动词：
+窗口是可见的：点开菜单、切暗色、缩窗口都是真实渲染。Ctrl+C 结束。
 
-| 动词                                           | 作用                                          |
-| ---------------------------------------------- | --------------------------------------------- |
-| `style:<name>` / `palette:<name>`              | 切 `data-rc-style` / `data-rc-palette`        |
-| `mode:<light\|dark>`                           | 切 `data-theme-mode`                          |
-| `density:<compact\|...>`                       | 切 `data-ui-density`                          |
-| `feature:<name>:<on\|off>`                     | 切功能开关 `data-rc-<name>`                   |
-| `attr:<name>=<value>`                          | 设任意 `<html>` 属性                          |
-| `doc:<name>=<value>`                           | 设 `.protyle` 上的文档级属性（`custom-rc-*`） |
-| `click:<sel>` / `hover:<sel>` / `move:<x>,<y>` | 指针交互；只有 `hover` 能驱动真实 `:hover`    |
-| `wait:<ms>`                                    | 等过渡结束                                    |
-| `css:<样式表>`                                 | 临时注入样式，不进产物                        |
-| `reset`                                        | 把 `<html>` 还原到会话开始时的属性快照        |
+## 移动端
 
-**`css:` 的取值不按逗号拆分**（其余动作仍按逗号分隔），所以样式表里可以放心写 `rgba(0,0,0,.5)` 这类逗号。
+桌面与移动是**两个独立构建入口**（`/stage/build/desktop/` 与 `/stage/build/mobile/`），
+`verify:theme` 按用例的 `frontend` 字段分组，移动端用 390x844@3 视口。
 
-### `--token`：读令牌
+**`theme.json` 必须有 `frontends` 字段，否则移动端永远不加载本主题。** 思源的判定是
+「`frontends` 含 `all` 或含当前 frontend（`browser-mobile`）」，没有该字段时判定为 false，
+而桌面端不受影响——所以这个坑很容易漏。写 `["all"]` 最省事。
+
+> 改 `theme.json` 后**必须重启思源内核**：清单只在启动时索引，内核不会热重载它。
+> 验证：`lightThemes` 里该主题的条目应带上 `frontends: ["all"]`。
+
+移动端变体靠 `<html data-backend="ios|android|harmony">` 生效，用例里用 `attributes` 表达。
+
+## pnpm verify:theme：渲染回归
+
+把「主题此刻真实渲染成什么样」与基线 `expectations.json` 逐项比对，不符时**退出码 1**，CI 可直接卡门禁。
 
 ```bash
-pnpm inspect --do mode:dark --token --rc-brand-8 --token --b3-theme-primary
+pnpm verify:theme                     # 桌面 + 移动端，跑全部用例
+pnpm verify:theme --frontend mobile   # 只跑移动端
+pnpm verify:theme --attach            # 桌面复用 pnpm dev 的浏览器（移动端仍单独启动）
+pnpm verify:theme --filter menu       # 只跑名字含 menu 的用例
+pnpm verify:theme --json              # 结构化输出
+pnpm verify:theme --update            # 把通过用例的实际值写回基线
+pnpm verify:theme --baseline          # 把当前渲染整体写成新基线（谨慎：会掩盖回归）
 ```
 
-- 返回**计算值**，`var()` 链已由浏览器展开；未定义的令牌显示 `(未定义)`（底层是空串）。
-- L0 刻度存的是 **"R G B" 三通道**（如 `0 82 217`），不是合法颜色值 —— 这是设计如此，**不要**把它当颜色去断言。它经 L2 桥接后才成为 `rgb(0 82 217)`。
+基线用例字段：
 
-## pnpm audit:theme：契约体检
+| 字段         | 说明                                                                  |
+| ------------ | --------------------------------------------------------------------- |
+| `name`       | 必填                                                                  |
+| `frontend`   | `desktop`（缺省）/ `mobile`；移动端用例必须写 `viewport`              |
+| `viewport`   | `390x844@3` 这种手机视口；移动端不继承文件级的桌面视口                |
+| `attributes` | 沙箱 `<html>` 属性，变体靠它生效（`data-theme-mode`、`data-backend`） |
+| `tokens`     | 令牌期望值                                                            |
+| `selectors`  | `mustHit` / `mustMiss`                                                |
+| `probes`     | 在沙箱里插一段 HTML 再量计算样式：`{ label, html, target, expect }`   |
 
-不做单点测量，只回答「契约整体是否成立」，最后给一行结论。
+期望值可写精确串、`null`（必须为空）或 `re:` 正则。
 
-```bash
-pnpm audit:theme                      # 缺省读 ./dev/theme.css，回退 ./dist/theme.css
-pnpm audit:theme ./dist/theme.css     # 指定产物
-pnpm audit:theme --json               # 结构化输出，CI 用
-pnpm audit:theme --attach             # 复用 pnpm dev 的浏览器
-pnpm audit:theme --do mode:dark       # 先驱动状态再体检
-```
+**关键：verify 在 iframe 隔离沙箱里量，不是主文档。** 这样回归结果与「此刻宿主选了什么主题」无关，也能一次覆盖 dark / density / 移动端 backend 等多个变体，不必真的把思源切来切去。沙箱只注入 `dev/theme.css`。
 
-输出包含：环境快照、挂载判定、两轴/变体属性、契约令牌（缺失 / 暗色专属 / 未定义引用 三分类）、桥接令牌、选择器 hit/miss/invalid，末尾 `[audit] 结论：...`。
+## pnpm dev：热更新
 
-**典型流程**：思源升级后先跑 `audit:theme` 看结论行；结论指出问题后，再用 `inspect` 下钻到具体选择器。
+三步：`vite build --watch` 产出 `dev/theme.css` → 经 kernel API 把 `themeLight`/`themeDark` 切成 `Rem Craft Dev`（已是它则不动）→ 重建后换 `#themeStyle` 的 href 让思源重新加载。
 
-## `--attach`：在你的可见窗口里测量
+**让思源真正选中本主题，而不是在页面上打补丁。** 注入 `<style>` 只能模拟「本主题叠在宿主之上」，真实级联里本主题是**替代**宿主主题，两者在 `--b3-*` 上结果不同：注入方式下 `--b3-theme-background` 读到宿主的 `#feffff`，切主题后才是本主题的 `rgb(246 246 246)`。
 
-`pnpm dev` 会把浏览器 WebSocket 端点写进 `.rc-cdp-ws`，`--attach` 复用它：
+因为主题状态在思源配置里，**F5 后仍是本主题**，不依赖任何注入的存活。
 
-```bash
-pnpm dev                                    # 终端 A
-pnpm inspect --attach '.protyle-wysiwyg'    # 终端 B
-```
-
-没有 `.rc-cdp-ws` 时会**静默回退**成新开无头浏览器。看 `opened=attached` 才说明复用成功；`opened=launched` 就是没复用上。`--attach` 的视口是实测的真实窗口尺寸，不受 `--viewport` 影响。
+前置：`pnpm make-link` 已把 `dev/` junction 到 `<workspace>/data/themes/Rem Craft Dev`。
 
 ## 常见误读
 
-| 现象                          | 含义                                                               |
-| ----------------------------- | ------------------------------------------------------------------ |
-| `--rc-*` 全为空               | 宿主跑的不是本主题（看输出的 `themeStyle` href）。**不是工具坏了** |
-| `.b3-menu__item` 未命中       | 菜单没展开，DOM 里没这个节点。用 `--do click:<触发>` 打开后再测    |
-| 选择器 miss 但标 `[状态依赖]` | 需要 hover/暗色/属性等状态，默认状态不命中属正常                   |
-| 令牌 `(未定义)` 但源码里有    | 主题没挂上，或该令牌只定义在暗色作用域（亮色下为空属正常）         |
-| 截图和实际窗口不一致          | 没加 `--attach`，量的是新开的无头视口                              |
-| 挂载显示「HMR 注入」          | 说明在 `pnpm dev` 会话里量，令牌来自本主题源码，属正常             |
+| 现象                                     | 含义                                                                 |
+| ---------------------------------------- | -------------------------------------------------------------------- |
+| `--rc-*` 全为空                          | 宿主跑的不是本主题（看输出的 `themeStyle` href）。**不是工具坏了**   |
+| 移动端不加载主题                         | `theme.json` 缺 `frontends`，或改了没重启内核。看 `lightThemes` 条目 |
+| 选择器在真实页面未命中                   | 菜单没展开等 UI 状态问题；沙箱用例不受影响，仍会通过                 |
+| 令牌 `(未定义)` 但源码里有               | 主题没挂上，或该令牌只定义在暗色作用域（亮色下为空属正常）           |
+| 截图和实际窗口不一致                     | 没加 `--attach`，量的是新开的无头视口                                |
+| verify 报「静态检查 rgb(var(--b3-...))」 | 双重包装：`--b3-*` 已是完整色值，再包 `rgb()` 整条声明失效           |
 
 ## 使用要点
 
-1. **`data-ui-density` 会被思源运行时还原**（实测写入后约 1 秒内消失）。密度变体只能用 `pnpm inspect --do density:compact` 现场量，不要指望 audit 的静态快照。
-2. 不要为一次测量新写探针脚本 —— 用 `--do` 组合 + `--rules`/`--token` 表达场景。
+1. **`data-ui-density` 会被思源运行时还原**（实测写入后约 1 秒内消失）。密度变体在沙箱里
+   用 `attributes` 表达，不要指望真实页面上的静态快照。
+2. 不要为一次测量新写探针脚本 —— 要断言就往 `expectations.json` 加用例；要看效果用
+   `pnpm open:theme`。
 3. 没有真实输出就不要声称「样式已生效」，贴命令的真实结果。
-4. 未挂载就如实报未挂载，不要为了让结果好看而放宽判定或伪造数值。
+4. 基线变了要区分「预期内的改动」与「回归」：确认是前者才 `--update`；`--baseline` 会整体
+   覆盖，慎用。
+5. 改 `theme.json` 后必须重启内核，否则移动端判定不生效。

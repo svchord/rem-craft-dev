@@ -27,7 +27,7 @@ export default defineConfig({
 siyuan({
   target: 'theme', // 'theme' | 'plugin'，缺省从 public/ 清单推断
   name: 'My Theme', // 缺省从清单读
-  outDir: './dev', // 缺省按类型取
+  outDir: './dev', // 覆盖产物目录；缺省由类型决定（watch→dev，否则→dist）
   link: true, // 是否链接到 <workspace>/data/<subdir>/
   headless: false, // 浏览器是否无头
   frontend: 'desktop', // 'desktop' | 'mobile'
@@ -38,6 +38,23 @@ siyuan({
 
 **`target` 与自动推断**：缺省看 `public/` 下有 `theme.json` 还是 `plugin.json`。
 清单还没创建、或两者并存时，显式传 `target` 更可靠。
+
+### 构建配置由插件注入
+
+父项目**不用写** `build.outDir` 和 `rollupOptions.output`——它们随类型不同：
+
+|            | 主题                     | 插件                      |
+| ---------- | ------------------------ | ------------------------- |
+| 产物目录   | `dev/`（watch）/ `dist/` | 同上                      |
+| CSS 产物名 | `theme.css`              | `index.css`               |
+| JS 产物名  | 无                       | `[name].js`（CJS 单文件） |
+
+这些名字由思源的加载机制定死：主题读 `<theme>/theme.css`，插件读 `index.js` +
+`index.css` 并 `window.eval` 执行。**名字写错思源不报错，只是静默加载不到**，
+所以不该让每个项目自己写。
+
+仍然归项目的：`rollupOptions.input`、`lib`、`minify`、`sourcemap`、`target`，
+以及要不要打 `package.zip`。
 
 然后照常跑：
 

@@ -1,5 +1,6 @@
 import siyuanAssets from './assets.js';
 import { startDevSession } from './dev-session.js';
+import { createTarget } from './targets.js';
 import { detectTargetType } from './target-types.js';
 // 静态 import：内置类型是在 targets.ts 求值时注册进注册表的。
 // 只 import target-types 会拿到空注册表——这个坑踩过一次。
@@ -22,6 +23,30 @@ export default function siyuanDev(options = {}) {
     let firstBundle = true;
     let root = process.cwd();
     const log = (message) => console.log(`[${NAME}] ${message}`);
+    /**
+     * 在 `config()` 阶段解析构建配置片段。
+     *
+     * `config()` 早于 `configResolved`，此时 `root` 还是 process.cwd()——
+     * 但 Vite 调用 `config()` 时 cwd 就是项目根，所以够用。
+     */
+    function resolveBuildSpec(context) {
+        let resolvedKind = requestedKind;
+        if (!resolvedKind) {
+            const detected = detectTargetType(context.root);
+            if (!detected.ok) {
+                // 没有清单就不知道产物该叫什么；交给项目自己配，不在这里报错。
+                log(`跳过构建配置注入：${detected.reason}`);
+                return null;
+            }
+            resolvedKind = detected.kind;
+        }
+        try {
+            return createTarget(resolvedKind, { cwd: context.root }).buildSpec(context);
+        }
+        catch {
+            return null;
+        }
+    }
     /** 会话是懒启动的：首次构建完成、产物真的在磁盘上之后才开始。 */
     async function ensureSession() {
         if (session)
@@ -66,10 +91,48 @@ export default function siyuanDev(options = {}) {
         {
             name: `${NAME}:dev`,
             apply: 'build',
+            /**
+             * 注入构建配置：产物名由思源的加载机制决定，不该让每个项目自己写。
+             *
+             * 主题读固定文件名 `theme.css`；插件读 `index.js` + `index.css`。
+             * 名字写错思源不会报错，只是静默加载不到——这类错误交给项目去防太不可靠，
+             * 所以由类型描述符定死。
+             *
+             * 只注入「思源决定的」部分；`input` / `lib` / `minify` 仍归项目。
+             */
+            config(userConfig, env) {
+                const watch = Boolean(userConfig.build?.watch);
+                const context = { command: env.command, watch, root };
+                const spec = resolveBuildSpec(context);
+                if (!spec)
+                    return undefined;
+                const resolvedOutDir = outDir ?? spec.outDir;
+                return {
+                    build: {
+                        ...(resolvedOutDir ? { outDir: resolvedOutDir } : {}),
+                        ...(spec.emptyOutDir === undefined ? {} : { emptyOutDir: spec.emptyOutDir }),
+                        ...(spec.rollupOutput
+                            ? {
+                                rollupOptions: {
+                                    output: {
+                                        ...(spec.rollupOutput.entryFileNames
+                                            ? { entryFileNames: spec.rollupOutput.entryFileNames }
+                                            : {}),
+                                        ...(spec.rollupOutput.assetFileNames
+                                            ? { assetFileNames: spec.rollupOutput.assetFileNames }
+                                            : {}),
+                                    },
+                                },
+                            }
+                            : {}),
+                    },
+                };
+            },
             configResolved(resolved) {
                 root = resolved.root;
-                if (!resolved.build.watch) {
-                    log('警告：没有开启 watch，热重载不会生效。父项目请用 `vite build --watch`。');
+                // 只在「本该 watch 却没 watch」时提示；生产构建不需要热重载，别制造噪音。
+                if (enabled && !resolved.build.watch) {
+                    log('提示：当前不是 watch 模式，热重载不会生效。开发请用 `vite build --watch`。');
                 }
             },
             async writeBundle(_options, bundle) {

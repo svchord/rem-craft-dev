@@ -18,9 +18,11 @@ import type { Page } from 'puppeteer-core';
 import { reloadPlugin, reloadPluginCss, reloadThemeCss, selectTheme } from './kernel.ts';
 import type {
   ActivateResult,
+  BuildContext,
   CssSheet,
   MountState,
   ReloadResult,
+  TargetBuildSpec,
   TargetContext,
   TargetDescriptor,
 } from './target-types.ts';
@@ -84,6 +86,21 @@ registerTargetType(
     artifact: () => 'theme.css',
     expectedFiles: () => ['theme.css', 'theme.json'],
     matchArtifact: (name) => name.endsWith('theme.css'),
+
+    /**
+     * 主题产物只有一份 CSS，且思源按固定文件名 `<theme>/theme.css` 加载。
+     * 名字错了不会报错，只是主题不生效——所以由描述符定死，项目不用写。
+     */
+    buildSpec({ watch }) {
+      return {
+        outDir: watch ? './dev' : './dist',
+        // watch 时不能清空产物目录：思源正从那里读文件。
+        emptyOutDir: false,
+        rollupOutput: {
+          assetFileNames: (info) => (info.name?.endsWith('.css') ? 'theme.css' : (info.name ?? 'asset')),
+        },
+      };
+    },
 
     /**
      * 主题换 #themeStyle 的 href 即可，级联位置不变。纯前端动作，不需要 kernel、
@@ -167,6 +184,24 @@ registerTargetType(
     artifact: () => 'index.js',
     expectedFiles: () => ['index.js', 'plugin.json'],
     matchArtifact: (name) => name.endsWith('index.js') || name.endsWith('index.css'),
+
+    /**
+     * 插件的产物名是思源写死的：`index.js`（CJS 单文件，被 window.eval 执行）
+     * 与 `index.css`（内联进 `<style>`）。名字错了思源静默加载不到，
+     * 所以由描述符定死，项目不用写 assetFileNames / entryFileNames。
+     *
+     * 注意 `lib` 配置仍归项目：entry 路径、formats 取决于它用 TSX 还是别的。
+     */
+    buildSpec({ watch }) {
+      return {
+        outDir: watch ? './dev' : './dist',
+        emptyOutDir: false,
+        rollupOutput: {
+          entryFileNames: '[name].js',
+          assetFileNames: (info) => (info.name?.endsWith('.css') ? 'index.css' : (info.name ?? 'asset')),
+        },
+      };
+    },
 
     /**
      * 一次构建会同时写 index.js 和 index.css。JS 变更会走 kernel 重建插件实例，
@@ -272,6 +307,11 @@ export interface Target {
   buildConfig(): TargetBuildConfig;
   installDir(options?: { workspace?: string | null; port?: number | null }): Promise<string>;
   reload(page: Page, options?: { filename?: string; port?: number | null }): Promise<ReloadResult>;
+  /**
+   * 生成构建配置片段；描述符没实现时返回 null。
+   * 插件用它注入 `build.rollupOptions.output`，项目不必自己写产物命名。
+   */
+  buildSpec(context: BuildContext): TargetBuildSpec | null;
   /** 开发前让宿主用上它（可选）。 */
   activate: ((page: Page | null, options?: { port?: number | null }) => Promise<ActivateResult>) | null;
 }
@@ -329,6 +369,10 @@ export function createTarget(kind: string, options: CreateTargetOptions = {}): T
       primary: (filenames: string[]) =>
         descriptor.primaryArtifact ? descriptor.primaryArtifact(filenames) : (filenames[0] ?? ''),
     }),
+
+    /** 生成构建配置片段；描述符没实现就返回 null。 */
+    buildSpec: (context: BuildContext) =>
+      typeof descriptor.buildSpec === 'function' ? descriptor.buildSpec(context) : null,
 
     /** 链接目标目录：<workspace>/data/<subdir>。 */
     installDir: (opts = {}) =>

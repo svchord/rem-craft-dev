@@ -51,6 +51,20 @@ registerTargetType('theme', {
     expectedFiles: () => ['theme.css', 'theme.json'],
     matchArtifact: (name) => name.endsWith('theme.css'),
     /**
+     * 主题产物只有一份 CSS，且思源按固定文件名 `<theme>/theme.css` 加载。
+     * 名字错了不会报错，只是主题不生效——所以由描述符定死，项目不用写。
+     */
+    buildSpec({ watch }) {
+        return {
+            outDir: watch ? './dev' : './dist',
+            // watch 时不能清空产物目录：思源正从那里读文件。
+            emptyOutDir: false,
+            rollupOutput: {
+                assetFileNames: (info) => (info.name?.endsWith('.css') ? 'theme.css' : (info.name ?? 'asset')),
+            },
+        };
+    },
+    /**
      * 主题换 #themeStyle 的 href 即可，级联位置不变。纯前端动作，不需要 kernel、
      * 也不需要整页刷新——这是主题与插件最根本的差别。
      */
@@ -107,6 +121,23 @@ registerTargetType('plugin', {
     artifact: () => 'index.js',
     expectedFiles: () => ['index.js', 'plugin.json'],
     matchArtifact: (name) => name.endsWith('index.js') || name.endsWith('index.css'),
+    /**
+     * 插件的产物名是思源写死的：`index.js`（CJS 单文件，被 window.eval 执行）
+     * 与 `index.css`（内联进 `<style>`）。名字错了思源静默加载不到，
+     * 所以由描述符定死，项目不用写 assetFileNames / entryFileNames。
+     *
+     * 注意 `lib` 配置仍归项目：entry 路径、formats 取决于它用 TSX 还是别的。
+     */
+    buildSpec({ watch }) {
+        return {
+            outDir: watch ? './dev' : './dist',
+            emptyOutDir: false,
+            rollupOutput: {
+                entryFileNames: '[name].js',
+                assetFileNames: (info) => (info.name?.endsWith('.css') ? 'index.css' : (info.name ?? 'asset')),
+            },
+        };
+    },
     /**
      * 一次构建会同时写 index.js 和 index.css。JS 变更会走 kernel 重建插件实例，
      * 新 CSS 会随之一起注入，所以优先按 JS 处理——一次重载就够，不用再补一次。
@@ -216,6 +247,8 @@ export function createTarget(kind, options = {}) {
             match: (filename) => descriptor.matchArtifact(filename),
             primary: (filenames) => descriptor.primaryArtifact ? descriptor.primaryArtifact(filenames) : (filenames[0] ?? ''),
         }),
+        /** 生成构建配置片段；描述符没实现就返回 null。 */
+        buildSpec: (context) => typeof descriptor.buildSpec === 'function' ? descriptor.buildSpec(context) : null,
         /** 链接目标目录：<workspace>/data/<subdir>。 */
         installDir: (opts = {}) => resolveInstallDir({
             kind,

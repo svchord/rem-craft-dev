@@ -669,6 +669,35 @@ describe('vite plugin shape', () => {
     // 插件形态不能自己跑构建：构建是宿主的职责。
     expect(plugin, '插件形态不得自己 spawn 构建').not.toMatch(/child_process/);
   });
+
+  it('generates the build config so projects do not write artifact names', () => {
+    // 产物名由思源的加载机制决定：主题读 theme.css，插件读 index.js + index.css。
+    // 名字写错思源不报错、只是静默加载不到——所以不该让每个项目自己写
+    // assetFileNames / entryFileNames。
+    const context = { command: 'build' as const, watch: true, root: '/tmp/x' };
+
+    const theme = themeTarget({ name: 'T' }).buildSpec(context);
+    expect(theme?.outDir, 'watch 时产物进 dev/').toBe('./dev');
+    expect(theme?.emptyOutDir, 'watch 时不能清空产物目录').toBe(false);
+    expect(theme?.rollupOutput?.assetFileNames?.({ name: 'a.css' })).toBe('theme.css');
+    expect(theme?.rollupOutput?.entryFileNames, '主题没有 JS 产物').toBeUndefined();
+
+    const plugin = pluginTarget({ name: 'p' }).buildSpec(context);
+    expect(plugin?.rollupOutput?.assetFileNames?.({ name: 'a.css' })).toBe('index.css');
+    expect(plugin?.rollupOutput?.entryFileNames, '插件必须是 CJS 单文件').toBe('[name].js');
+
+    // 非 watch 时产物进 dist/。
+    const prod = themeTarget({ name: 'T' }).buildSpec({ command: 'build', watch: false, root: '/tmp/x' });
+    expect(prod?.outDir).toBe('./dist');
+  });
+
+  it('injects the build config through the vite config hook', () => {
+    // 项目侧只传参数，产物命名由插件注入。
+    const plugins = siyuanVitePlugin();
+    const dev = plugins.find((item) => item.name.includes(':dev'));
+    expect(typeof dev?.config, '必须用 config() 注入 build 配置').toBe('function');
+    expect(typeof (dev as { configResolved?: unknown }).configResolved, '仍需 configResolved 拿 root').toBe('function');
+  });
 });
 
 describe('cdp layering', () => {

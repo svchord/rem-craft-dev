@@ -75,6 +75,40 @@ export interface ActivateContext extends TargetContext {
  *
  * 除标注为可选的外，全部必需——缺一个就说明抽象漏了。
  */
+/**
+ * 构建配置的生成参数。
+ *
+ * 由插件注入，描述符据此产出 `build.rollupOptions.output` 等。
+ * 项目侧不该再写这些——产物命名是思源的加载机制决定的，不是项目偏好。
+ */
+export interface BuildContext {
+  /** Vite 命令：build 时才有产物。 */
+  readonly command: 'build' | 'serve';
+  /** 是否 watch 模式（开发）。 */
+  readonly watch: boolean;
+  /** 项目根目录。 */
+  readonly root: string;
+}
+
+/**
+ * 描述符产出的构建片段，会被 mergeConfig 进用户配置。
+ *
+ * 只放「思源加载机制决定的」部分；`input` / `lib` / `minify` 这些由项目决定。
+ */
+export interface TargetBuildSpec {
+  /** 产物相对目录，如 `./dev`。 */
+  outDir?: string;
+  /** rollup 产物命名规则。 */
+  rollupOutput?: {
+    /** 资源文件命名（CSS 就在这里定名）。 */
+    assetFileNames?: (info: { name?: string | null }) => string;
+    /** JS 入口命名。 */
+    entryFileNames?: string;
+  };
+  /** 产物目录不该在 watch 时清空——思源正读着它。 */
+  emptyOutDir?: boolean;
+}
+
 export interface TargetDescriptor {
   /** 清单文件名，如 'theme.json'。 */
   manifestName(): string;
@@ -97,6 +131,15 @@ export interface TargetDescriptor {
    * 缺省取第一个；插件要优先 JS，因为它能连带更新 CSS。
    */
   primaryArtifact?(filenames: string[]): string;
+
+  /**
+   * 生成构建配置片段（可选）。
+   *
+   * 产物命名由思源的加载机制决定：主题读 `theme.css`、插件读 `index.js` +
+   * `index.css`。让每个项目自己写 `assetFileNames`，写错就是静默失效——
+   * 思源找不到文件不会报错，只是什么都不显示。
+   */
+  buildSpec?(context: BuildContext): TargetBuildSpec;
 
   /**
    * 让页面用上新产物。

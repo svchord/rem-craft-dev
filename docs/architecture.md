@@ -781,16 +781,39 @@ pnpm build
 
 只保留三件事对应的工具，外加一个人工入口：
 
-| 工具                | 用途                                                        |
-| ------------------- | ----------------------------------------------------------- |
-| `pnpm dev`          | 构建 watch + 可见浏览器 + 让思源重载主题（F5 后仍是本主题） |
-| `pnpm watch:theme`  | 监听源码，改动后自动跑 `verify:theme` 并把不符项打在终端    |
-| `pnpm verify:theme` | 渲染回归：隔离沙箱里量真实渲染，与 `expectations.json` 比对 |
-| `pnpm open:theme`   | 人工审计：打开桌面 + 移动端页面（可截图），自己看效果       |
+| 工具                 | 用途                                                        |
+| -------------------- | ----------------------------------------------------------- |
+| `pnpm dev`           | 构建 watch + 可见浏览器 + 让思源重载主题（F5 后仍是本主题） |
+| `pnpm watch:theme`   | 监听源码，改动后自动跑 `verify:theme` 并把不符项打在终端    |
+| `pnpm verify:theme`  | 渲染回归：隔离沙箱里量真实渲染，与 `expectations.json` 比对 |
+| `pnpm open:theme`    | 人工审计：打开桌面 + 移动端页面（可截图），自己看效果       |
+| `pnpm verify:plugin` | 同一套审计跑在已装插件上（CSS 从页面读）                    |
 
 日常闭环：`pnpm dev` 与 `pnpm watch:theme` 各开一个终端，改 `src/styles/**` 后页面立刻变、
 终端立刻报「渲染是否符合基线」。`open:theme` 留给只有眼睛能判断的事（间距协调、暗色对比度、
 移动端触摸目标挤不挤），它不是替代 `verify:theme`，而是第二双眼睛。
+
+#### 主题与插件共用同一套审计
+
+主题和插件在思源里是两套东西，但**渲染审计的方法相同**：拿到 CSS 文本 → 注入 iframe 沙箱
+→ 量计算样式 → 与基线比。差异只在两处，收敛在 `scripts/cdp/targets.mjs`：
+
+| 维度       | 主题                             | 插件                                     |
+| ---------- | -------------------------------- | ---------------------------------------- |
+| CSS 从哪来 | 读磁盘 `dev/theme.css`           | 读页面 `<style id="pluginsStyle<name>">` |
+| 加载判定   | `<link id="themeStyle">` 的 href | 对应 `<style>` 是否存在（无 CSS 时容忍） |
+| 额外状态   | 无                               | `activate()` 打开面板（面板 DOM 才存在） |
+
+插件从页面读 CSS 而不是读磁盘，有三个好处：读到的一定是实际加载的那份；不用知道插件装在
+哪个目录，换机器也能跑；无 `index.css` 的插件（如 Calendar-heatmap）返回空数组，退化成
+只做 DOM 断言而不是报错。
+
+`verify.mjs` 里没有任何「是主题还是插件」的分支——测试强制它必须通过 `targets.mjs` 拿被测
+对象。加第三类被测对象时只改 `targets.mjs`。
+
+> 插件的可观测面比主题窄：面板 DOM 只在打开后才存在，所以纯 CSS 断言（令牌/选择器/
+> 计算样式）是主力，需要真实 DOM 的断言要先用 `activate()` 打开面板。
+> 实测 `arco-calendar` 注入 275KB CSS、`siyuan-plugin-publisher` 注入 492KB。
 
 **`pnpm dev` 让思源真正选中本主题，而不是在页面上打补丁。** 启动时经 kernel API 把
 `themeLight`/`themeDark` 切成 `Rem Craft Dev`（已是它则不动），重建后换 `#themeStyle`

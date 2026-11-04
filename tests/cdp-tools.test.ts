@@ -10,7 +10,9 @@ import { frontendUrl, MOBILE_VIEWPORT } from '../scripts/cdp/siyuan.mjs';
 // @ts-expect-error 同上。
 import { parseExpectations, evaluateCase } from '../scripts/cdp/expectations.mjs';
 // @ts-expect-error 同上。
-import { findDoubleWrappedColors } from '../scripts/cdp/sandbox.mjs';
+import { findDoubleWrappedColors, findProblemsIn } from '../scripts/cdp/sandbox.mjs';
+// @ts-expect-error 同上。
+import { pluginTarget, themeTarget } from '../scripts/cdp/targets.mjs';
 
 const root = join(import.meta.dirname, '..');
 const cdpDir = join(root, 'scripts', 'cdp');
@@ -201,6 +203,47 @@ describe('sandbox measurement guards', () => {
       []
     );
   });
+
+  it('labels which sheet a problem came from', () => {
+    // 插件 CSS 动辄 50 万字符，不标来源就不知道去改哪个文件。
+    const problems = findProblemsIn([
+      { label: 'theme.css', text: '.a { color: rgb(var(--b3-theme-on-surface)) }' },
+      { label: 'pluginsStyle-x', text: '.b { color: rgb(var(--b3-border-color)) }' },
+    ]);
+    expect(problems.map((problem: { sheet: string }) => problem.sheet)).toEqual(['theme.css', 'pluginsStyle-x']);
+  });
+});
+
+describe('target adapters', () => {
+  it('builds a theme target that reads the build artifact', async () => {
+    const target = themeTarget({ cssPath: './dev/theme.css', themeName: 'Rem Craft Dev' });
+    expect(target.kind).toBe('theme');
+    expect(target.name).toBe('Rem Craft Dev');
+  });
+
+  it('requires a plugin name', () => {
+    expect(() => pluginTarget({}), '插件名是拼 style id 的依据，不能缺').toThrow(/插件名/);
+  });
+
+  it('derives the plugin style id from the plugin name', async () => {
+    // 思源把插件 CSS 注入成 <style id="pluginsStyle<name>">，拼错就永远读不到。
+    const target = pluginTarget({ name: 'arco-calendar' });
+    const fakePage = {
+      evaluate: (_fn: unknown, id: string) =>
+        Promise.resolve(id === 'pluginsStylearco-calendar' ? '.a{color:red}' : null),
+    };
+    const sheets = await target.resolveCss(fakePage);
+    expect(sheets).toEqual([{ label: 'pluginsStylearco-calendar', text: '.a{color:red}' }]);
+  });
+
+  it('treats a plugin without stylesheet as DOM-only instead of failing', async () => {
+    // 无 index.css 的插件（如 Calendar-heatmap）本来就没有这个标签，不该判成失败。
+    const target = pluginTarget({ name: 'Calendar-heatmap' });
+    const fakePage = { evaluate: () => Promise.resolve({ present: false, length: 0 }) };
+    const mount = await target.mountState(fakePage);
+    expect(mount.ok).toBe(true);
+    expect(mount.reason).toMatch(/只做 DOM 断言/);
+  });
 });
 
 describe('cdp layering', () => {
@@ -210,6 +253,7 @@ describe('cdp layering', () => {
     'probes.mjs',
     'siyuan.mjs',
     'theme.mjs',
+    'targets.mjs',
     'expectations.mjs',
     'sandbox.mjs',
     ...cliFiles,
@@ -228,7 +272,7 @@ describe('cdp layering', () => {
   });
 
   it('keeps probes.mjs and sandbox.mjs free of console output', () => {
-    for (const file of ['probes.mjs', 'sandbox.mjs', 'expectations.mjs', 'theme.mjs']) {
+    for (const file of ['probes.mjs', 'sandbox.mjs', 'expectations.mjs', 'theme.mjs', 'targets.mjs']) {
       expect(stripComments(readCdp(file)), file + ' 只返回数据，打印交给 CLI 层').not.toMatch(/console\.\w+/);
     }
   });
@@ -238,6 +282,14 @@ describe('cdp layering', () => {
     expect(source, 'verify 必须复用 session.mjs 的浏览器生命周期').toMatch(/from\s+['"]\.\/session\.mjs['"]/);
     expect(source, 'verify 必须复用 probes.mjs 的探针').toMatch(/from\s+['"]\.\/probes\.mjs['"]/);
     expect(source, 'verify 不得自己碰 puppeteer').not.toMatch(/puppeteer/);
+  });
+
+  it('keeps target-specific knowledge out of verify', () => {
+    // 主题与插件的差异必须收敛在 targets.mjs；verify 里出现主题/插件的分支判断，
+    // 说明抽象漏了，加第三个被测对象时就要改 verify。
+    const source = stripComments(readCdp('verify.mjs'));
+    expect(source, 'verify 必须通过 targets.mjs 拿被测对象').toMatch(/from\s+['"]\.\/targets\.mjs['"]/);
+    expect(source, 'verify 不得直接读 theme.json 或 pluginsStyle').not.toMatch(/pluginsStyle|public\/theme\.json/);
   });
 
   it('keeps mount judgement in one place', () => {
@@ -251,7 +303,7 @@ describe('cdp layering', () => {
 
   it('keeps probes.mjs and sandbox.mjs independent of session.mjs', () => {
     // 反向依赖会让探针被迫关心浏览器生命周期，分层就失效了。
-    for (const file of ['probes.mjs', 'sandbox.mjs', 'expectations.mjs', 'theme.mjs']) {
+    for (const file of ['probes.mjs', 'sandbox.mjs', 'expectations.mjs', 'theme.mjs', 'targets.mjs']) {
       expect(stripComments(readCdp(file)), file + ' 不得依赖 session.mjs').not.toMatch(
         /from\s+['"]\.\/session\.mjs['"]/
       );

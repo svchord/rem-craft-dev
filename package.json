@@ -22,6 +22,7 @@
     "format:check": "oxfmt --check .",
     "make-link": "node --no-warnings ./scripts/make_dev_link.js",
     "verify:theme": "node ./scripts/cdp/verify.mjs",
+    "verify:plugin": "node ./scripts/cdp/verify.mjs --plugin",
     "watch:theme": "node ./scripts/cdp/watch.mjs",
     "open:theme": "node ./scripts/cdp/open.mjs"
   },

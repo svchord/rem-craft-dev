@@ -1,9 +1,10 @@
 /**
- * 渲染回归：把「主题此刻真实渲染成什么样」与基线 expectations.json 逐项比对。
+ * 渲染回归：把「被测对象此刻真实渲染成什么样」与基线 expectations.json 比对。
  *
- * 这是三件事里的第三件：改完样式，判断渲染是否符合预期。
+ * 主题与插件共用这一套：差异被 targets.mjs 收敛成「CSS 从哪来 + 怎么算加载成功」，
+ * 注入沙箱与基线比对完全一样。
  *
- *   pnpm verify:theme                     # 桌面 + 移动端，跑全部用例
+ *   pnpm verify:theme                     # 主题，桌面 + 移动端
  *   pnpm verify:theme --frontend mobile   # 只跑移动端
  *   pnpm verify:theme --filter menu       # 只跑名字含 menu 的用例
  *   pnpm verify:theme --json              # 结构化输出
@@ -11,22 +12,24 @@
  *   pnpm verify:theme --baseline          # 把当前渲染写成新基线（谨慎）
  *   pnpm verify:theme --attach            # 复用 pnpm dev 的浏览器
  *
+ *   pnpm verify:plugin arco-calendar      # 审计已装插件（CSS 从页面读）
+ *   pnpm verify:plugin arco-calendar --frontend mobile
+ *
  * 退出码：全部通过 0，有不符 1，跑不起来 2。CI 可以直接靠它卡门禁。
  *
  * 为什么在 iframe 隔离沙箱里量：宿主主题会覆盖 `.b3-menu__item`、`--b3-*` 等
- * 一大批属性，在主文档里量读到的是「宿主 + 本主题」的混合结果，改自己的 CSS
- * 反而看不到变化。沙箱只注入 dev/theme.css，级联与生产一致，且能一次覆盖
- * 多个变体（dark / density / 移动端 backend）而不用真的把思源切来切去。
+ * 一大批属性，在主文档里量读到的是「宿主 + 被测对象」的混合结果，改自己的 CSS
+ * 反而看不到变化。沙箱只注入被测 CSS，级联与生产一致，且能一次覆盖多个变体
+ * （dark / density / 移动端 backend）而不用真的把思源切来切去。
  */
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { createSession, parseViewport } from './session.mjs';
 import { probeEnvironment } from './probes.mjs';
 import { evaluateCase, parseExpectations, toBaselineCase } from './expectations.mjs';
-import { findDoubleWrappedColors, measureIsolated } from './sandbox.mjs';
+import { findProblemsIn, measureIsolated } from './sandbox.mjs';
+import { pluginTarget, themeTarget } from './targets.mjs';
 import { judgeMount, readThemeName } from './theme.mjs';
 
-const EXPECTATIONS = './expectations.json';
-const CSS_CANDIDATES = ['./dev/theme.css', './dist/theme.css'];
 const PREFIX = '[verify] ';
 /** 用到的样式属性固定成一张表：只量关心的，避免整份 computed style 进报告。 */
 const STYLE_PROPS = [
@@ -44,6 +47,11 @@ const STYLE_PROPS = [
   'max-width',
   'display',
   'gap',
+  'position',
+  'z-index',
+  'overflow',
+  'opacity',
+  'box-shadow',
 ];
 
 function parseArgs(argv) {
@@ -58,10 +66,11 @@ function parseArgs(argv) {
   };
 
   return {
-    file: takeValue('--expect') ?? EXPECTATIONS,
+    file: takeValue('--expect') ?? './expectations.json',
     css: takeValue('--css'),
     filter: takeValue('--filter'),
     frontend: takeValue('--frontend'),
+    plugin: takeValue('--plugin'),
     // 显式传 undefined 作为 fallback：没给 --viewport 时不能返回默认值，
     // 否则下面「按前端挑视口」的分支永远进不去。
     viewport: parseViewport(takeValue('--viewport'), undefined),
@@ -71,16 +80,6 @@ function parseArgs(argv) {
     update: rest.includes('--update'),
     quiet: rest.includes('--quiet'),
   };
-}
-
-function resolveCssPath(explicit) {
-  if (explicit) {
-    if (!existsSync(explicit)) throw new Error('找不到 CSS：' + explicit);
-    return explicit;
-  }
-  const found = CSS_CANDIDATES.find((candidate) => existsSync(candidate));
-  if (!found) throw new Error('找不到 theme.css：先运行 pnpm dev 或 pnpm build');
-  return found;
 }
 
 function formatChecks(name, checks) {
@@ -98,8 +97,10 @@ function formatChecks(name, checks) {
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   const expectations = parseExpectations(readFileSync(options.file, 'utf8'), options.file);
-  const cssPath = resolveCssPath(options.css);
-  const css = readFileSync(cssPath, 'utf8');
+
+  const target = options.plugin
+    ? pluginTarget({ name: options.plugin })
+    : themeTarget({ cssPath: options.css, themeName: readThemeName() });
 
   const allCases = options.filter
     ? expectations.cases.filter((testCase) => testCase.name.includes(options.filter))
@@ -122,14 +123,10 @@ async function main() {
     process.exit(2);
   }
 
-  // 静态可查的问题先报：这类声明在浏览器里会被静默丢弃，光看渲染值只会看到「没生效」。
-  const staticProblems = findDoubleWrappedColors(css).map(
-    (problem) =>
-      'rgb(var(' + problem.token + ')) 双重包装：' + problem.token + ' 已是完整色值，再包 rgb() 会让整条声明失效'
-  );
-
   const results = [];
   const notes = [];
+  const staticProblems = [];
+  let cssLabels = [];
 
   for (const [frontend, cases] of byFrontend) {
     // 视口优先级：命令行 > 该前端第一个写了 viewport 的用例 > 文件级（仅桌面）> 前端预设。
@@ -149,15 +146,17 @@ async function main() {
 
     try {
       const environment = await probeEnvironment(session.page, session);
-      const mount = judgeMount(environment.themeStyle, readThemeName());
+      const mount = await target.mountState(session.page);
 
       if (!options.asJson && !options.quiet) {
         console.log(
           PREFIX +
+            target.kind +
+            '/' +
+            target.name +
+            ' ' +
             frontend +
-            '：css=' +
-            cssPath +
-            ' 会话=' +
+            '：会话=' +
             environment.opened +
             ' 视口=' +
             session.viewport.width +
@@ -167,13 +166,36 @@ async function main() {
             cases.length
         );
       }
-      // 沙箱不依赖宿主挂的是哪个主题，但「测的是不是本主题」要说清楚。
-      if (!mount.ok) {
-        notes.push(frontend + ' 前端未挂载本主题（' + (mount.loaded ?? '内置主题') + '），沙箱读数不受影响');
+      if (!mount.ok) notes.push(frontend + ' 前端：' + mount.reason);
+      else if (mount.reason) notes.push(frontend + ' 前端：' + mount.reason);
+      // 主题还要额外确认挂的是不是本主题（插件没有这个歧义）。
+      if (target.kind === 'theme' && environment.themeStyle) {
+        const judged = judgeMount(environment.themeStyle, target.name);
+        if (!judged.ok)
+          notes.push(frontend + ' 前端未挂载本主题（' + (judged.loaded ?? '内置主题') + '），沙箱读数不受影响');
+      }
+
+      // 插件：面板 DOM 只在打开后存在，需要真实 DOM 的断言必须先激活。
+      if (target.activate) await target.activate(session.page);
+
+      const sheets = await target.resolveCss(session.page);
+      if (!sheets.length) {
+        notes.push(frontend + ' 前端：' + target.name + ' 没有可审计的 CSS，只做 DOM 断言');
+      }
+      cssLabels = sheets.map((sheet) => sheet.label);
+      for (const problem of findProblemsIn(sheets)) {
+        staticProblems.push(
+          problem.sheet +
+            '：rgb(var(' +
+            problem.token +
+            ')) 双重包装，' +
+            problem.token +
+            ' 已是完整色值，再包 rgb() 会让整条声明失效'
+        );
       }
 
       for (const testCase of cases) {
-        const actual = await measureIsolated(session.page, css, {
+        const actual = await measureIsolated(session.page, sheets, {
           tokens: Object.keys(testCase.tokens ?? {}),
           selectors: [...new Set([...(testCase.selectors?.mustHit ?? []), ...(testCase.selectors?.mustMiss ?? [])])],
           attributes: testCase.attributes ?? {},
@@ -181,7 +203,9 @@ async function main() {
             label: probe.label,
             html: probe.html,
             target: probe.target ?? probe.label,
-            props: STYLE_PROPS,
+            // 用例里断言了哪些属性就量哪些：固定表会漏掉表外属性（如 position/z-index），
+            // 读成空串后既看不出问题又会让「期望 vs 实际」失真。
+            props: [...new Set([...Object.keys(probe.expect), ...STYLE_PROPS])],
           })),
         });
         results.push({
@@ -220,7 +244,7 @@ async function main() {
   if (options.asJson) {
     console.log(
       JSON.stringify({
-        css: cssPath,
+        target: { kind: target.kind, name: target.name, css: cssLabels },
         source: expectations.source,
         staticProblems,
         notes,
@@ -256,7 +280,20 @@ async function main() {
 
   if (!options.asJson) {
     const frontends = [...new Set(results.map((result) => result.frontend))].join('+');
-    console.log(PREFIX + '结论：全部通过（' + frontends + '，' + results.length + ' 个用例，' + totalChecks + ' 项）');
+    console.log(
+      PREFIX +
+        '结论：全部通过（' +
+        target.kind +
+        '/' +
+        target.name +
+        '，' +
+        frontends +
+        '，' +
+        results.length +
+        ' 个用例，' +
+        totalChecks +
+        ' 项）'
+    );
   }
 }
 

@@ -1,3 +1,4 @@
+import { createServer } from 'node:http';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -433,12 +434,73 @@ describe('target adapters drive the dev loop', () => {
         },
       };
 
-      const ok = await target.reload(fakePage);
-      expect(ok, 'reload 必须成功，不能因 this 丢失而抛错').toBe(true);
+      const result = await target.reload(fakePage, { filename: 'index.css' });
+      expect(result.ok, 'reload 必须成功，不能因 this 丢失而抛错').toBe(true);
       expect(seen, 'reload 要把磁盘上的 CSS 注入页面').toEqual(['.x { color: red }']);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+
+  it('reloads a plugin via kernel when its JS changes, never a full page refresh', async () => {
+    // 插件 JS 是 window.eval 执行的、带副作用（注册 dock/顶栏/事件监听），
+    // 换 <style> 撤销不了；也不能整页刷新（会丢掉用户正在编辑的文档）。
+    // 正确路径是 /api/petal/setPetalEnabled 禁用再启用，让思源重建插件实例。
+    // 这条分流必须留在插件描述符里，通用层不该知道插件是怎么加载的。
+    const calls: Array<{ path: string; enabled: boolean }> = [];
+    const server = createServer((req, res) => {
+      let body = '';
+      req.on('data', (chunk) => {
+        body += chunk;
+      });
+      req.on('end', () => {
+        calls.push({ path: req.url ?? '', enabled: JSON.parse(body || '{}').enabled });
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end('{"code":0,"msg":"","data":null}');
+      });
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const address = server.address();
+    const port = typeof address === 'object' && address ? address.port : 0;
+
+    try {
+      const target = pluginTarget({ name: 'p' });
+      const fakePage = {
+        evaluate: () => {
+          throw new Error('JS 变更不该走 DOM 重注入');
+        },
+      };
+
+      const result = await target.reload(fakePage, { filename: 'index.js', port });
+      expect(result.ok, 'kernel 路径成功应返回 ok').toBe(true);
+      expect(
+        calls.map((c) => c.path),
+        '两次调用都走 setPetalEnabled'
+      ).toEqual(['/api/petal/setPetalEnabled', '/api/petal/setPetalEnabled']);
+      expect(
+        calls.map((c) => c.enabled),
+        '顺序必须是禁用再启用'
+      ).toEqual([false, true]);
+    } finally {
+      server.close();
+    }
+  });
+
+  it('keeps theme reload a pure DOM operation that ignores kernel context', async () => {
+    // 主题是 <link href>，换地址就够了，完全不需要 kernel 往返。
+    // 这条保证「修插件侧不影响主题侧」。
+    const target = themeTarget({ name: 'T' });
+    let swapped = false;
+    const fakePage = {
+      evaluate: async () => {
+        swapped = true;
+        return true;
+      },
+    };
+
+    const result = await target.reload(fakePage, { filename: 'theme.css', port: 1 });
+    expect(result.ok).toBe(true);
+    expect(swapped, '主题仍走原来的换 href 路径').toBe(true);
   });
 
   it('names the right build artifact per target kind', () => {
@@ -592,6 +654,19 @@ describe('cdp layering', () => {
     const source = stripComments(readCdp('measure-cli.mjs'));
     expect(source, 'measure-cli 不得再走隔离测量（量不到 base.css 与交互态）').not.toMatch(/measureIsolated|iframe/);
     expect(allFiles.includes('sandbox.mjs'), 'sandbox.mjs 已删除；再加回来意味着隔离测量复活').toBe(false);
+  });
+
+  it('keeps the loading mechanism of each target inside its own descriptor', () => {
+    // 主题是 <link href>，插件是 window.eval + setPetalEnabled。
+    // 这两种机制的知识必须留在 targets.mjs 的描述符里；一旦漏进 dev.mjs
+    // （比如 if (filename.endsWith('.js')) page.reload()），修插件就会动到主题。
+    const dev = stripComments(readCdp('dev.mjs'));
+    expect(dev, 'dev.mjs 不得判断产物扩展名').not.toMatch(/endsWith\(['"]\.js['"]\)/);
+    expect(dev, 'dev.mjs 不得整页刷新来重载产物').not.toMatch(/page\.reload/);
+    expect(dev, 'dev.mjs 不得直接调 selectTheme / setPetalEnabled').not.toMatch(
+      /selectTheme|setPetalEnabled|reloadPlugin|reloadThemeCss/
+    );
+    expect(dev, 'dev.mjs 只把 filename 和 port 交给描述符').toMatch(/target\.reload\(/);
   });
 
   it('has measure-cli drive interactions through actions.mjs', () => {

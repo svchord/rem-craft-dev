@@ -48,7 +48,7 @@ export { detectTargetType, registerTargetType, targetType, targetTypes } from '.
 export { parseColor, luminance, contrastRatio } from './color.mjs';
 export { findDoubleWrappedColors, findProblemsIn } from './lints.mjs';
 export { judgeMount, readThemeName } from './theme.mjs';
-export { callKernel, selectTheme, reloadThemeCss, reloadPluginCss, currentTheme } from './theme-dev.mjs';
+export { callKernel, selectTheme, reloadThemeCss, reloadPluginCss, reloadPlugin, currentTheme } from './theme-dev.mjs';
 export { findChrome, findKernelPort, frontendUrl, findWorkspaceDir, MOBILE_VIEWPORT } from './siyuan.mjs';
 export { listWorkspaces, readWorkspaceManifest, resolveInstallDir } from './workspace.mjs';
 export { checkLinkedFiles, detectLinkType, ensureLink, inspectLink, samePath } from './link.mjs';

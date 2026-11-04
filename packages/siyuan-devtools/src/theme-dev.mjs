@@ -1,11 +1,12 @@
 /**
- * 主题开发通用能力：让思源选中某个主题、让页面重新加载它的 CSS。
+ * 思源 kernel / 页面侧的通用能力。
  *
- * 这两个动作是**所有思源主题项目都需要的**，与用什么构建工具无关：
- *   - `pnpm dev` 起 watch 之后，得让思源真正选中本主题，否则预览的是宿主主题
- *   - 产物变了之后，得让页面重新加载 theme.css，否则看到的是旧样式
+ * 这里只放「与被测类型无关」的原语：调 kernel API、换主题 link、重注入某段 CSS、
+ * 让思源重新加载某个插件。至于「什么情况下该用哪个」，由各类型的描述符决定
+ * （见 targets.mjs），本文件不做类型判断。
  *
- * 只碰 kernel API 与 `#themeStyle` 那一个 link，不动其它样式表，级联位置不变。
+ * 主题走 `<link id="themeStyle">`，插件走 `window.eval` + `<style id="pluginsStyle…">`，
+ * 两者的重载机制根本不同，所以各自的重载入参也不同——这里只是提供积木。
  */
 
 /**
@@ -109,16 +110,14 @@ export async function currentTheme(port) {
 }
 
 /**
- * 让页面重新加载某个插件的 CSS。
+ * 让页面重新加载某个插件的 CSS（不重新执行 JS）。
  *
- * 查过内核：没有 `/api/plugin/*` 写接口（实测 404），`reloadPlugin` 是 WebSocket
- * 推送的分支，HTTP 侧触发不了。但插件 CSS 是内联在 `<style id="pluginsStyle<name>">`
- * 里的（实测磁盘 index.css 与 textContent 逐字节相同），所以直接换 textContent
- * 就能让新样式立即生效，不用整页刷新。
+ * 插件 CSS 是内联在 `<style id="pluginsStyle<name>">` 里的（实测磁盘 index.css
+ * 与 textContent 逐字节相同），所以换 textContent 就能让新样式立即生效，
+ * 不用整页刷新、也不会丢掉用户正在编辑的文档和打开的面板。
  *
- * 注意：**只对 CSS 有效**。index.js 变了必须整页刷新，换 style 不会重新执行 JS。
- *
- * @param cssText 显式传入的 CSS 文本；不给则从磁盘读（需要传 file 参数）
+ * 只适用于 CSS 变化。插件 JS 是 `window.eval` 执行的、带副作用（注册 dock、
+ * 顶栏、事件监听），换 style 撤销不了，那种情况要用 `reloadPlugin`。
  */
 export async function reloadPluginCss(page, pluginName, cssText = null) {
   if (!page) return false;
@@ -138,4 +137,38 @@ export async function reloadPluginCss(page, pluginName, cssText = null) {
     // 导航中，等下一次
     return false;
   }
+}
+
+/**
+ * 让思源重新加载某个插件（重新执行它的 JS）。
+ *
+ * 插件 JS 是 `window.eval("(function anonymous(require, module, exports){…})")`
+ * 执行的，带副作用；换 `<style>` 内容不会重跑 JS，必须让思源走完整的
+ * unload → 重新拉产物 → eval → onload。
+ *
+ * 触发方式是 `/api/petal/setPetalEnabled` 禁用再启用：内核写配置后通过
+ * WebSocket 推送 `reloadPlugin`，前端据此重建实例与 `<style>` 节点。
+ * 实测确认 styleNodeReplaced / instanceReplaced 都为 true。
+ * `/api/plugin/*` 没有写接口（实测 404），这条路是思源官方 sample 用的。
+ *
+ * 这比整页刷新好：不打断用户正在编辑的文档、不重置面板状态。
+ *
+ * @returns {{ ok: boolean, reason: string|null }}
+ */
+export async function reloadPlugin(port, pluginName, { frontend = 'desktop', gapMs = 500 } = {}) {
+  const body = (enabled) => ({
+    packageName: pluginName,
+    enabled,
+    frontend,
+  });
+
+  const off = await callKernel(port, '/api/petal/setPetalEnabled', body(false));
+  if (off.code !== 0) return { ok: false, reason: '禁用插件失败：' + (off.msg || '未知错误') };
+
+  await new Promise((resolve) => setTimeout(resolve, gapMs));
+
+  const on = await callKernel(port, '/api/petal/setPetalEnabled', body(true));
+  if (on.code !== 0) return { ok: false, reason: '启用插件失败：' + (on.msg || '未知错误') };
+
+  return { ok: true, reason: null };
 }

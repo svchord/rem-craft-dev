@@ -22,7 +22,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { findWorkspaceDir } from './siyuan.mjs';
 import { registerTargetType, targetType } from './target-types.mjs';
-import { reloadPluginCss, reloadThemeCss } from './theme-dev.mjs';
+import { reloadPlugin, reloadPluginCss, reloadThemeCss, selectTheme } from './theme-dev.mjs';
 import { resolveInstallDir } from './workspace.mjs';
 
 const readText = (file) => readFileSync(file, 'utf8');
@@ -69,8 +69,24 @@ registerTargetType(
     expectedFiles: () => ['theme.css', 'theme.json'],
     matchArtifact: (name) => name.endsWith('theme.css'),
 
-    /** 主题换 #themeStyle 的 href 即可，级联位置不变。 */
-    reload: (page) => reloadThemeCss(page),
+    /**
+     * 主题换 #themeStyle 的 href 即可，级联位置不变。纯前端动作，不需要 kernel、
+     * 也不需要整页刷新——这是主题与插件最根本的差别。
+     */
+    async reload(page) {
+      const ok = await reloadThemeCss(page);
+      return { ok, message: ok ? '主题 CSS 已更新' : '主题 CSS 重载失败' };
+    },
+
+    /**
+     * 开发前让思源真正选中本主题：否则预览的是宿主主题，量到的级联
+     * （尤其 --b3-* 的取值）与生产不一致。这是主题独有的动作，插件不需要。
+     */
+    async activate(_page, { name, port }) {
+      const selected = await selectTheme(port, name);
+      if (!selected.ok) return { ok: false, message: selected.reason };
+      return { ok: true, message: selected.changed ? '已切换到：' + name : '思源已选中：' + name };
+    },
 
     /**
      * CSS 读磁盘产物：它就是思源真正加载的那份，也是生产交付的那份。
@@ -119,21 +135,31 @@ registerTargetType(
     matchArtifact: (name) => name.endsWith('index.js') || name.endsWith('index.css'),
 
     /**
-     * 插件重载只能重注入 CSS。
+     * 插件重载要分两种情况，因为思源用两种完全不同的机制加载它们：
      *
-     * 查过内核：没有 `/api/plugin/*` 写接口（实测 404），`reloadPlugin` 是
-     * WebSocket 推送的分支，HTTP 侧触发不了。但插件 CSS 是内联在
-     * `<style id="pluginsStyle<name>">` 里的（实测磁盘 index.css 与 textContent
-     * 逐字节相同），所以直接换 textContent 就能让新样式立即生效。
+     *   index.css → 换 `<style id="pluginsStyle<name>">` 的 textContent。
+     *               纯前端动作，页面不动，最快。
+     *   index.js  → 插件 JS 是 `window.eval` 执行的、带副作用（注册 dock、顶栏、
+     *               事件监听），换 style 撤销不了。必须经 kernel 的
+     *               `/api/petal/setPetalEnabled` 禁用再启用，让思源完整重跑
+     *               unload → 重新 eval → onload。也不能用整页刷新，那会丢掉
+     *               用户正在编辑的文档和打开的面板。
      *
-     * 注意：只对 CSS 有效。index.js 变了必须整页刷新，那一步由 dev.mjs 负责。
+     * 分流逻辑留在描述符里，dev.mjs 不需要知道插件是怎么加载的。
+     *
+     * @returns {{ ok: boolean, message: string }}
      */
-    async reload(page, { name, resolveCss }) {
-      // resolveCss 由 createTarget 绑好放进 context——描述符不依赖 this，
-      // 这样它被单独取出调用（如测试里直接 descriptor.reload）也不会炸。
+    async reload(page, { name, resolveCss, filename = '', port = null }) {
+      if (filename.endsWith('.js')) {
+        if (!port) return { ok: false, message: '插件 JS 重载需要 kernel 端口' };
+        const result = await reloadPlugin(port, name);
+        return result.ok ? { ok: true, message: '插件已重新加载' } : { ok: false, message: result.reason };
+      }
+
       const sheets = await resolveCss();
-      if (!sheets.length) return false;
-      return reloadPluginCss(page, name, sheets[0].text);
+      if (!sheets.length) return { ok: false, message: '找不到插件 CSS' };
+      const ok = await reloadPluginCss(page, name, sheets[0].text);
+      return { ok, message: ok ? '插件 CSS 已更新' : '插件 CSS 重载失败' };
     },
 
     /**
@@ -245,14 +271,25 @@ export function createTarget(kind, { name = null, cwd = process.cwd(), ...rest }
         ...options,
       }),
 
-    /** 让页面用上新产物。 */
-    reload: (page) => descriptor.reload(page, context),
-  };
+    /**
+     * 让页面用上新产物。
+     *
+     * 通用层只负责把事实传进去（哪个文件变了、kernel 端口是多少），
+     * 怎么重载由各类型的描述符自己决定。主题是纯 DOM 换 href，
+     * 插件 CSS 换 <style>、JS 要经 kernel 重建实例——这些知识不进本文件。
+     */
+    reload: (page, { filename = '', port = null } = {}) => descriptor.reload(page, { ...context, filename, port }),
 
-  // activate 只有部分类型需要（面板打开后才有 DOM 的那种），有就挂上。
-  if (typeof descriptor.activate === 'function') {
-    target.activate = (page) => descriptor.activate(page, context);
-  }
+    /**
+     * 开发前让宿主用上这个对象（可选）。
+     * 主题需要经 kernel 切 themeLight/themeDark；插件由思源自己管启用状态，
+     * 没有实现这个方法。通用层只问「有没有这个能力」，不做类型判断。
+     */
+    activate:
+      typeof descriptor.activate === 'function'
+        ? (_page, { port } = {}) => descriptor.activate(_page, { ...context, port })
+        : null,
+  };
 
   return target;
 }

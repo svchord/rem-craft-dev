@@ -26,7 +26,6 @@ import { registerEndpoint } from './cdp-registry.mjs';
 import { checkLinkedFiles, ensureLink } from './link.mjs';
 import { findChrome, findKernelPort, frontendUrl } from './siyuan.mjs';
 import { createTarget } from './targets.mjs';
-import { selectTheme } from './theme-dev.mjs';
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -118,11 +117,14 @@ export async function startDev({
     }
 
     // 3) 让思源用上它。
-    //    只有主题需要主动切换；其它类型的启用状态由思源自己管，
-    //    这里只把「该怎么确认」交给类型描述符，不做类型判断。
-    const activation = await activateInSiYuan(target, state.kernelPort);
-    log(activation.message);
-    if (!activation.ok) throw new Error(activation.message);
+    //    通用层只问「这个类型有没有 activate 能力」，有就调，没有就什么都不做。
+    //    主题需要经 kernel 切 themeLight/themeDark，插件由思源自己管——
+    //    这些差异在类型描述符里，不进编排层。
+    if (target.activate) {
+      const activation = await target.activate(null, { port: state.kernelPort });
+      log(activation.message);
+      if (!activation.ok) throw new Error(activation.message);
+    }
 
     // 4) 浏览器：可见窗口交给用户看，生命周期由本函数持有
     state.profile = mkdtempSync(join(tmpdir(), 'rc-dev-'));
@@ -183,32 +185,11 @@ export async function startDev({
 }
 
 /**
- * 让思源用上被测对象。
- *
- * 主题需要经 kernel API 切换（否则预览的是宿主主题，量到的级联是错的）。
- * 其它类型不需要这一步——插件、widget 的启用状态在思源配置里，由用户管。
- *
- * 这里用「有没有 selectTheme 这个能力」而不是 `kind === 'theme'` 来区分：
- * 未来若出现另一种需要切换的类型（比如 iconset），注册时声明即可。
- */
-async function activateInSiYuan(target, kernelPort) {
-  if (!target.requiresSelection) {
-    return { ok: true, message: target.name + '：启用状态由思源管理（data/storage/petal/）' };
-  }
-  const selected = await selectTheme(kernelPort, target.name);
-  if (!selected.ok) return { ok: false, message: selected.reason };
-  return {
-    ok: true,
-    message: selected.changed ? '已切换到：' + target.name : '思源已选中：' + target.name,
-  };
-}
-
-/**
  * 让页面用上新产物。
  *
- * 按产物类型决定重载粒度——这是本包存在的意义之一，比整页刷新精细：
- *   CSS 产物    交给类型描述符的 reload()（主题换 href、插件换 <style> 文本）
- *   JS 产物     整页 reload（JS 无法热替换，只能重来）
+ * 通用层只负责传话：告诉描述符「哪个文件变了」和「kernel 端口」，
+ * 具体怎么重载（换 link href / 换 <style> / 让思源重建插件实例）
+ * 全由类型描述符决定。这里没有任何类型分支。
  *
  * @returns true 表示产物已生效
  */
@@ -216,11 +197,9 @@ async function applyReload({ state, target, filename, log }) {
   const page = state.page;
 
   try {
-    if (filename.endsWith('.js')) {
-      await page.reload({ waitUntil: 'domcontentloaded', timeout: 30000 });
-      return await waitForApp(page, log);
-    }
-    return await target.reload(page);
+    const result = await target.reload(page, { filename, port: state.kernelPort });
+    if (result?.message) log(result.message);
+    return result?.ok ?? false;
   } catch (cause) {
     const message = cause instanceof Error ? cause.message : String(cause);
     // 页面恰好被手动刷新（F5）时 evaluate 会抛上下文销毁，不是错误。

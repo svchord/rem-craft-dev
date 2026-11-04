@@ -779,44 +779,54 @@ pnpm build
 
 ### 10.2 本地验证（需要思源）
 
-只保留三件事对应的工具，外加一个人工入口：
+| 工具               | 用途                                                              |
+| ------------------ | ----------------------------------------------------------------- |
+| `pnpm dev`         | 构建 watch + 可见浏览器 + 让思源重载主题（F5 后仍是本主题）       |
+| `pnpm watch:theme` | 监听源码，改动后重跑**你指定的命令**（`--exec`）                  |
+| `pnpm measure`     | **通用测量原语**：env/tokens/styles/count/box/probe/diff/contrast |
+| `pnpm open:theme`  | 人工复审：打开桌面 + 移动端页面（可截图），自己看效果             |
 
-| 工具                | 用途                                                        |
-| ------------------- | ----------------------------------------------------------- |
-| `pnpm dev`          | 构建 watch + 可见浏览器 + 让思源重载主题（F5 后仍是本主题） |
-| `pnpm watch:theme`  | 监听源码，改动后自动跑 `audit:theme`                        |
-| `pnpm audit:theme`  | 样式与交互审计：跑客观不变量 + 输出完整事实                 |
-| `pnpm open:theme`   | 人工复审：打开桌面 + 移动端页面（可截图），自己看效果       |
-| `pnpm audit:plugin` | 同一套审计跑在已装插件上（CSS 读磁盘 index.css）            |
+#### 工具只提供能力，不预设「该查什么」
 
-日常闭环：`pnpm dev` 与 `pnpm watch:theme` 各开一个终端，改 `src/styles/**` 后页面立刻变、
-终端立刻报违规项和全部事实。`open:theme` 留给只有眼睛能判断的事（间距协调、观感），
-它不是替代 `audit:theme`，而是第二双眼睛。
+这是本工具最重要的设计约定。工具不知道你的主题有哪些组件、哪些颜色该配在一起、
+什么值算「对」。它只负责把页面事实读出来：
 
-#### 审计输出的是「不变量 + 事实」，不是数值快照
+| 子命令                                 | 能力                                       |
+| -------------------------------------- | ------------------------------------------ |
+| `env`                                  | 页面环境（前端/后端/模式/视口/DOM 节点数） |
+| `tokens <name...>`                     | 令牌计算值                                 |
+| `styles <selector> [--props]`          | 元素计算样式                               |
+| `count <selector...>`                  | 选择器命中数（总数 / 可见数）              |
+| `box <selector>`                       | 元素盒模型尺寸                             |
+| `probe <html> <target>`                | 插入一段 HTML 再量                         |
+| `diff <selector> --setup ... --do ...` | 动作前后的样式差异                         |
+| `contrast <fg> <bg>`                   | 两个令牌（或颜色值）的对比度               |
 
-早期版本让用例比对一份 `expectations.json`，里面记着「上次跑出来是什么」。这有个根本问题：
-**它只能回答「变了没」，回答不了「对不对」**。改个 padding 要手动更新基线，而如果基线里
-抄了一个错值（比如某个被 base.css 覆盖的值），它就永远绿。
+查什么、怎么判断，由 agent 在命令行上组合：
 
-现在分成两层：
+```bash
+pnpm measure tokens --rc-text-primary --rc-bg-page
+pnpm measure contrast --rc-text-placeholder --rc-bg-page      # → 2.42:1
+pnpm measure styles .b3-menu__item --props color,background-color
+pnpm measure box .dock__item --frontend mobile                # 触摸目标尺寸
+pnpm measure count .b3-menu__item --do contextmenu:.b3-list-item
+pnpm measure diff .b3-menu__item --setup contextmenu:.b3-list-item \
+  --setup wait:600 --do hover:.b3-menu__item --props background-color
+```
 
-| 层         | 内容                                                                                  | 谁判断             |
-| ---------- | ------------------------------------------------------------------------------------- | ------------------ |
-| **不变量** | 对比度 ≥ 4.5、触摸目标 ≥ 44px、令牌无断链、桥接值等于源值、暗色覆盖中性色、交互能驱动 | 代码，error 级失败 |
-| **事实**   | 每个令牌的值、每对颜色的对比度、每个探针的全部计算样式、交互前后差异                  | agent / 人         |
+`--json` 输出结构化数据供程序消费；`--frontend` / `--viewport` / `--attach` 等通用。
 
-不变量的关键性质是**与具体数值无关**：把 padding 从 8px 改成 12px 不会误报，只要意图还成立。
-`--facts-only` 只输出事实，供 agent 判断「是否符合预期」；`--json` 输出结构化数据。
+**为什么不内置「不变量」**：早期版本内置了 9 条不变量（对比度 ≥ 4.5、触摸目标 ≥ 44px…），
+还硬编码了「查哪 5 对颜色、查哪 3 个组件、查哪 2 个交互」。这等于替使用者决定审计范围
+——新增组件不会自动覆盖，改设计还要改工具。现在工具只给原语，判断交给人/agent。
 
-实测这条链路立刻抓到一个真问题：`--rc-text-placeholder` 在背景上的对比度只有 **2.42:1**，
-低于 WCAG 大字/图形要求的 3:1。这种问题在任何数值快照里都看不出来——除非有人事先知道
-「2.42 是错的」并把它写进基线。
+对比度这类计算仍然需要，所以 `color.mjs` 提供 `contrastRatio()` 纯函数，
+`measure contrast` 子命令直接暴露它。
 
-#### 主题与插件共用同一套审计
+#### 主题与插件共用同一套测量
 
-主题和插件在思源里是两套东西，但**审计方法相同**：在真实页面上量计算样式
-→ 判不变量 + 输出事实。差异只在两处，收敛在 `scripts/cdp/targets.mjs`：
+主题和插件在思源里是两套东西，但**测量方法相同**：在真实页面上量计算样式。
+差异只在两处，收敛在 `scripts/cdp/targets.mjs`：
 
 | 维度       | 主题                                   | 插件                                            |
 | ---------- | -------------------------------------- | ----------------------------------------------- |
@@ -836,7 +846,7 @@ pnpm build
 此时若基线里还有样式断言，探针插入的元素无论如何都有默认计算值——那些断言会「通过」
 但毫无意义。所以 `verify` 直接失败并提示换基线，而不是给一条绿的假结论。
 
-`audit.mjs` 里没有任何「是主题还是插件」的分支——测试强制它必须通过 `targets.mjs` 拿被测
+`measure-cli.mjs` 里没有任何「是主题还是插件」的分支——测试强制它必须通过 `targets.mjs` 拿被测
 对象。加第三类被测对象时只改 `targets.mjs`。
 
 > 插件的可观测面比主题窄：面板 DOM 只在打开后才存在，所以纯 CSS 断言（令牌/选择器/
@@ -844,7 +854,7 @@ pnpm build
 
 **`pnpm dev` 让思源真正选中本主题，而不是在页面上打补丁。** 启动时经 kernel API 把
 `themeLight`/`themeDark` 切成 `Rem Craft Dev`（已是它则不动），重建后换 `#themeStyle`
-的 href 让思源重新加载。这样预览、`audit:theme`、生产用的是同一套级联。
+的 href 让思源重新加载。这样预览、`measure`、生产用的是同一套级联。
 
 对比过另一种做法（注入 `<style>` + 临时禁用宿主主题）：注入只能模拟「本主题叠在宿主之上」，
 而真实级联里本主题是**替代**宿主主题，两者在 `--b3-*` 上结果不同——注入方式下
@@ -888,7 +898,7 @@ pnpm build
 #### 移动端
 
 桌面与移动是**两个独立构建入口**（`/stage/build/desktop/` 与 `/stage/build/mobile/`），
-`audit:theme` 按前端各开一次会话，各自开一次会话，移动端用 390x844@3 视口。
+`measure` 按 `--frontend` 选前端，移动端用 390x844@3 视口。
 
 **移动端要能加载自定义主题，`theme.json` 必须有 `frontends` 字段。** 思源的判定逻辑是：
 
@@ -913,7 +923,7 @@ document.documentElement.dataset.rcStyle = 'fluent';
 document.documentElement.dataset.rcPalette = 'shadcn';
 ```
 
-再跑 `pnpm audit:theme` 核对渲染是否随之变化。
+再跑 `pnpm measure styles <selector>` 核对渲染是否随之变化。
 
 ---
 

@@ -21,8 +21,7 @@
     "format": "oxfmt .",
     "format:check": "oxfmt --check .",
     "make-link": "node --no-warnings ./scripts/make_dev_link.js",
-    "audit:theme": "node ./scripts/cdp/audit.mjs",
-    "audit:plugin": "node ./scripts/cdp/audit.mjs --plugin",
+    "measure": "node ./scripts/cdp/measure-cli.mjs",
     "watch:theme": "node ./scripts/cdp/watch.mjs",
     "open:theme": "node ./scripts/cdp/open.mjs"
   },

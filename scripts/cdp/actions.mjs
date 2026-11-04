@@ -84,7 +84,11 @@ export async function runActions(session, actions = []) {
           const element = document.querySelector(selector);
           if (!element) return null;
           const box = element.getBoundingClientRect();
+          // 不用 offsetParent 判可见：position:fixed 的元素 offsetParent 恒为 null，
+          // 思源菜单就是这种（实测可见，offsetParent=null）。
           if (!box.width && !box.height) return null;
+          const cs = getComputedStyle(element);
+          if (cs.display === 'none' || cs.visibility === 'hidden') return null;
           return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
         }, argument);
         if (!point) throw new Error('hover 找不到可悬停的元素：' + argument);

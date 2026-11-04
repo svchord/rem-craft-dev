@@ -1,94 +1,114 @@
 ---
 name: siyuan-theme-measure
-description: 用 scripts/cdp 的工具改主题/插件样式并审计真实渲染与交互。当需要「改完样式看效果」「判断渲染和交互是否符合预期」「审计桌面端或移动端」「人工打开页面复审」时使用。不要为此新写脚本。
+description: 用 scripts/cdp 的通用测量工具，在真实思源前端里读取主题/插件的渲染事实并驱动交互。当需要「某个选择器渲染成什么样」「令牌解析出什么值」「桌面端/移动端尺寸」「交互前后变化」「改完样式对不对」时使用。工具只给原语，查什么由你决定。不要为此新写脚本。
 ---
 
-# 思源主题/插件测量与审计
+# 思源主题/插件测量
 
-回答「渲染出来到底是什么样、对不对」时用这套工具，**不要新写脚本**。
+回答「渲染出来到底是什么样」时用这套工具，**不要新写脚本**。
 
-| 用途               | 命令                       |
-| ------------------ | -------------------------- |
-| 改样式自动热更新   | `pnpm dev`                 |
-| 改完自动审计       | `pnpm watch:theme`         |
-| 样式与交互审计     | `pnpm audit:theme`         |
-| 审计已装插件       | `pnpm audit:plugin <name>` |
-| 人工复审（看页面） | `pnpm open:theme`          |
+工具只提供**测量原语**，不预设该查什么。查哪些令牌、量哪些选择器、什么值算对，
+全部由你在命令行上组合。
 
 ## 前置条件
 
 1. **思源必须在运行**（靠 `port.json` 的 PID→端口映射找 kernel；找不到会提示设 `SIYUAN_PORT`）。
 2. 需要 Chrome 或 Edge（自动按候选路径查找，可用 `CHROME_PATH` 覆盖）。
-3. 主题审计需要产物 `./dev/theme.css` 或 `./dist/theme.css`；插件审计读 `<workspace>/data/plugins/<name>/index.css`。
+3. 测量主题需产物 `./dev/theme.css`；测量插件读 `<workspace>/data/plugins/<name>/index.css`。
 
-## 审计输出的是「不变量 + 事实」
+## 命令
 
-这是与「数值快照」的根本区别，也是用这套工具时最该理解的一点。
+| 用途               | 命令                            |
+| ------------------ | ------------------------------- |
+| 改样式自动热更新   | `pnpm dev`                      |
+| 通用测量           | `pnpm measure <子命令>`         |
+| 改完重跑你的命令   | `pnpm watch:theme --exec "..."` |
+| 人工复审（看页面） | `pnpm open:theme`               |
 
-**不变量**（`scripts/cdp/invariants.mjs`）是客观规则，与具体数值无关：
+## pnpm measure：通用测量原语
 
-| 不变量                   | 级别  | 判据                                                   |
-| ------------------------ | ----- | ------------------------------------------------------ |
-| 令牌无断链               | error | 所有 `--rc-*` / `--b3-*` 都能解析出值                  |
-| 桥接令牌与源令牌一致     | error | `--b3-theme-background` 必须等于 `--rc-bg-page` 的颜色 |
-| 正文对比度 ≥ 4.5         | error | WCAG AA                                                |
-| 次要文本/占位符 ≥ 3      | warn  | WCAG AA 大字标准                                       |
-| 暗色模式确实覆盖了中性色 | error | 只查颜色类令牌，品牌色与尺寸不查                       |
-| 移动端触摸目标 ≥ 44px    | error | 停靠栏图标、菜单项                                     |
-| 交互能被驱动             | error | `:hover` 伪类确实命中（移动端跳过）                    |
-| 交互态若有声明则应有变化 | warn  | 主题写了 `:hover` 却没变化 → 多半被 base.css 覆盖      |
-| 组件配方未被外部样式覆盖 | warn  | 主题声明的值与实际计算值不符                           |
+| 子命令     | 能力                      | 例子                                                                |
+| ---------- | ------------------------- | ------------------------------------------------------------------- |
+| `env`      | 页面环境                  | `pnpm measure env`                                                  |
+| `tokens`   | 令牌计算值                | `pnpm measure tokens --rc-text-primary --rc-bg-page`                |
+| `styles`   | 元素计算样式              | `pnpm measure styles .b3-menu__item --props color,background-color` |
+| `count`    | 选择器命中数（总数/可见） | `pnpm measure count .b3-menu__item .dock__item`                     |
+| `box`      | 盒模型尺寸                | `pnpm measure box .dock__item --frontend mobile`                    |
+| `probe`    | 插入 HTML 再量            | `pnpm measure probe '<div class="x">' .x`                           |
+| `diff`     | 动作前后差异              | 见下                                                                |
+| `contrast` | 两色对比度                | `pnpm measure contrast --rc-text-placeholder --rc-bg-page`          |
 
-**事实**是完整证据：每个令牌的值、每对颜色的对比度、每个探针的全部计算样式、交互前后差异。
+通用选项：`--frontend desktop|mobile`、`--viewport 390x844@3`、`--props a,b,c`、
+`--do <action>`、`--setup <action>`、`--css <path>`、`--plugin <name>`、`--attach`、`--json`。
 
-**判断交给 agent 或人**。工具的职责是「给足证据 + 报出客观违规」，不是替人拍板。
-`--facts-only` 只出事实不判不变量；`--json` 输出结构化数据。
+### 交互：`--do` / `--setup` / `diff`
+
+`--setup` 先把页面带到目标场景，`--do` 是相对基线要做的动作。
 
 ```bash
-pnpm audit:theme                  # 桌面 + 移动端
-pnpm audit:theme --frontend mobile
-pnpm audit:theme --json           # 结构化事实（给 agent 读）
-pnpm audit:theme --facts-only     # 只输出事实
-pnpm audit:theme --attach         # 复用 pnpm dev 的浏览器
-pnpm audit:plugin arco-calendar
+# 打开右键菜单，再 hover 菜单项，看背景变了什么
+pnpm measure diff .b3-menu__item \
+  --setup contextmenu:.b3-list-item --setup wait:600 \
+  --do hover:.b3-menu__item --props background-color
+
+# 直接数「菜单打开后」有多少菜单项
+pnpm measure count .b3-menu__item --do contextmenu:.b3-list-item --do wait:600
 ```
 
-退出码：不变量全过 0，有 error 级违规 1，跑不起来 2。
+可用动作（`scripts/cdp/actions.mjs`）：`click` / `hover` / `press` / `focus` / `type` /
+`move` / `wait` / `contextmenu` / `dock` / `attr` / `reset`。
 
-## 关键：在真实页面上量，不是 iframe
+## 实测要点（都是踩过的坑）
 
-探针插进主文档（视口外），拿到与生产一致的级联：`base.css` + 本主题 + 插件样式 + 运行时样式。
+| 事实                                                | 影响                                                           |
+| --------------------------------------------------- | -------------------------------------------------------------- |
+| `.b3-menu__item` 在菜单打开前**根本不存在**（0 个） | 菜单类测量必须先 `contextmenu` 或 `dock`                       |
+| JS 派发 `contextmenu` **不触发**思源菜单            | 必须真实鼠标右键                                               |
+| 真实指针移动是唯一能驱动 `:hover` 的方式            | CSS 注入 / JS 派发都无效                                       |
+| 指针位置在会话间持续                                | 采「动作前」状态前工具会先 `move(1,1)`                         |
+| `position:fixed` 元素 `offsetParent` 恒为 null      | 不能用它判可见性；思源菜单就是这样（可见但 offsetParent=null） |
+| 移动端无 hover                                      | 交互类测量在移动端无意义                                       |
+| `data-ui-density` 会被运行时还原（约 1s）           | 密度变体要在设置后立刻量                                       |
 
-早先用 iframe 隔离是为了挡宿主主题，但 `pnpm dev` 已让思源真正选中本主题，隔离前提消失；
-而 iframe 会漏掉 `base.css`——实测 `line-height` 在 iframe 里是 `normal`、真实页面是 `28px`。
+## 典型用法：判断改完是否符合预期
 
-## 交互审计的实测要点
+工具不给结论，只给事实。判断由你根据设计意图做。
 
-| 事实                                                | 影响                                                            |
-| --------------------------------------------------- | --------------------------------------------------------------- |
-| `.b3-menu__item` 在菜单打开前**根本不存在**（0 个） | 菜单类断言必须先开菜单                                          |
-| JS 派发 `contextmenu` **不触发**思源菜单            | 必须真实鼠标右键                                                |
-| 真实指针移动是唯一能驱动 `:hover` 的方式            | CSS 注入 / JS 派发都无效                                        |
-| 指针位置在会话间持续                                | 采「交互前」状态前必须先 `move(1,1)`，否则 before 已是 hover 值 |
-| 移动端无 hover                                      | 相关不变量在移动端跳过                                          |
+```bash
+# 1) 令牌有没有断链
+pnpm measure tokens --rc-text-primary --rc-text-placeholder --b3-theme-background
+
+# 2) 对比度够不够（WCAG AA 正文要 4.5:1，大字/图形 3:1）
+pnpm measure contrast --rc-text-placeholder --rc-bg-page
+#   → 2.42:1  ← 低于 3:1，是否接受按设计意图判断
+
+# 3) 组件算出来的样式
+pnpm measure styles .b3-menu__item --props display,gap,padding-top,color,border-radius
+
+# 4) 交互有没有生效
+pnpm measure diff .b3-menu__item --setup contextmenu:.b3-list-item --setup wait:600 \
+  --do hover:.b3-menu__item --props background-color
+#   → background-color  rgb(246,246,246) → rgba(0,0,0,0.075)
+#     注意：这是 base.css 的值，不是主题声明的 bg-surface —— 说明主题 hover 规则被覆盖了
+
+# 5) 移动端触摸目标
+pnpm measure box .dock__item --frontend mobile --limit 6
+```
 
 ## 常见误读
 
-| 现象                           | 含义                                                         |
-| ------------------------------ | ------------------------------------------------------------ |
-| `--rc-*` 全为空                | 宿主跑的不是本主题（看 `themeStyle` href）。**不是工具坏了** |
-| 移动端不加载主题               | `theme.json` 缺 `frontends`，或改了没重启内核                |
-| 选择器在真实页面未命中         | 菜单没展开等 UI 状态问题                                     |
-| 报 `rgb(var(--b3-*))` 双重包装 | `--b3-*` 已是完整色值，再包 `rgb()` 整条声明会被静默丢弃     |
-| 占位符对比度 warn              | 2.42:1 这类值低于 3:1，是否接受要按设计意图判断              |
-| 主题声明了 hover 但没变化      | 多半被 `base.css` 更高特异性的规则覆盖                       |
+| 现象                           | 含义                                                                |
+| ------------------------------ | ------------------------------------------------------------------- |
+| `tokens` 全为空                | 宿主跑的不是本主题（`measure env` 看 themeStyle）。**不是工具坏了** |
+| `box` 返回空                   | 选择器不适用于该前端（移动端结构不同），不是工具坏了                |
+| `diff` 报「无变化」            | 元素没有该状态的样式声明，或被更高特异性规则覆盖                    |
+| `count` 总数>0 但可见=0        | 元素在 DOM 里但被隐藏（display/visibility/opacity）                 |
+| 移动端不加载主题               | `theme.json` 缺 `frontends`，或改了没重启内核                       |
+| 报 `rgb(var(--b3-*))` 双重包装 | `--b3-*` 已是完整色值，再包 `rgb()` 整条声明会被静默丢弃            |
 
 ## 使用要点
 
-1. **不要为一次测量新写脚本**。要查什么就往 `audit.mjs` 的 `THEME_SPEC` / `INTERACTION_SPECS` 加，
-   或直接用 `--json` 读现有事实。
-2. **不要用「改前改后对比」代替判断**。不变量告诉你「是否违反规则」，事实告诉你「现在是什么」，
-   两者结合才能判断「是否符合预期」。
+1. **不要为一次测量新写脚本**。用 `measure` 的子命令组合，或 `--json` 读结构化数据。
+2. 工具不给「对不对」的结论——它给事实，判断按设计意图做。
 3. 没有真实输出就不要声称「样式已生效」，贴命令的真实结果。
 4. 改 `theme.json` 后必须重启思源内核，否则移动端判定不生效。
-5. `data-ui-density` 会被思源运行时还原（实测约 1 秒内消失），密度变体要在设置后立刻量。

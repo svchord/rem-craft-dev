@@ -17,8 +17,6 @@ const root = join(import.meta.dirname, '..');
 const cdpDir = join(root, 'scripts', 'cdp');
 const readCdp = (file: string) => readFileSync(join(cdpDir, file), 'utf8');
 
-/** .mjs 没有 .d.ts，这里把基线结构显式写出来，避免 tsc 把参数推成 any。 */
-
 /**
  * 架构断言只看代码本身：注释里提到 puppeteer.launch / console.log 不算违规。
  * 行注释用 `(?<!:)` 保护 `http://`，否则 siyuan.mjs 里的 URL 会把后半行吃掉。
@@ -208,7 +206,7 @@ describe('target adapters', () => {
 });
 
 describe('cdp layering', () => {
-  const cliFiles = ['audit.mjs', 'watch.mjs', 'open.mjs'];
+  const cliFiles = ['measure-cli.mjs', 'watch.mjs', 'open.mjs'];
   const allFiles = [
     'session.mjs',
     'probes.mjs',
@@ -217,14 +215,14 @@ describe('cdp layering', () => {
     'targets.mjs',
     'actions.mjs',
     'lints.mjs',
-    'facts.mjs',
-    'invariants.mjs',
+    'measure.mjs',
+    'color.mjs',
     ...cliFiles,
   ];
 
   it('starts the browser only in session.mjs and open.mjs', () => {
     // open.mjs 是人工审计入口，需要可见窗口，天然要自己 launch；
-    // audit/watch 必须复用 session.mjs，否则生命周期无人统一管理。
+    // measure/watch 必须复用 session.mjs，否则生命周期无人统一管理。
     const launchers = allFiles.filter((file) => /puppeteer\.(launch|connect)/.test(stripComments(readCdp(file))));
     expect(launchers.sort()).toEqual(['open.mjs', 'session.mjs']);
   });
@@ -235,54 +233,54 @@ describe('cdp layering', () => {
   });
 
   it('keeps pure modules free of console output', () => {
-    // facts/invariants 只产出数据与判定，打印交给 CLI 层。
+    // 纯函数模块只产出数据，打印交给 CLI 层。
     for (const file of [
       'probes.mjs',
       'lints.mjs',
       'theme.mjs',
       'targets.mjs',
       'actions.mjs',
-      'facts.mjs',
-      'invariants.mjs',
+      'measure.mjs',
+      'color.mjs',
     ]) {
       expect(stripComments(readCdp(file)), file + ' 只返回数据，打印交给 CLI 层').not.toMatch(/console\.\w+/);
     }
   });
 
-  it('has audit reuse session.mjs and probes.mjs', () => {
-    const source = stripComments(readCdp('audit.mjs'));
-    expect(source, 'audit 必须复用 session.mjs 的浏览器生命周期').toMatch(/from\s+['"]\.\/session\.mjs['"]/);
-    expect(source, 'audit 必须复用 probes.mjs 的探针').toMatch(/from\s+['"]\.\/probes\.mjs['"]/);
-    expect(source, 'audit 不得自己碰 puppeteer').not.toMatch(/puppeteer/);
+  it('has measure-cli reuse session.mjs and the measurement primitives', () => {
+    const source = stripComments(readCdp('measure-cli.mjs'));
+    expect(source, 'measure-cli 必须复用 session.mjs 的浏览器生命周期').toMatch(/from\s+['"]\.\/session\.mjs['"]/);
+    expect(source, 'measure-cli 必须复用 measure.mjs 的原语').toMatch(/from\s+['"]\.\/measure\.mjs['"]/);
+    expect(source, 'measure-cli 不得自己碰 puppeteer').not.toMatch(/puppeteer/);
   });
 
   it('measures on the real page, not in an isolated iframe', () => {
     // iframe 隔离的前提（宿主主题干扰）已被「dev 让思源真正选中本主题」解决，
     // 而 iframe 会漏掉 base.css：实测 line-height 在 iframe 里是 normal、
     // 真实页面是 28px。隔离测量已整体删除，不得以任何形式回来。
-    const source = stripComments(readCdp('audit.mjs'));
-    expect(source, 'audit 不得再走隔离测量（量不到 base.css 与交互态）').not.toMatch(/measureIsolated|iframe/);
+    const source = stripComments(readCdp('measure-cli.mjs'));
+    expect(source, 'measure-cli 不得再走隔离测量（量不到 base.css 与交互态）').not.toMatch(/measureIsolated|iframe/);
     expect(allFiles.includes('sandbox.mjs'), 'sandbox.mjs 已删除；再加回来意味着隔离测量复活').toBe(false);
   });
 
-  it('has audit drive interactions through actions.mjs', () => {
+  it('has measure-cli drive interactions through actions.mjs', () => {
     // 交互是主题/插件真正容易坏的地方：选择器还在但 DOM 结构变了，
     // 静态断言照样绿，实际已经烂了。
-    const source = stripComments(readCdp('audit.mjs'));
-    expect(source, 'audit 必须复用 actions.mjs 驱动交互').toMatch(/from\s+['"]\.\/actions\.mjs['"]/);
+    const source = stripComments(readCdp('measure-cli.mjs'));
+    expect(source, 'measure-cli 必须复用 actions.mjs 驱动交互').toMatch(/from\s+['"]\.\/actions\.mjs['"]/);
   });
 
-  it('keeps target-specific knowledge out of audit', () => {
-    // 主题与插件的差异必须收敛在 targets.mjs；audit 里出现主题/插件的分支判断，
-    // 说明抽象漏了，加第三个被测对象时就要改 audit。
-    const source = stripComments(readCdp('audit.mjs'));
-    expect(source, 'audit 必须通过 targets.mjs 拿被测对象').toMatch(/from\s+['"]\.\/targets\.mjs['"]/);
-    expect(source, 'audit 不得直接读 theme.json 或 pluginsStyle').not.toMatch(/pluginsStyle|public\/theme\.json/);
+  it('keeps target-specific knowledge out of measure-cli', () => {
+    // 主题与插件的差异必须收敛在 targets.mjs；measure-cli 里出现主题/插件的分支判断，
+    // 说明抽象漏了，加第三个被测对象时就要改 measure-cli。
+    const source = stripComments(readCdp('measure-cli.mjs'));
+    expect(source, 'measure-cli 必须通过 targets.mjs 拿被测对象').toMatch(/from\s+['"]\.\/targets\.mjs['"]/);
+    expect(source, 'measure-cli 不得直接读 theme.json 或 pluginsStyle').not.toMatch(/pluginsStyle|public\/theme\.json/);
   });
 
   it('keeps mount judgement in one place', () => {
-    // 挂载判定错了，audit 的读数会被张冠李戴。
-    for (const file of ['audit.mjs', 'open.mjs']) {
+    // 挂载判定错了，测量读数会被张冠李戴。
+    for (const file of ['measure-cli.mjs', 'open.mjs']) {
       const source = stripComments(readCdp(file));
       expect(source, file + ' 必须复用 theme.mjs 的挂载判定/主题名').toMatch(/from\s+['"]\.\/theme\.mjs['"]/);
       expect(source, file + ' 不得自己实现 normalizeThemeName').not.toMatch(/function\s+normalizeThemeName/);

@@ -1,0 +1,127 @@
+{
+  "name": "siyuan-devkit",
+  "version": "0.1.0",
+  "description": "SiYuan theme/plugin dev tooling: Vite plugin for hot reload + CLI primitives for measuring real rendering",
+  "type": "module",
+  "license": "MIT",
+  "private": true,
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./plugin": {
+      "types": "./dist/plugin/plugin.d.ts",
+      "default": "./dist/plugin/plugin.js"
+    },
+    "./assets": {
+      "types": "./dist/plugin/assets.d.ts",
+      "default": "./dist/plugin/assets.js"
+    },
+    "./dev": {
+      "types": "./dist/dev/dev.d.ts",
+      "default": "./dist/dev/dev.js"
+    },
+    "./dev-session": {
+      "types": "./dist/dev/dev-session.d.ts",
+      "default": "./dist/dev/dev-session.js"
+    },
+    "./build": {
+      "types": "./dist/dev/build.d.ts",
+      "default": "./dist/dev/build.js"
+    },
+    "./targets": {
+      "types": "./dist/core/targets.d.ts",
+      "default": "./dist/core/targets.js"
+    },
+    "./target-types": {
+      "types": "./dist/core/target-types.d.ts",
+      "default": "./dist/core/target-types.js"
+    },
+    "./session": {
+      "types": "./dist/core/session.d.ts",
+      "default": "./dist/core/session.js"
+    },
+    "./measure": {
+      "types": "./dist/core/measure.d.ts",
+      "default": "./dist/core/measure.js"
+    },
+    "./probes": {
+      "types": "./dist/core/probes.d.ts",
+      "default": "./dist/core/probes.js"
+    },
+    "./actions": {
+      "types": "./dist/core/actions.d.ts",
+      "default": "./dist/core/actions.js"
+    },
+    "./kernel": {
+      "types": "./dist/core/kernel.d.ts",
+      "default": "./dist/core/kernel.js"
+    },
+    "./link": {
+      "types": "./dist/core/link.d.ts",
+      "default": "./dist/core/link.js"
+    },
+    "./workspace": {
+      "types": "./dist/core/workspace.d.ts",
+      "default": "./dist/core/workspace.js"
+    },
+    "./color": {
+      "types": "./dist/core/color.d.ts",
+      "default": "./dist/core/color.js"
+    },
+    "./lints": {
+      "types": "./dist/core/lints.d.ts",
+      "default": "./dist/core/lints.js"
+    },
+    "./siyuan": {
+      "types": "./dist/core/siyuan.d.ts",
+      "default": "./dist/core/siyuan.js"
+    },
+    "./theme": {
+      "types": "./dist/core/theme.d.ts",
+      "default": "./dist/core/theme.js"
+    },
+    "./control-server": {
+      "types": "./dist/core/control-server.d.ts",
+      "default": "./dist/core/control-server.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "bin": {
+    "syt": "./bin/cli.js"
+  },
+  "files": [
+    "dist",
+    "bin"
+  ],
+  "scripts": {
+    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
+    "build": "pnpm run clean && tsc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.build.json --watch",
+    "type-check": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "prepublishOnly": "pnpm run build"
+  },
+  "dependencies": {
+    "puppeteer-core": "^25.16.0"
+  },
+  "peerDependencies": {
+    "vite": ">=6"
+  },
+  "peerDependenciesMeta": {
+    "vite": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "vite": "^8.3.5",
+    "vitest": "^5.0.5"
+  }
+}

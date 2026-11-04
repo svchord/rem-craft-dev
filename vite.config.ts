@@ -3,7 +3,7 @@ import { defineConfig } from 'vite';
 import UnoCSS from 'unocss/vite';
 
 import minimist from 'minimist';
-import siyuan from 'vite-plugin-siyuan/plugin';
+import siyuan from 'siyuan-devkit/plugin';
 
 const args = minimist(process.argv.slice(2));
 const isWatch = args.watch || args.w || false;

@@ -59,9 +59,9 @@ importers:
       vite:
         specifier: ^8.3.5
         version: 8.3.5(@types/node@26.6.6)(jiti@2.6.1)(sass@1.105.1)
-      vite-plugin-siyuan:
+      siyuan-devkit:
         specifier: workspace:*
-        version: link:packages/vite-plugin-siyuan
+        version: link:packages/siyuan-devkit
       vite-plugin-zip-pack:
         specifier: ^1.2.4
         version: 1.2.4(vite@8.3.5(@types/node@26.6.6)(jiti@2.6.1)(sass@1.105.1))
@@ -69,7 +69,7 @@ importers:
         specifier: ^5.0.5
         version: 5.0.5(@types/node@26.6.6)(jsdom@30.1.3)(vite@8.3.5(@types/node@26.6.6)(jiti@2.6.1)(sass@1.105.1))
 
-  packages/vite-plugin-siyuan:
+  packages/siyuan-devkit:
     dependencies:
       puppeteer-core:
         specifier: ^25.16.0

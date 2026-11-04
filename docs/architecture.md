@@ -788,12 +788,12 @@ pnpm build
 
 #### 测量工具是独立包
 
-这三个命令都来自 `packages/vite-plugin-siyuan`（workspace 包，`devDependencies` 里
+这三个命令都来自 `packages/siyuan-devkit`（workspace 包，`devDependencies` 里
 用 `workspace:*` 引用）。它不依赖本主题的任何东西，复制到别的思源主题/插件项目里
 能直接用——包内的 `readThemeName` 从 `public/theme.json` 读，`themeTarget` 的 CSS
 路径可配置，插件目录从 `workspace.json` 推导。
 
-包的公开 API 与 CLI 见 `packages/vite-plugin-siyuan/README.md`。
+包的公开 API 与 CLI 见 `packages/siyuan-devkit/README.md`。
 
 #### 工具只提供能力，不预设「该查什么」
 
@@ -835,7 +835,7 @@ pnpm measure diff .b3-menu__item --setup contextmenu:.b3-list-item \
 #### 主题与插件共用同一套测量
 
 主题和插件在思源里是两套东西，但**测量方法相同**：在真实页面上量计算样式。
-差异只在两处，收敛在 `packages/vite-plugin-siyuan/src/targets.ts`：
+差异只在两处，收敛在 `packages/siyuan-devkit/src/core/targets.ts`：
 
 | 维度       | 主题                                   | 插件                                            |
 | ---------- | -------------------------------------- | ----------------------------------------------- |
@@ -892,7 +892,7 @@ pnpm measure diff .b3-menu__item --setup contextmenu:.b3-list-item \
 }
 ```
 
-可用动作（`packages/vite-plugin-siyuan/src/actions.ts`）：`click` / `hover` / `press` / `focus` / `type` /
+可用动作（`packages/siyuan-devkit/src/core/actions.ts`）：`click` / `hover` / `press` / `focus` / `type` /
 `move` / `wait` / `contextmenu` / `dock` / `attr` / `reset`。
 
 实测确认的四个事实：

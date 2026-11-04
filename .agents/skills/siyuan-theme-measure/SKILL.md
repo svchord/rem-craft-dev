@@ -1,6 +1,6 @@
 ---
 name: siyuan-theme-measure
-description: 用 siyuan-devtools 在真实思源前端里读取主题/插件的渲染事实、驱动交互、开发热重载。当需要「某个选择器渲染成什么样」「令牌解析出什么值」「桌面端/移动端尺寸」「交互前后变化」「改完样式对不对」「起一个带热重载的开发环境」时使用。工具只给原语，查什么由你决定。不要为此新写脚本。
+description: 用 syt 在真实思源前端里读取主题/插件的渲染事实、驱动交互、开发热重载。当需要「某个选择器渲染成什么样」「令牌解析出什么值」「桌面端/移动端尺寸」「交互前后变化」「改完样式对不对」「起一个带热重载的开发环境」时使用。工具只给原语，查什么由你决定。不要为此新写脚本。
 ---
 
 # 思源主题/插件开发与测量
@@ -19,17 +19,17 @@ description: 用 siyuan-devtools 在真实思源前端里读取主题/插件的�
 
 ## 命令
 
-命令名是 `siyuan-devtools`（也提供等价的 `siyuan-dev` / `siyuan-measure` / `siyuan-open` / `siyuan-watch` / `siyuan-link`）。
+命令名是 `syt`，所有功能都走子命令，没有其它入口。
 在父项目里可用 `pnpm dev` / `pnpm measure` / `pnpm open:theme` / `pnpm watch:theme` 这些别名。
 
-| 用途               | 命令                                 |
-| ------------------ | ------------------------------------ |
-| 开发：构建+热重载  | `siyuan-devtools dev`                |
-| **多项一起量**     | `siyuan-devtools measure audit`      |
-| 单项测量           | `siyuan-devtools measure <子命令>`   |
-| 改完重跑你的命令   | `siyuan-devtools watch --exec "..."` |
-| 人工复审（看页面） | `siyuan-devtools open`               |
-| 只建/查链接        | `siyuan-devtools link [--check]`     |
+| 用途               | 命令                     |
+| ------------------ | ------------------------ |
+| 开发：构建+热重载  | `syt dev`                |
+| **多项一起量**     | `syt measure audit`      |
+| 单项测量           | `syt measure <子命令>`   |
+| 改完重跑你的命令   | `syt watch --exec "..."` |
+| 人工复审（看页面） | `syt open`               |
+| 只建/查链接        | `syt link [--check]`     |
 
 `dev` 会**自动推断被测类型**（看 `public/` 下有 `theme.json` 还是 `plugin.json`），
 不需要写任何配置或脚本。要显式指定用 `--kind theme|plugin`。
@@ -52,9 +52,9 @@ description: 用 siyuan-devtools 在真实思源前端里读取主题/插件的�
 ```
 
 ```bash
-siyuan-devtools measure audit --attach            # 用计划文件
-siyuan-devtools measure audit --attach --json     # 结构化输出
-siyuan-devtools measure audit --tokens a,b        # 命令行覆盖文件里的 tokens
+syt measure audit --attach            # 用计划文件
+syt measure audit --attach --json     # 结构化输出
+syt measure audit --tokens a,b        # 命令行覆盖文件里的 tokens
 ```
 
 - 优先级：**命令行 > 配置文件 > 默认值**（同 pa11y）。命令行传了的字段整体替换，不追加。
@@ -78,16 +78,16 @@ siyuan-devtools measure audit --tokens a,b        # 命令行覆盖文件里的 
 
 ## measure：通用测量原语
 
-| 子命令     | 能力                      | 例子                                                                        |
-| ---------- | ------------------------- | --------------------------------------------------------------------------- |
-| `env`      | 页面环境 + 挂载状态       | `siyuan-devtools measure env`                                               |
-| `tokens`   | 令牌计算值                | `siyuan-devtools measure tokens --rc-text-primary --rc-bg-page`             |
-| `styles`   | 元素计算样式              | `siyuan-devtools measure styles .b3-menu__item --props color,border-radius` |
-| `count`    | 选择器命中数（总数/可见） | `siyuan-devtools measure count .b3-menu__item .dock__item`                  |
-| `box`      | 盒模型尺寸                | `siyuan-devtools measure box .dock__item --frontend mobile`                 |
-| `probe`    | 插入 HTML 再量            | `siyuan-devtools measure probe '<div class="x">' .x`                        |
-| `diff`     | 动作前后差异              | 见下                                                                        |
-| `contrast` | 两色对比度                | `siyuan-devtools measure contrast --rc-text-placeholder --rc-bg-page`       |
+| 子命令     | 能力                      | 例子                                                            |
+| ---------- | ------------------------- | --------------------------------------------------------------- |
+| `env`      | 页面环境 + 挂载状态       | `syt measure env`                                               |
+| `tokens`   | 令牌计算值                | `syt measure tokens --rc-text-primary --rc-bg-page`             |
+| `styles`   | 元素计算样式              | `syt measure styles .b3-menu__item --props color,border-radius` |
+| `count`    | 选择器命中数（总数/可见） | `syt measure count .b3-menu__item .dock__item`                  |
+| `box`      | 盒模型尺寸                | `syt measure box .dock__item --frontend mobile`                 |
+| `probe`    | 插入 HTML 再量            | `syt measure probe '<div class="x">' .x`                        |
+| `diff`     | 动作前后差异              | 见下                                                            |
+| `contrast` | 两色对比度                | `syt measure contrast --rc-text-placeholder --rc-bg-page`       |
 
 通用选项：`--frontend desktop|mobile`、`--viewport 390x844@3`、`--props a,b,c`、
 `--do <action>`、`--setup <action>`、`--kind theme|plugin`、`--css <path>`、
@@ -96,8 +96,8 @@ siyuan-devtools measure audit --tokens a,b        # 命令行覆盖文件里的 
 ### `--attach`：量你眼前那个窗口
 
 ```bash
-siyuan-devtools dev                    # 终端 A：起开发会话（持有浏览器）
-siyuan-devtools measure tokens --attach  # 终端 B：量同一个页面
+syt dev                    # 终端 A：起开发会话（持有浏览器）
+syt measure tokens --attach  # 终端 B：量同一个页面
 ```
 
 `--attach` 会连到正在跑的 `dev` 会话（本地控制服务发现，跨项目也能连）。
@@ -121,15 +121,15 @@ siyuan-devtools measure tokens --attach  # 终端 B：量同一个页面
 
 ```bash
 # 打开右键菜单，再 hover 菜单项，看背景变了什么
-siyuan-devtools measure diff .b3-menu__item \
+syt measure diff .b3-menu__item \
   --setup contextmenu:.b3-list-item --setup wait:600 \
   --do hover:.b3-menu__item --props background-color
 
 # 直接数「菜单打开后」有多少菜单项
-siyuan-devtools measure count .b3-menu__item --do contextmenu:.b3-list-item --do wait:600
+syt measure count .b3-menu__item --do contextmenu:.b3-list-item --do wait:600
 ```
 
-可用动作（`packages/siyuan-devtools/src/actions.mjs`）：`click` / `hover` / `press` /
+可用动作（`packages/siyuan-devkit/src/core/actions.ts`）：`click` / `hover` / `press` /
 `focus` / `type` / `move` / `wait` / `contextmenu` / `dock` / `attr` / `reset`。
 
 ## 实测要点（都是踩过的坑）
@@ -151,26 +151,26 @@ siyuan-devtools measure count .b3-menu__item --do contextmenu:.b3-list-item --do
 
 ```bash
 # 0) 先确认量的是自己的主题/插件
-siyuan-devtools measure env --json          # 看 mount.ok 和 themeStyle
+syt measure env --json          # 看 mount.ok 和 themeStyle
 
 # 1) 令牌有没有断链
-siyuan-devtools measure tokens --rc-text-primary --rc-text-placeholder --b3-theme-background
+syt measure tokens --rc-text-primary --rc-text-placeholder --b3-theme-background
 
 # 2) 对比度够不够（WCAG AA 正文 4.5:1，大字/图形 3:1）
-siyuan-devtools measure contrast --rc-text-placeholder --rc-bg-page
+syt measure contrast --rc-text-placeholder --rc-bg-page
 #   → 2.42:1  ← 低于 3:1，是否接受按设计意图判断
 
 # 3) 组件算出来的样式
-siyuan-devtools measure styles .b3-menu__item --props display,gap,padding-top,color,border-radius
+syt measure styles .b3-menu__item --props display,gap,padding-top,color,border-radius
 
 # 4) 交互有没有生效
-siyuan-devtools measure diff .b3-menu__item --setup contextmenu:.b3-list-item --setup wait:600 \
+syt measure diff .b3-menu__item --setup contextmenu:.b3-list-item --setup wait:600 \
   --do hover:.b3-menu__item --props background-color
 #   → background-color  rgb(246,246,246) → rgba(0,0,0,0.075)
 #     注意：这是 base.css 的值，不是主题声明的 bg-surface —— 说明主题 hover 规则被覆盖了
 
 # 5) 移动端触摸目标
-siyuan-devtools measure box .dock__item --frontend mobile --limit 6
+syt measure box .dock__item --frontend mobile --limit 6
 ```
 
 ## 常见误读

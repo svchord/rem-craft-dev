@@ -25,16 +25,16 @@
  *
  * Ctrl+C 结束（复用时只断开连接，不关掉 dev 窗口）。
  */
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import puppeteer from 'puppeteer-core';
+import { findEndpoint } from './cdp-registry.mjs';
 import { findChrome, findKernelPort, frontendUrl, MOBILE_VIEWPORT } from './siyuan.mjs';
 import { readThemeName } from './theme.mjs';
 
 const PREFIX = '[open] ';
 const SHOT_DIR = './shots';
-const WS_FILE = '.rc-cdp-ws';
 const args = process.argv.slice(2);
 
 const frontendArg = args.indexOf('--frontend');
@@ -152,16 +152,20 @@ async function main() {
   const useHeadless = headless || shot;
 
   if (attach && !useHeadless) {
-    if (!existsSync(WS_FILE)) {
-      console.error(PREFIX + '--attach 需要 pnpm dev 正在运行（找不到 ' + WS_FILE + '）');
+    const endpoint = findEndpoint();
+    if (!endpoint.ok) {
+      console.error(PREFIX + '--attach 需要有一个正在运行的 dev 浏览器：' + endpoint.reason);
+      for (const candidate of endpoint.candidates ?? []) {
+        console.error(PREFIX + '  候选：' + candidate.cwd + '（pid ' + candidate.pid + '）');
+      }
       process.exit(2);
     }
     browser = await puppeteer.connect({
-      browserWSEndpoint: readFileSync(WS_FILE, 'utf8').trim(),
+      browserWSEndpoint: endpoint.ws,
       defaultViewport: null,
     });
     attached = true;
-    console.log(PREFIX + '复用 pnpm dev 的浏览器');
+    console.log(PREFIX + '复用 dev 浏览器：' + endpoint.cwd);
   } else {
     profile = mkdtempSync(join(tmpdir(), 'rc-open-'));
     browser = await puppeteer.launch({

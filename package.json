@@ -23,7 +23,8 @@
     "make-link": "node --no-warnings ./scripts/make_dev_link.js",
     "measure": "node ./packages/siyuan-devtools/bin/measure.mjs",
     "watch:theme": "node ./packages/siyuan-devtools/bin/watch.mjs --dir src/styles",
-    "open:theme": "node ./packages/siyuan-devtools/bin/open.mjs"
+    "open:theme": "node ./packages/siyuan-devtools/bin/open.mjs",
+    "link:check": "node ./packages/siyuan-devtools/bin/link.mjs --check"
   },
   "devDependencies": {
     "siyuan-devtools": "workspace:*",

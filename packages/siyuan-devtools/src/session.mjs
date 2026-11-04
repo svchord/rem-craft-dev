@@ -9,11 +9,10 @@
  *   desktop  /stage/build/desktop/   （默认）
  *   mobile   /stage/build/mobile/    （独立构建，需 theme.json 的 frontends 含 mobile/browser-mobile/all）
  */
-import { existsSync, readFileSync } from 'node:fs';
 import puppeteer from 'puppeteer-core';
+import { findEndpoint } from './cdp-registry.mjs';
 import { findChrome, findKernelPort, frontendUrl, MOBILE_VIEWPORT } from './siyuan.mjs';
 
-const WS_FILE = '.rc-cdp-ws';
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const DEFAULT_VIEWPORT = { width: 1600, height: 1000, deviceScaleFactor: 1 };
@@ -45,17 +44,21 @@ export function viewportFor(frontend, viewport) {
 /**
  * 打开会话。
  *
- * `attach` 且存在 `.rc-cdp-ws` 时复用 `pnpm dev` 暴露的浏览器（省一次启动，
- * 且量的是你眼前那个窗口）；否则新开无头 Chrome。
+ * `attach` 时复用 `siyuan-dev` / `pnpm dev` 暴露的浏览器（省一次启动，
+ * 且量的是你眼前那个窗口）；找不到就新开无头 Chrome。
+ *
+ * 端点从机器级注册表读，不是项目目录下的相对文件——这样在插件项目里起的
+ * dev 浏览器，也能被主题项目里的 measure 复用。
  */
 export async function createSession({ frontend = 'desktop', viewport, attach = false } = {}) {
   let browser;
   let attached = false;
   const targetViewport = viewportFor(frontend, viewport);
 
-  if (attach && existsSync(WS_FILE)) {
+  const endpoint = attach ? findEndpoint() : { ok: false };
+  if (endpoint.ok) {
     browser = await puppeteer.connect({
-      browserWSEndpoint: readFileSync(WS_FILE, 'utf8').trim(),
+      browserWSEndpoint: endpoint.ws,
       defaultViewport: null,
     });
     attached = true;

@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -12,6 +12,12 @@ import { frontendUrl, MOBILE_VIEWPORT } from '../src/siyuan.mjs';
 import { findDoubleWrappedColors, findProblemsIn } from '../src/lints.mjs';
 // @ts-expect-error 同上。
 import { pluginTarget, themeTarget } from '../src/targets.mjs';
+// @ts-expect-error 同上。
+import { checkLinkedFiles, ensureLink, inspectLink, samePath } from '../src/link.mjs';
+// @ts-expect-error 同上。
+import { findEndpoint, registerEndpoint } from '../src/cdp-registry.mjs';
+// @ts-expect-error 同上。
+import { resolveViteBin } from '../src/build.mjs';
 
 const root = join(import.meta.dirname, '..');
 const cdpDir = join(root, 'src');
@@ -205,8 +211,171 @@ describe('target adapters', () => {
   });
 });
 
+describe('link management', () => {
+  it('reports absent, linked and conflict states distinctly', () => {
+    // 三种状态的处理完全不同：absent 该建，linked 该跳过，conflict 该报错让人处理。
+    // 混成两种会让「已链接到别处」被当成「没链接」而重复建，直接抛 EEXIST。
+    const root = mkdtempSync(join(tmpdir(), 'rc-link-'));
+    try {
+      const src = join(root, 'dev');
+      const target = join(root, 'installed');
+      mkdirSync(src);
+
+      expect(inspectLink(src, target).state).toBe('absent');
+
+      ensureLink(src, target, { kind: 'theme' });
+      expect(inspectLink(src, target).state, '建完应该是 linked').toBe('linked');
+
+      // 再建一次必须幂等，不能报错
+      const again = ensureLink(src, target, { kind: 'theme' });
+      expect(again.ok).toBe(true);
+      expect(again.changed, '已链接时不应重复创建').toBe(false);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('refuses to overwrite a real directory', () => {
+    // 用户手装过发布版时目录是真的，静默覆盖会毁掉他的文件。
+    const root = mkdtempSync(join(tmpdir(), 'rc-link-'));
+    try {
+      const src = join(root, 'dev');
+      const target = join(root, 'installed');
+      mkdirSync(src);
+      mkdirSync(target);
+
+      const result = ensureLink(src, target, { kind: 'theme' });
+      expect(result.ok).toBe(false);
+      expect(result.reason).toMatch(/不是链接/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('detects a link pointing somewhere else', () => {
+    const root = mkdtempSync(join(tmpdir(), 'rc-link-'));
+    try {
+      const srcA = join(root, 'a');
+      const srcB = join(root, 'b');
+      const target = join(root, 'installed');
+      mkdirSync(srcA);
+      mkdirSync(srcB);
+
+      ensureLink(srcA, target, { kind: 'theme' });
+      const result = ensureLink(srcB, target, { kind: 'theme' });
+      expect(result.ok, '指向别处时不能悄悄改指').toBe(false);
+      expect(result.reason).toMatch(/链接到别处/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('compares paths regardless of separator style', () => {
+    // Windows 上同一个路径可能带正斜杠也可能带反斜杠，直接字符串比会误判冲突。
+    expect(samePath('C:/a/b', 'C:\\a\\b')).toBe(true);
+    expect(samePath('C:/a/b/', 'C:/a/b')).toBe(true);
+    expect(samePath('C:/a/b', 'C:/a/c')).toBe(false);
+  });
+
+  it('reports which expected files are missing after linking', () => {
+    const root = mkdtempSync(join(tmpdir(), 'rc-link-'));
+    try {
+      writeFileSync(join(root, 'theme.css'), '.a{}');
+      const result = checkLinkedFiles(root, ['theme.css', 'theme.json']);
+      expect(result.ok).toBe(false);
+      expect(result.missing).toEqual(['theme.json']);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('cdp endpoint registry', () => {
+  it('picks the endpoint registered for the current directory', () => {
+    // 浏览器是机器级资源，工作目录是项目级：在插件项目起 dev、在主题项目
+    // attach 时必须能找回同一个端点，否则 --attach 在跨项目场景下直接失效。
+    const root = mkdtempSync(join(tmpdir(), 'rc-reg-'));
+    const cwd = join(root, 'project');
+    mkdirSync(cwd);
+    const unregister = registerEndpoint('ws://127.0.0.1:1/devtools/browser/test', { cwd });
+    try {
+      const found = findEndpoint({ cwd });
+      expect(found.ok).toBe(true);
+      expect(found.cwd).toBe(cwd);
+    } finally {
+      unregister();
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('explains why no endpoint is available instead of returning garbage', () => {
+    const found = findEndpoint({ cwd: join(tmpdir(), 'rc-definitely-no-dev-here') });
+    // 没有 dev 会话时必须给出可读原因，让 CLI 能直接打印出来
+    if (!found.ok) expect(found.reason).toMatch(/dev|浏览器/);
+  });
+});
+
+describe('target adapters drive the dev loop', () => {
+  it('gives both targets the same set of dev capabilities', () => {
+    // 主题和插件的开发链路是同一条，差别必须收敛在适配器里。
+    // 少一个能力，dev.mjs 里就会长出 if (kind === ...) 分支。
+    for (const target of [themeTarget({ themeName: 'T' }), pluginTarget({ name: 'p' })]) {
+      expect(typeof target.buildConfig, target.kind + ' 缺少 buildConfig').toBe('function');
+      expect(typeof target.installDir, target.kind + ' 缺少 installDir').toBe('function');
+      expect(typeof target.reload, target.kind + ' 缺少 reload').toBe('function');
+      expect(typeof target.resolveCss, target.kind + ' 缺少 resolveCss').toBe('function');
+      expect(typeof target.mountState, target.kind + ' 缺少 mountState').toBe('function');
+    }
+  });
+
+  it('names the right build artifact per target kind', () => {
+    // 主题产物只有 theme.css；插件有 index.js + index.css，两者都要触发重载。
+    const theme = themeTarget({ themeName: 'T' }).buildConfig();
+    expect(theme.artifact).toBe('theme.css');
+    expect(theme.match('theme.css')).toBe(true);
+    expect(theme.match('theme.json')).toBe(false);
+
+    const plugin = pluginTarget({ name: 'p' }).buildConfig();
+    expect(plugin.artifact).toBe('index.js');
+    expect(plugin.match('index.js'), 'JS 变了要重载').toBe(true);
+    expect(plugin.match('index.css'), 'CSS 变了也要重载').toBe(true);
+  });
+
+  it('puts theme and plugin in different install directories', async () => {
+    // 装错目录思源根本加载不到，而且不会有明显报错。
+    process.env.SIYUAN_THEME_DIR = 'C:/ws/data/themes';
+    process.env.SIYUAN_PLUGIN_DIR = 'C:/ws/data/plugins';
+    try {
+      expect(await themeTarget({ themeName: 'T' }).installDir()).toMatch(/themes$/);
+      expect(await pluginTarget({ name: 'p' }).installDir()).toMatch(/plugins$/);
+    } finally {
+      delete process.env.SIYUAN_THEME_DIR;
+      delete process.env.SIYUAN_PLUGIN_DIR;
+    }
+  });
+});
+
+describe('vite build integration', () => {
+  it('resolves the caller project vite binary, not one bundled in this package', () => {
+    // vite 是被测项目自己的依赖（版本要匹配），本包只负责替它起进程。
+    const bin = resolveViteBin(process.cwd());
+    expect(bin).toMatch(/vite[\\/]bin[\\/]vite\.js$/);
+    expect(existsSync(bin)).toBe(true);
+  });
+
+  it('explains a missing vite instead of throwing a bare MODULE_NOT_FOUND', () => {
+    const empty = mkdtempSync(join(tmpdir(), 'rc-novite-'));
+    try {
+      writeFileSync(join(empty, 'package.json'), '{"name":"x"}');
+      expect(() => resolveViteBin(empty)).toThrow(/找不到 vite/);
+    } finally {
+      rmSync(empty, { recursive: true, force: true });
+    }
+  });
+});
+
 describe('cdp layering', () => {
-  const cliFiles = ['measure-cli.mjs', 'watch.mjs', 'open.mjs'];
+  const cliFiles = ['measure-cli.mjs', 'watch.mjs', 'open.mjs', 'dev-cli.mjs', 'link-cli.mjs'];
   const allFiles = [
     'session.mjs',
     'probes.mjs',
@@ -217,19 +386,48 @@ describe('cdp layering', () => {
     'lints.mjs',
     'measure.mjs',
     'color.mjs',
+    'workspace.mjs',
+    'link.mjs',
+    'build.mjs',
+    'cdp-registry.mjs',
+    'dev.mjs',
     ...cliFiles,
   ];
 
-  it('starts the browser only in session.mjs and open.mjs', () => {
-    // open.mjs 是人工审计入口，需要可见窗口，天然要自己 launch；
-    // measure/watch 必须复用 session.mjs，否则生命周期无人统一管理。
+  it('starts the browser only in the three owners that need their own lifecycle', () => {
+    // 三个所有者，理由各不相同，都不是「顺手起一个」：
+    //   session.mjs  测量会话：无头、attach 优先、用完即关
+    //   open.mjs     人工复审：必须可见窗口，且要能 --shot / 多前端标签页
+    //   dev.mjs      开发循环：可见窗口长驻，产物变了由它自己驱动重载
+    // measure / watch / 两个 CLI 必须复用上面的入口，否则浏览器生命周期无人统一管理。
     const launchers = allFiles.filter((file) => /puppeteer\.(launch|connect)/.test(stripComments(readCdp(file))));
-    expect(launchers.sort()).toEqual(['open.mjs', 'session.mjs']);
+    expect(launchers.sort()).toEqual(['dev.mjs', 'open.mjs', 'session.mjs']);
   });
 
-  it('imports puppeteer-core only in the two browser owners', () => {
+  it('imports puppeteer-core only in those three owners', () => {
     const importers = allFiles.filter((file) => /from\s+['"]puppeteer-core['"]/.test(stripComments(readCdp(file))));
-    expect(importers.sort()).toEqual(['open.mjs', 'session.mjs']);
+    expect(importers.sort()).toEqual(['dev.mjs', 'open.mjs', 'session.mjs']);
+  });
+
+  it('keeps the CLI layer free of browser and build plumbing', () => {
+    // CLI 只解析参数、打印结果；浏览器与构建都该在模块层，才能被编程调用。
+    // 例外：watch.mjs 的 spawn 是它自己的功能（重跑用户给的 --exec 命令），不是构建。
+    for (const file of ['measure-cli.mjs', 'dev-cli.mjs', 'link-cli.mjs']) {
+      const source = stripComments(readCdp(file));
+      expect(source, file + ' 不得自己碰 puppeteer').not.toMatch(/puppeteer/);
+      expect(source, file + ' 不得自己起构建进程').not.toMatch(/child_process/);
+    }
+  });
+
+  it('shares one dev capability set between theme and plugin', () => {
+    // dev.mjs 里出现 kind === 'theme' 的重载/构建分支，说明差异没收敛到 targets.mjs，
+    // 加第三种被测对象时就要改 dev.mjs。
+    const source = stripComments(readCdp('dev.mjs'));
+    expect(source, 'dev.mjs 必须通过 targets.mjs 拿被测对象').toMatch(/from\s+['"]\.\/targets\.mjs['"]/);
+    expect(source, 'dev.mjs 不得自己判断产物文件名').not.toMatch(
+      /['"]theme\.css['"]|['"]index\.css['"]|['"]index\.js['"]/
+    );
+    expect(source, 'dev.mjs 不得自己读 theme.json / plugin.json 判断类型').not.toMatch(/public\/theme\.json/);
   });
 
   it('keeps pure modules free of console output', () => {

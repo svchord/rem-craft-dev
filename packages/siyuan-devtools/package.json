@@ -18,12 +18,19 @@
     "./theme": "./src/theme.mjs",
     "./theme-dev": "./src/theme-dev.mjs",
     "./siyuan": "./src/siyuan.mjs",
-    "./lints": "./src/lints.mjs"
+    "./lints": "./src/lints.mjs",
+    "./workspace": "./src/workspace.mjs",
+    "./link": "./src/link.mjs",
+    "./cdp-registry": "./src/cdp-registry.mjs",
+    "./build": "./src/build.mjs",
+    "./dev": "./src/dev.mjs"
   },
   "bin": {
     "siyuan-measure": "./bin/measure.mjs",
     "siyuan-open": "./bin/open.mjs",
-    "siyuan-watch": "./bin/watch.mjs"
+    "siyuan-watch": "./bin/watch.mjs",
+    "siyuan-dev": "./bin/dev.mjs",
+    "siyuan-link": "./bin/link.mjs"
   },
   "scripts": {
     "test": "vitest run"

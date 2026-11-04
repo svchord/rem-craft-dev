@@ -107,3 +107,35 @@ export async function currentTheme(port) {
   if (!appearance) return null;
   return { light: appearance.themeLight, dark: appearance.themeDark, mode: appearance.mode };
 }
+
+/**
+ * 让页面重新加载某个插件的 CSS。
+ *
+ * 查过内核：没有 `/api/plugin/*` 写接口（实测 404），`reloadPlugin` 是 WebSocket
+ * 推送的分支，HTTP 侧触发不了。但插件 CSS 是内联在 `<style id="pluginsStyle<name>">`
+ * 里的（实测磁盘 index.css 与 textContent 逐字节相同），所以直接换 textContent
+ * 就能让新样式立即生效，不用整页刷新。
+ *
+ * 注意：**只对 CSS 有效**。index.js 变了必须整页刷新，换 style 不会重新执行 JS。
+ *
+ * @param cssText 显式传入的 CSS 文本；不给则从磁盘读（需要传 file 参数）
+ */
+export async function reloadPluginCss(page, pluginName, cssText = null) {
+  if (!page) return false;
+  if (!cssText) return false;
+  try {
+    return await page.evaluate(
+      (name, css) => {
+        const el = document.getElementById('pluginsStyle' + name);
+        if (!el) return false;
+        el.textContent = css;
+        return true;
+      },
+      pluginName,
+      cssText
+    );
+  } catch {
+    // 导航中，等下一次
+    return false;
+  }
+}

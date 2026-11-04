@@ -1,14 +1,22 @@
 /**
  * 被测目标适配器：把「主题」和「插件」的差异收敛到一个接口后面。
  *
- * 为什么需要这一层：主题与插件在思源里是两套东西，但**渲染审计的方法相同**——
- * 都是「拿到 CSS → 在真实页面上量 → 与基线比」。差别只在两处：
- *   1. CSS 从哪来：主题读 dev/theme.css，插件读 index.css
- *   2. 怎么算「加载成功」：主题看 <link id="themeStyle">，插件看插件是否在运行
+ * 主题与插件在思源里是两套东西，但**开发链路是同一条**：
  *
- * 所以适配器只需要两个能力，测量与基线比对完全共用：
- *   resolveCss()       → [{ label, text }]        要审计的 CSS 文本（都读磁盘）
- *   mountState(page)   → { ok, loaded, reason }   确认被测对象确实加载了
+ *   构建到 dev/  →  链接到 <workspace>/data/<themes|plugins>/<name>  →  让思源重新加载
+ *
+ * 差别只有四处，全部由这里吸收：
+ *   1. 产物叫什么        主题 theme.css；插件 index.js + index.css
+ *   2. 清单叫什么        主题 public/theme.json；插件 public/plugin.json
+ *   3. 装到哪个目录      data/themes；data/plugins
+ *   4. 怎么重载          主题换 #themeStyle 的 href；插件只能整页刷新或重注入 CSS
+ *
+ * 所以适配器对外提供同一组能力：
+ *   resolveCss()       → [{ label, text }]     要审计的 CSS 文本（都读磁盘）
+ *   mountState(page)   → { ok, loaded, reason } 确认被测对象确实加载了
+ *   buildConfig()      → { outDir, artifact }   构建看护用的参数
+ *   installDir()       → string                 链接目标目录
+ *   reload(page)       → boolean                让页面用上新产物
  *
  * 插件额外的「面板打开后才有 DOM」用 activate(page) 表达，只对需要真实 DOM 的
  * 断言有用；纯 CSS 审计不需要它。
@@ -16,6 +24,8 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { findWorkspaceDir } from './siyuan.mjs';
+import { reloadPluginCss, reloadThemeCss } from './theme-dev.mjs';
+import { resolveInstallDir } from './workspace.mjs';
 
 const readText = (file) => readFileSync(file, 'utf8');
 
@@ -52,6 +62,25 @@ export function themeTarget({ cssPath, cssPaths, themeName } = {}) {
         return { ok: false, loaded: null, reason: 'themeStyle 的 href 不是主题目录路径：' + href };
       }
       return { ok: true, loaded: decodeURIComponent(segment), reason: null };
+    },
+
+    /** 构建产物：只有一个 theme.css。 */
+    buildConfig() {
+      return {
+        outDir: './dev',
+        artifact: 'theme.css',
+        expectedFiles: ['theme.css', 'theme.json'],
+        match: (name) => name.endsWith('theme.css'),
+      };
+    },
+
+    installDir(options) {
+      return resolveInstallDir({ kind: 'theme', ...options });
+    },
+
+    /** 主题换 #themeStyle 的 href 即可，级联位置不变。 */
+    reload(page) {
+      return reloadThemeCss(page);
     },
   };
 }
@@ -116,6 +145,36 @@ export function pluginTarget({ name, pluginDir = null } = {}) {
         loaded: state.hasStyle ? 'pluginsStyle' + name + '（' + state.styleLength + ' 字符）' : null,
         reason: state.hasStyle ? null : '插件没有注入样式表，只做 DOM 断言',
       };
+    },
+
+    /** 构建产物：插件有 js 和 css 两份，任一变化都要重载。 */
+    buildConfig() {
+      return {
+        outDir: './dev',
+        artifact: 'index.js',
+        expectedFiles: ['index.js', 'plugin.json'],
+        match: (name) => name.endsWith('index.js') || name.endsWith('index.css'),
+      };
+    },
+
+    installDir(options) {
+      return resolveInstallDir({ kind: 'plugin', ...options });
+    },
+
+    /**
+     * 插件重载只能重注入 CSS。
+     *
+     * 查过内核：没有 `/api/plugin/*` 写接口（实测 404），`reloadPlugin` 是
+     * WebSocket 推送的分支，HTTP 侧触发不了。所以产物变了之后：
+     *   - CSS 可以直接换 <style> 的 textContent，页面立即生效
+     *   - JS 必须整页刷新（换 style 不会重新执行 index.js）
+     *
+     * 这里只做 CSS 重注入；JS 变化时调用方应当 page.reload()。
+     */
+    async reload(page) {
+      const sheets = await this.resolveCss();
+      if (!sheets.length) return false;
+      return reloadPluginCss(page, name, sheets[0].text);
     },
   };
 }

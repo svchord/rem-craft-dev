@@ -22,7 +22,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { findWorkspaceDir } from './siyuan.mjs';
 import { registerTargetType, targetType } from './target-types.mjs';
-import { reloadPlugin, reloadPluginCss, reloadThemeCss, selectTheme } from './theme-dev.mjs';
+import { reloadPlugin, reloadPluginCss, reloadThemeCss, selectTheme } from './kernel.mjs';
 import { resolveInstallDir } from './workspace.mjs';
 
 const readText = (file) => readFileSync(file, 'utf8');
@@ -57,10 +57,6 @@ export function readManifestName(cwd, manifest) {
 registerTargetType(
   'theme',
   {
-    // 主题必须经 kernel API 让思源真正选中它，否则预览的是宿主主题，
-    // 量到的级联（尤其 --b3-* 的取值）与生产不一致。
-    requiresSelection: true,
-
     manifestName: () => 'theme.json',
     installSubdir: () => 'themes',
     dirEnv: () => 'SIYUAN_THEME_DIR',
@@ -133,6 +129,12 @@ registerTargetType(
     artifact: () => 'index.js',
     expectedFiles: () => ['index.js', 'plugin.json'],
     matchArtifact: (name) => name.endsWith('index.js') || name.endsWith('index.css'),
+
+    /**
+     * 一次构建会同时写 index.js 和 index.css。JS 变更会走 kernel 重建插件实例，
+     * 新 CSS 会随之一起注入，所以优先按 JS 处理——一次重载就够，不用再补一次。
+     */
+    primaryArtifact: (filenames) => filenames.find((name) => name.endsWith('index.js')) ?? filenames[0],
 
     /**
      * 插件重载要分两种情况，因为思源用两种完全不同的机制加载它们：
@@ -245,9 +247,6 @@ export function createTarget(kind, { name = null, cwd = process.cwd(), ...rest }
     kind,
     name: resolvedName,
 
-    /** 开发前是否必须经 kernel API 让思源选中它（只有主题是）。 */
-    requiresSelection: Boolean(descriptor.requiresSelection),
-
     /** 供审计读取的 CSS 文本（都来自磁盘）。 */
     resolveCss,
 
@@ -260,6 +259,14 @@ export function createTarget(kind, { name = null, cwd = process.cwd(), ...rest }
       artifact: descriptor.artifact(context),
       expectedFiles: descriptor.expectedFiles(context),
       match: (filename) => descriptor.matchArtifact(filename, context),
+      /**
+       * 一批产物同时变化时挑哪个作为重载依据。
+       * 缺省取第一个；类型可覆盖（插件要优先 JS，因为它能连带更新 CSS）。
+       */
+      primary: (filenames) =>
+        typeof descriptor.primaryArtifact === 'function'
+          ? descriptor.primaryArtifact(filenames, context)
+          : filenames[0],
     }),
 
     /** 链接目标目录：<workspace>/data/<subdir>。 */

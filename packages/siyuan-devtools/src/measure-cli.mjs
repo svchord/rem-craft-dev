@@ -183,6 +183,12 @@ async function main() {
     target: target ? { kind: target.kind, name: target.name } : null,
   };
 
+  // 挂载状态是审计的前提事实：没挂上却量到值，说明量的是宿主主题/别的插件，
+  // 读数会被张冠李戴。这里只如实输出，不替调用方判断「算不算对」。
+  if (target) {
+    output.mount = await target.mountState(session.page);
+  }
+
   try {
     // 动作先跑（如果有），让后续测量发生在目标状态下。
     // 例外：diff 自己管动作（要先 setup 建立基线再 do），外层不能预先执行，
@@ -279,6 +285,11 @@ async function main() {
 
   // 人读格式：尽量紧凑，字段名对齐
   const pad = (text, width) => String(text).padEnd(width);
+
+  // 只在没挂上时提醒，正常情况不打扰。
+  if (output.mount && !output.mount.ok) {
+    console.log(PREFIX + '注意：' + output.target?.kind + ' 未挂载 — ' + (output.mount.reason ?? '未知原因'));
+  }
 
   if (output.environment) {
     const env = output.environment;

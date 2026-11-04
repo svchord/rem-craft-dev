@@ -21,9 +21,9 @@
  *   mountState(page, ctx)            确认被测对象确实加载了
  *
  * 可选能力：
- *   requiresSelection                 true 表示开发前必须经 kernel API 让思源选中它
- *                                     （主题是这样；插件/组件由思源自己管启用状态）
- *   activate(page, ctx)               让被测对象出现在页面上（面板类才需要）
+ *   activate(page, ctx)               开发前让宿主用上这个对象。
+ *                                     （主题需经 kernel 切 themeLight/themeDark；
+ *                                      插件由思源自己管启用状态，不实现）
  */
 
 /** 所有类型共有的字段校验：缺哪个就明确说哪个，不要等到运行到一半才炸。 */

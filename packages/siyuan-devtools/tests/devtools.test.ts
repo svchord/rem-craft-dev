@@ -18,7 +18,7 @@ import { detectTargetType, registerTargetType, targetType, targetTypes } from '.
 // @ts-expect-error 同上。
 import { checkLinkedFiles, ensureLink, inspectLink, samePath } from '../src/link.mjs';
 // @ts-expect-error 同上。
-import { findEndpoint, registerEndpoint } from '../src/cdp-registry.mjs';
+import { discover, startControlServer } from '../src/control-server.mjs';
 // @ts-expect-error 同上。
 import { resolveViteBin, startBuild } from '../src/build.mjs';
 
@@ -283,7 +283,7 @@ describe('target type registry', () => {
 
       const target = createTarget('widget', { cwd: root });
       expect(target.name).toBe('my-widget');
-      expect(target.requiresSelection, 'widget 不需要 kernel 切换，由思源自己管启用').toBe(false);
+      expect(target.activate, 'widget 不需要 kernel 切换，因此没有 activate').toBeNull();
       expect(target.buildConfig().artifact).toBe('index.html');
 
       process.env.SIYUAN_WIDGET_DIR = join(root, 'installed');
@@ -379,28 +379,52 @@ describe('link management', () => {
   });
 });
 
-describe('cdp endpoint registry', () => {
-  it('picks the endpoint registered for the current directory', () => {
-    // 浏览器是机器级资源，工作目录是项目级：在插件项目起 dev、在主题项目
-    // attach 时必须能找回同一个端点，否则 --attach 在跨项目场景下直接失效。
-    const root = mkdtempSync(join(tmpdir(), 'rc-reg-'));
+describe('dev session discovery', () => {
+  it('finds a running dev session by actually probing it', async () => {
+    // 端点存活靠真实 HTTP 探测，不靠 process.kill(pid, 0) 猜。
+    // 这样进程被 SIGKILL 后残留的文件不会造成「以为有 dev 在跑」。
+    const root = mkdtempSync(join(tmpdir(), 'rc-ctrl-'));
     const cwd = join(root, 'project');
     mkdirSync(cwd);
-    const unregister = registerEndpoint('ws://127.0.0.1:1/devtools/browser/test', { cwd });
+    const control = await startControlServer({
+      ws: 'ws://127.0.0.1:1/devtools/browser/test',
+      cwd,
+      kind: 'theme',
+      name: 'T',
+    });
     try {
-      const found = findEndpoint({ cwd });
+      const found = await discover({ cwd });
       expect(found.ok).toBe(true);
       expect(found.cwd).toBe(cwd);
+      expect(found.ws).toBe('ws://127.0.0.1:1/devtools/browser/test');
+      expect(found.kind).toBe('theme');
     } finally {
-      unregister();
+      control.stop();
       rmSync(root, { recursive: true, force: true });
     }
   });
 
-  it('explains why no endpoint is available instead of returning garbage', () => {
-    const found = findEndpoint({ cwd: join(tmpdir(), 'rc-definitely-no-dev-here') });
-    // 没有 dev 会话时必须给出可读原因，让 CLI 能直接打印出来
-    if (!found.ok) expect(found.reason).toMatch(/dev|浏览器/);
+  it('reports no session when the control server is gone', async () => {
+    // 会话关掉后必须立刻发现不了——这是「不靠 pid 猜」的核心收益。
+    const root = mkdtempSync(join(tmpdir(), 'rc-ctrl-'));
+    const cwd = join(root, 'project');
+    mkdirSync(cwd);
+    const control = await startControlServer({ ws: 'ws://127.0.0.1:1/x', cwd, kind: 'plugin', name: 'p' });
+    const port = control.port;
+    control.stop();
+
+    // stop() 会删掉自己的端点文件；即使文件残留，探测也连不上。
+    const found = await discover({ cwd });
+    expect(found.ok, '端口关闭后不应再被发现').toBe(false);
+    expect(found.reason).toMatch(/dev/);
+    expect(port).toBeGreaterThan(0);
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it('gives a readable reason instead of garbage when nothing is running', async () => {
+    const found = await discover({ cwd: join(tmpdir(), 'rc-definitely-no-dev-here') });
+    expect(found.ok).toBe(false);
+    expect(found.reason).toMatch(/dev/);
   });
 });
 
@@ -584,7 +608,7 @@ describe('cdp layering', () => {
     'workspace.mjs',
     'link.mjs',
     'build.mjs',
-    'cdp-registry.mjs',
+    'control-server.mjs',
     'dev.mjs',
     ...cliFiles,
   ];

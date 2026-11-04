@@ -17,9 +17,10 @@
  *            workspace.mjs 工作区与安装目录解析
  *            link.mjs      产物目录链接到安装目录
  *            theme.mjs     主题身份与挂载判定
- *            theme-dev.mjs 切换主题、重载主题/插件 CSS
+ *            kernel.mjs    kernel 调用、主题/插件重载原语
  *   开发层   build.mjs     起构建进程（默认 vite，可换），监听产物
  *            dev.mjs       构建→链接→加载→热重载的完整循环
+ *            control-server.mjs  dev 会话的本地控制服务与端点发现
  *
  * 入口层   cli.mjs 统一命令，各 *-cli.mjs 为独立命令
  *
@@ -48,10 +49,10 @@ export { detectTargetType, registerTargetType, targetType, targetTypes } from '.
 export { parseColor, luminance, contrastRatio } from './color.mjs';
 export { findDoubleWrappedColors, findProblemsIn } from './lints.mjs';
 export { judgeMount, readThemeName } from './theme.mjs';
-export { callKernel, selectTheme, reloadThemeCss, reloadPluginCss, reloadPlugin, currentTheme } from './theme-dev.mjs';
+export { callKernel, selectTheme, reloadThemeCss, reloadPluginCss, reloadPlugin, currentTheme } from './kernel.mjs';
 export { findChrome, findKernelPort, frontendUrl, findWorkspaceDir, MOBILE_VIEWPORT } from './siyuan.mjs';
 export { listWorkspaces, readWorkspaceManifest, resolveInstallDir } from './workspace.mjs';
 export { checkLinkedFiles, detectLinkType, ensureLink, inspectLink, samePath } from './link.mjs';
-export { findEndpoint, registerEndpoint, unregisterEndpoint, REGISTRY_FILE } from './cdp-registry.mjs';
+export { discover, endpointFiles, startControlServer, CONTROL_DIR } from './control-server.mjs';
 export { resolveViteBin, startBuild, watchArtifact } from './build.mjs';
 export { startDev } from './dev.mjs';

@@ -15,14 +15,15 @@
  *
  * 为什么不用 rollup-plugin-livereload：
  *   它对任何产物变化都整页刷新，改一行 CSS 也会把正在编辑的文档和打开的面板重置。
- *   本包按产物类型决定粒度（CSS 换 <style> 内容、JS 才整页刷新），那套机制是纯冗余。
+ *   本包按产物类型决定粒度：主题换 link href、插件 CSS 换 <style> 文本、
+ *   插件 JS 经 kernel 让思源重新 eval——都不需要整页刷新。
  */
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import puppeteer from 'puppeteer-core';
 import { startBuild, watchArtifact } from './build.mjs';
-import { registerEndpoint } from './cdp-registry.mjs';
+import { startControlServer } from './control-server.mjs';
 import { checkLinkedFiles, ensureLink } from './link.mjs';
 import { findChrome, findKernelPort, frontendUrl } from './siyuan.mjs';
 import { createTarget } from './targets.mjs';
@@ -66,13 +67,13 @@ export async function startDev({
     page: null,
     kernelPort: null,
     closing: false,
-    unregister: null,
+    control: null,
   };
 
   const shutdown = async () => {
     if (state.closing) return;
     state.closing = true;
-    for (const cleanup of [() => state.watcher?.close(), () => state.build?.stop(), () => state.unregister?.()]) {
+    for (const cleanup of [() => state.watcher?.close(), () => state.build?.stop(), () => state.control?.stop()]) {
       try {
         cleanup();
       } catch {}
@@ -139,16 +140,22 @@ export async function startDev({
         '--user-data-dir=' + state.profile,
       ],
     });
-    // 登记到机器级注册表，别的项目（或别的终端）也能 attach 到同一个浏览器。
-    state.unregister = registerEndpoint(state.browser.wsEndpoint(), { cwd });
+    // 登记到本地控制服务，measure / open 通过它发现本会话（不是共享 JSON 文件）。
+    state.control = await startControlServer({
+      ws: state.browser.wsEndpoint(),
+      cwd,
+      kind: target.kind,
+      name: target.name,
+    });
 
     const pages = await state.browser.pages();
     state.page = pages.length ? pages[0] : await state.browser.newPage();
     await state.page.goto(frontendUrl(state.kernelPort, frontend), { waitUntil: 'domcontentloaded', timeout: 30000 });
     await state.page.waitForFunction('window.siyuan && window.siyuan.config', { timeout: 30000 });
-    await sleep(1200);
 
-    const mount = await target.mountState(state.page);
+    // 挂载是异步的（主题样式、插件实例都在壳子之后才出现）。固定 sleep 会时快时慢，
+    // 改成轮询 mountState：要么等到真的挂上、要么超时后如实报告，不猜时长。
+    const mount = await waitForMount(target, state.page, 10000);
     log('挂载：' + (mount.ok ? (mount.loaded ?? '(无样式表)') : '未挂上 — ' + mount.reason));
 
     // 5) 监听产物，按类型精确重载
@@ -159,17 +166,33 @@ export async function startDev({
     }
 
     let reloads = 0;
+    // 一次构建常会同时写多个产物（插件的 index.js + index.css）。逐个触发会让
+    // 插件实例白白重建一次。这里在短窗口内把改动收集成一批，按优先级只重载一次：
+    // 有 JS 就走 JS 路径（kernel 重建实例，CSS 自然也带上），否则才走 CSS 路径。
+    let pending = new Set();
+    let batchTimer = null;
+    const flush = async () => {
+      batchTimer = null;
+      const files = [...pending];
+      pending = new Set();
+      if (!files.length) return;
+      const primary = buildConfig.primary(files);
+      reloads += 1;
+      const label =
+        '已重载 #' + reloads + '：' + primary + (files.length > 1 ? '（+ ' + (files.length - 1) + '）' : '');
+      try {
+        const outcome = await applyReload({ state, target, filename: primary, log });
+        log(label + (outcome ? '' : '（失败）'));
+      } catch (cause) {
+        log('重载出错：' + (cause instanceof Error ? cause.message : String(cause)));
+      }
+    };
     state.watcher = watchArtifact(join(cwd, resolvedOutDir), {
       match: buildConfig.match,
-      onChange: async (filename) => {
-        reloads += 1;
-        const label = '已重载 #' + reloads + '：' + filename;
-        try {
-          const outcome = await applyReload({ state, target, filename, log });
-          log(label + (outcome ? '' : '（失败）'));
-        } catch (cause) {
-          log('重载出错：' + (cause instanceof Error ? cause.message : String(cause)));
-        }
+      onChange: (filename) => {
+        pending.add(filename);
+        clearTimeout(batchTimer);
+        batchTimer = setTimeout(flush, 250);
       },
     });
 
@@ -182,6 +205,31 @@ export async function startDev({
     await shutdown();
     throw cause;
   }
+}
+
+/**
+ * 等被测对象真的挂上，而不是拍一个固定时长。
+ *
+ * 主题样式、插件实例都在思源壳子之后异步出现，固定 sleep(1200) 时快时慢：
+ * 启动日志里出现过「挂载：未挂上」，但几秒后 measure 显示一切正常。
+ * 这里改成轮询 mountState，超时才如实报告。
+ */
+async function waitForMount(target, page, timeoutMs) {
+  const deadline = Date.now() + timeoutMs;
+  let last = { ok: false, loaded: null, reason: '尚未检查' };
+  while (Date.now() < deadline) {
+    try {
+      last = await target.mountState(page);
+      // ok 只表示「这个类型允许没有样式表」，不代表已经挂上。
+      // 要等真正读到东西（loaded 有值）才算就绪，否则插件会在加载完成前
+      // 就报「无样式表」，与后来 measure 到的结果自相矛盾。
+      if (last.ok && last.loaded) return last;
+    } catch {
+      // 页面还在导航，继续等
+    }
+    await sleep(200);
+  }
+  return last;
 }
 
 /**

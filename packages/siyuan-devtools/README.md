@@ -188,12 +188,31 @@ registerTargetType(
         workspace.mjs      工作区与安装目录解析
         link.mjs           产物目录链接到安装目录
         theme.mjs          主题身份与挂载判定
-        theme-dev.mjs      切换主题、重载主题/插件 CSS
+        kernel.mjs         kernel 调用、主题/插件重载原语
 开发层  build.mjs          起构建进程（默认 vite，可换），监听产物
         dev.mjs            构建→链接→加载→热重载的完整循环
-        cdp-registry.mjs   dev 浏览器端点登记（机器级，跨项目复用）
+        control-server.mjs dev 会话的本地控制服务与端点发现
 入口层  cli.mjs            统一命令，各 *-cli.mjs 为独立命令
 ```
 
 `puppeteer-core` 只出现在 `session.mjs`、`open.mjs`、`dev.mjs` 三个浏览器所有者里，
 其余模块纯数据、可单测。
+
+## dev 会话如何被 measure 找到
+
+`dev` 是常驻进程，它自己监听一个本地 HTTP 端口，把 `{ ws, cwd, kind, name }`
+放在内存里。`measure --attach` / `open --attach` 作为客户端去问：
+
+```
+dev 进程   ── 启动浏览器 ──▶ 记下 CDP wsEndpoint
+           └─ 起控制服务（127.0.0.1:随机端口），写 control-<pid>.json（只存端口）
+
+measure    ── 读 control-*.json ──▶ GET /info ──▶ puppeteer.connect(ws)
+```
+
+要点：
+
+- **存活靠真实探测**，不靠 `process.kill(pid, 0)`。进程被强杀后残留的文件连不上，
+  会被自动清掉，不会造成「以为有 dev 在跑」。
+- 每个会话写自己的文件，没有共享 JSON 的写竞争。
+- 多个会话并存时按 cwd 精确匹配；有歧义就列出候选让你指定，不猜。

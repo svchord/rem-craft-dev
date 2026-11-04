@@ -29,7 +29,7 @@ import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import puppeteer from 'puppeteer-core';
-import { findEndpoint } from './cdp-registry.mjs';
+import { discover } from './control-server.mjs';
 import { findChrome, findKernelPort, frontendUrl, MOBILE_VIEWPORT } from './siyuan.mjs';
 import { readThemeName } from './theme.mjs';
 
@@ -174,20 +174,20 @@ async function main() {
   const useHeadless = headless || shot;
 
   if (attach && !useHeadless) {
-    const endpoint = findEndpoint();
-    if (!endpoint.ok) {
-      console.error(PREFIX + '--attach 需要有一个正在运行的 dev 浏览器：' + endpoint.reason);
-      for (const candidate of endpoint.candidates ?? []) {
-        console.error(PREFIX + '  候选：' + candidate.cwd + '（pid ' + candidate.pid + '）');
+    const session = await discover();
+    if (!session.ok) {
+      console.error(PREFIX + '--attach 需要有一个正在运行的 dev 会话：' + session.reason);
+      for (const candidate of session.candidates ?? []) {
+        console.error(PREFIX + '  候选：' + candidate.cwd + '（' + candidate.kind + ' / ' + candidate.name + '）');
       }
       process.exit(2);
     }
     browser = await puppeteer.connect({
-      browserWSEndpoint: endpoint.ws,
+      browserWSEndpoint: session.ws,
       defaultViewport: null,
     });
     attached = true;
-    console.log(PREFIX + '复用 dev 浏览器：' + endpoint.cwd);
+    console.log(PREFIX + '复用 dev 会话：' + session.cwd + '（' + session.kind + ' / ' + session.name + '）');
   } else {
     profile = mkdtempSync(join(tmpdir(), 'rc-open-'));
     browser = await puppeteer.launch({

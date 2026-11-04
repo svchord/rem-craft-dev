@@ -10,7 +10,7 @@
  *   mobile   /stage/build/mobile/    （独立构建，需 theme.json 的 frontends 含 mobile/browser-mobile/all）
  */
 import puppeteer from 'puppeteer-core';
-import { findEndpoint } from './cdp-registry.mjs';
+import { discover } from './control-server.mjs';
 import { findChrome, findKernelPort, frontendUrl, MOBILE_VIEWPORT } from './siyuan.mjs';
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -44,21 +44,21 @@ export function viewportFor(frontend, viewport) {
 /**
  * 打开会话。
  *
- * `attach` 时复用 `siyuan-dev` / `pnpm dev` 暴露的浏览器（省一次启动，
+ * `attach` 时复用 `siyuan-devtools dev` 暴露的浏览器（省一次启动，
  * 且量的是你眼前那个窗口）；找不到就新开无头 Chrome。
  *
- * 端点从机器级注册表读，不是项目目录下的相对文件——这样在插件项目里起的
- * dev 浏览器，也能被主题项目里的 measure 复用。
+ * 端点通过本地控制服务发现（见 control-server.mjs），不是项目目录下的
+ * 相对文件——在插件项目起的 dev 浏览器，也能被主题项目的 measure 复用。
  */
 export async function createSession({ frontend = 'desktop', viewport, attach = false } = {}) {
   let browser;
   let attached = false;
   const targetViewport = viewportFor(frontend, viewport);
 
-  const endpoint = attach ? findEndpoint() : { ok: false };
-  if (endpoint.ok) {
+  const session = attach ? await discover() : { ok: false };
+  if (session.ok) {
     browser = await puppeteer.connect({
-      browserWSEndpoint: endpoint.ws,
+      browserWSEndpoint: session.ws,
       defaultViewport: null,
     });
     attached = true;

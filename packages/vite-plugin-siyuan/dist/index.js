@@ -52,11 +52,14 @@
 // 会话层
 export { createSession, parseViewport, viewportFor } from './core/session.js';
 // 测量层
-export { tokens, elementStyles, selectorCounts, elementBox, probeHtml, diffAfter, environment } from './core/measure.js';
+export { tokens, elementStyles, selectorCounts, elementBox, probeHtml, diffAfter, environment, } from './core/measure.js';
 export { runActions, snapshotRoot, ACTIONS } from './core/actions.js';
 export { parseColor, luminance, contrastRatio } from './core/color.js';
 export { findDoubleWrappedColors, findProblemsIn } from './core/lints.js';
 export { probeTokens, probeLive, probeEnvironment } from './core/probes.js';
+// 审计计划：一次会话跑完多项测量（避免每次子命令都要重新起进程连 CDP）
+export { runPlan, validatePlan, planIsEmpty, DEFAULT_PROPS } from './core/audit.js';
+export { loadConfig, mergePlan, DEFAULT_CONFIG_NAME } from './core/audit-config.js';
 // 目标层
 export { createTarget, pluginTarget, themeTarget, readManifestName } from './core/targets.js';
 export { detectTargetType, registerTargetType, targetType, targetTypes } from './core/target-types.js';

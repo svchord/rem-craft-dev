@@ -146,9 +146,48 @@ siyuan-devtools link --check
 | `probe`    | 插入 HTML 再量            |
 | `diff`     | 动作前后差异              |
 | `contrast` | 两色对比度                |
+| `audit`    | 一次会话跑完计划里的全部  |
 
 通用选项：`--frontend desktop|mobile`、`--viewport 390x844@3`、`--props a,b,c`、
 `--do <action>`、`--setup <action>`、`--kind theme|plugin`、`--attach`、`--json`。
+
+### `audit`：一次会话跑完，而不是跑 N 次
+
+每个子命令都要起进程、加载 puppeteer、连 CDP、等页面——**每次约 1.2 秒与测量无关的开销**。
+
+实测：查令牌 + 样式 + 命中数 + 盒模型 + 对比度，分成 5 次调用要 **5.9 秒**，
+一次 `audit` 只要 **1.16 秒**（5.1 倍）。
+
+计划写在配置文件里（格式对齐 pa11y）：
+
+```json
+// .siyuan-audit.json
+{
+  "frontend": "desktop",
+  "setup": ["contextmenu:.b3-list-item"],
+  "tokens": ["--rc-text-primary", "--rc-bg-page"],
+  "styles": [".b3-menu__item", { "selector": ".x", "props": ["color"] }],
+  "counts": [".b3-menu__item", ".dock__item"],
+  "boxes": [".dock__item"],
+  "contrast": [["--rc-text-primary", "--rc-bg-page"]],
+  "diffs": [{ "selector": ".b3-menu__item", "do": ["hover:.b3-menu__item"] }]
+}
+```
+
+```bash
+siyuan-devtools measure audit                    # 自动发现 ./.siyuan-audit.json
+siyuan-devtools measure audit --config ./ci.json
+siyuan-devtools measure audit --tokens a,b --counts .x   # 命令行覆盖
+```
+
+**优先级：命令行参数 > 配置文件 > 内置默认值**（与 pa11y 一致）。
+命令行传了的字段整体替换文件里的同名字段——`--tokens a,b` 就是只查这两个，
+不是追加。需要更多就把要查的写全。
+
+配置文件也可以是 `.siyuan-audit.js` / `.mjs`（走模块加载，能写表达式）。
+
+`setup` 在全部测量前执行（先 `reset`），用来把页面推到目标场景——
+菜单项、插件面板在打开前根本不在 DOM 里，不先 setup 就量不到。
 
 ### `--attach`：量你眼前那个窗口
 

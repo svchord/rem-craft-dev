@@ -51,7 +51,7 @@
  */
 export { createSession, parseViewport, viewportFor } from './core/session.ts';
 export type { Session, CreateSessionOptions, ResolvedViewport } from './core/session.ts';
-export { tokens, elementStyles, selectorCounts, elementBox, probeHtml, diffAfter, environment } from './core/measure.ts';
+export { tokens, elementStyles, selectorCounts, elementBox, probeHtml, diffAfter, environment, } from './core/measure.ts';
 export type { DiffResult, ElementBox, ElementStyleReading, PageEnvironment, ProbeHtmlReading, SelectorCount, } from './core/measure.ts';
 export { runActions, snapshotRoot, ACTIONS } from './core/actions.ts';
 export type { ActionSession, ActionVerb } from './core/actions.ts';
@@ -61,6 +61,10 @@ export { findDoubleWrappedColors, findProblemsIn } from './core/lints.ts';
 export type { CssProblem, SourcedCssProblem, Sheet } from './core/lints.ts';
 export { probeTokens, probeLive, probeEnvironment } from './core/probes.ts';
 export type { ProbeLiveResult, ProbeLiveSpec, EnvironmentSnapshot } from './core/probes.ts';
+export { runPlan, validatePlan, planIsEmpty, DEFAULT_PROPS } from './core/audit.ts';
+export type { AuditPlan, AuditResult, DiffQuery, ProbeQuery, StyleQuery, } from './core/audit.ts';
+export { loadConfig, mergePlan, DEFAULT_CONFIG_NAME } from './core/audit-config.ts';
+export type { LoadedConfig, PlanOverrides } from './core/audit-config.ts';
 export { createTarget, pluginTarget, themeTarget, readManifestName } from './core/targets.ts';
 export type { Target, TargetBuildConfig, CreateTargetOptions } from './core/targets.ts';
 export { detectTargetType, registerTargetType, targetType, targetTypes } from './core/target-types.ts';

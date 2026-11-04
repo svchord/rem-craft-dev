@@ -25,13 +25,42 @@ description: 用 siyuan-devtools 在真实思源前端里读取主题/插件的�
 | 用途               | 命令                                 |
 | ------------------ | ------------------------------------ |
 | 开发：构建+热重载  | `siyuan-devtools dev`                |
-| 通用测量           | `siyuan-devtools measure <子命令>`   |
+| **多项一起量**     | `siyuan-devtools measure audit`      |
+| 单项测量           | `siyuan-devtools measure <子命令>`   |
 | 改完重跑你的命令   | `siyuan-devtools watch --exec "..."` |
 | 人工复审（看页面） | `siyuan-devtools open`               |
 | 只建/查链接        | `siyuan-devtools link [--check]`     |
 
 `dev` 会**自动推断被测类型**（看 `public/` 下有 `theme.json` 还是 `plugin.json`），
 不需要写任何配置或脚本。要显式指定用 `--kind theme|plugin`。
+
+### 多项测量：优先用 audit，别连跑 N 个子命令
+
+每个子命令都要起进程、连 CDP、等页面，**每次约 1.2 秒与测量无关的开销**。
+实测查 5 项分 5 次调用要 **5.9 秒**，一次 `audit` 只要 **1.16 秒**。
+
+写计划文件（缺省 `./.siyuan-audit.json`，也可 `--config <path>`）：
+
+```json
+{
+  "setup": ["contextmenu:.b3-list-item"],
+  "tokens": ["--rc-text-primary", "--rc-bg-page"],
+  "styles": [".b3-menu__item"],
+  "counts": [".b3-menu__item"],
+  "contrast": [["--rc-text-primary", "--rc-bg-page"]]
+}
+```
+
+```bash
+siyuan-devtools measure audit --attach            # 用计划文件
+siyuan-devtools measure audit --attach --json     # 结构化输出
+siyuan-devtools measure audit --tokens a,b        # 命令行覆盖文件里的 tokens
+```
+
+- 优先级：**命令行 > 配置文件 > 默认值**（同 pa11y）。命令行传了的字段整体替换，不追加。
+- `setup` 在全部测量前跑（先 reset）。**菜单项、插件面板在打开前不在 DOM 里**，
+  不 setup 会量到「未找到元素」。
+- 一次 audit 只开一个会话，结果里各项都在同一个页面状态下。
 
 ### dev 的热重载粒度
 

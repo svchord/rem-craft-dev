@@ -1,45 +1,55 @@
-refactor(pkg): 源码按依赖方向分层到 core/dev/plugin/cli
+feat(audit): 加 measure audit，一次会话跑完计划里的全部测量
 
-## 为什么是目录分层而不是拆包
+## 解决的问题
 
-实测两个方案的保护强度，都是「靠约定」而非「靠编译器」：
+每个 measure 子命令都要起进程、加载 puppeteer、连 CDP、等页面。
+实测一次真实审计（令牌 + 样式 + 命中数 + 盒模型 + 对比度）分成 5 次调用：
 
-- 单包时让 core 层 import vite -> tsc exit 0（没拦住）
-- 拆包后 core 包不声明 vite 却 import 它 -> tsc exit 0（也没拦住）
+  5.9 秒 / 5 次工具调用
 
-原因：pnpm workspace 里 packages/*/node_modules/vite 是指向根 .pnpm 的 junction，
-子包没有独立 .pnpm，模块解析一路向上找得到根 node_modules。
-所以拆包并不能阻止越界 import，它只让 package.json 的依赖声明更准确。
+其中每次约 1.2 秒是固定的进程与连接开销，与测量本身无关。
+对 agent 是双重代价：既是时间，也是上下文轮次。
 
-真正的保护来自架构测试——这个已经有了。所以把断言从「正则扫扁平文件清单」
-升级成「按目录收集 + 检查依赖方向」，新增文件自动纳入，不会因漏加清单而漏检。
+一次 audit 后：
 
-## 结构
+  1.16 秒 / 1 次调用        提速 5.1 倍
 
-  core/    14 文件  被测对象契约与测量原语，不依赖 vite、无 bin、不碰 process.exit
-  dev/      3 文件  两种形态共用的开发链路
-  plugin/   2 文件  依赖 vite 的插件形态
-  cli/      7 文件  命令行入口，不实现 vite 插件钩子
-  index.ts          顶层唯一文件，聚合导出
+## 形状：对齐 pa11y 的 config 约定
 
-## 新增的架构测试
+查了三个社区项目：
+- Lighthouse 用 config 对象 + extends 预设体系
+- pa11y 用 --config <path> + 默认文件名自动发现，且写明优先级规则
+- Playwright 是 commander 子命令树，没有批量化入口
 
-- keeps every source file inside a layer   顶层不得有游离 .ts，四层不得为空
-- keeps core free of vite, bin and dev-loop concerns
-- keeps plugin free of cli concerns
-- keeps cli free of vite plugin hooks
+选 pa11y 因为它对 agent 最直接：写一份 JSON、跑一条命令。
 
-既有断言里 9 处硬编码了同层路径（from './targets.ts'），改为只关心文件名，
-跨层移动不再误报。
+约定：
+- 缺省读 ./.siyuan-audit.json（也接受 .js / .mjs，走模块加载）
+- --config <path> 覆盖；显式指定却不存在时**报错**而不是静默退回
+- 优先级：命令行参数 > 配置文件 > 内置默认值
+- 命令行传了的字段**整体替换**文件里的同名字段，不追加（语义可预测）
 
-## 顺带修掉
+## 计划能表达什么
 
-build 脚本原本不清理 dist，目录重组后会残留旧路径的编译产物
-（实测 dist 顶层留下 28 个旧 .js）。加 clean 步骤。
+tokens / styles / counts / boxes / probes / contrast / diffs，
+外加 setup（建立场景）与 actions（测量前动作）。
 
-## 验证
+styles 与 boxes 支持简写（选择器字符串）与对象形式（带自己的 props / limit）。
 
-- 包内测试 66 -> 71，tsc 严格 0 错误，导出 61 个 API 不变
-- 父项目 pnpm check 全绿（4 + 71，lint 0）
-- 端到端实跑：vite build --watch 正常挂载，热重载 6px -> 59px -> 6px 生效
-- CLI 五个 bin 全部指向新路径并可运行
+## 校验在建会话之前
+
+计划是给人/agent 写的 JSON。写错了如果在浏览器里才发现，每次白起一个会话。
+validatePlan() 在 createSession() 之前跑完，空计划也提前拒绝。
+
+## 实测
+
+- 5 次子命令 5.9s -> 1 次 audit 1.16s（5.1x）
+- setup 有效：--setup "contextmenu:.b3-list-item" 后 .b3-menu__item 从
+  「未找到元素」变成量到 14 个真实菜单项
+- 配置文件自动发现生效，contrast 正确算出 15.02:1 与 5.6:1
+- 包内测试 71 -> 79；pnpm check 全绿
+
+## 顺带
+
+skill 与 README 都加了「多项一起量优先用 audit」的指引，
+并说明 setup 的必要性（菜单项在打开前不在 DOM 里）。

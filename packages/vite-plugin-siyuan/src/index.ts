@@ -81,6 +81,12 @@ export type { CssProblem, SourcedCssProblem, Sheet } from './core/lints.ts';
 export { probeTokens, probeLive, probeEnvironment } from './core/probes.ts';
 export type { ProbeLiveResult, ProbeLiveSpec, EnvironmentSnapshot } from './core/probes.ts';
 
+// 审计计划：一次会话跑完多项测量（避免每次子命令都要重新起进程连 CDP）
+export { runPlan, validatePlan, planIsEmpty, DEFAULT_PROPS } from './core/audit.ts';
+export type { AuditPlan, AuditResult, DiffQuery, ProbeQuery, StyleQuery } from './core/audit.ts';
+export { loadConfig, mergePlan, DEFAULT_CONFIG_NAME } from './core/audit-config.ts';
+export type { LoadedConfig, PlanOverrides } from './core/audit-config.ts';
+
 // 目标层
 export { createTarget, pluginTarget, themeTarget, readManifestName } from './core/targets.ts';
 export type { Target, TargetBuildConfig, CreateTargetOptions } from './core/targets.ts';

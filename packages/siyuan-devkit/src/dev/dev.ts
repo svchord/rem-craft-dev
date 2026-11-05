@@ -18,7 +18,6 @@ import { startBuild } from './build.ts';
 import type { BuildCommand, BuildHandle } from './build.ts';
 import { startDevSession } from './dev-session.ts';
 import type { DevSession, Logger } from './dev-session.ts';
-import type { Frontend } from '../core/siyuan.ts';
 import { createTarget } from '../core/targets.ts';
 
 /** startDev 的选项。 */
@@ -29,10 +28,6 @@ export interface StartDevOptions {
   name?: string | null;
   /** 项目目录。 */
   cwd?: string;
-  /** 是否无头。 */
-  headless?: boolean;
-  /** 打开哪个前端。 */
-  frontend?: Frontend;
   /** 是否建立链接。 */
   link?: boolean;
   /** 自定义构建命令；不给则用 vite。 */
@@ -55,8 +50,6 @@ export async function startDev({
   kind,
   name = null,
   cwd = process.cwd(),
-  headless = false,
-  frontend = 'desktop',
   link = true,
   buildCommand = null,
   outDir = null,
@@ -106,13 +99,11 @@ export async function startDev({
       cwd,
       outDir: resolvedOutDir,
       link,
-      headless,
-      frontend,
       log,
       watch: true,
     });
 
-    log(`改源码自动重建 + 自动重载（F5 后仍是这个${session.target.name}）`, 'info');
+    log(`改源码自动重建 + 整页刷新（F5 后仍是这个${session.target.name}）`, 'info');
 
     return {
       ...session,

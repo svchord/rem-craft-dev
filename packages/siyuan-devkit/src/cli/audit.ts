@@ -8,7 +8,6 @@
  * 计划来源与优先级（对齐 pa11y）：命令行参数 > 配置文件 > 内置默认值。
  */
 import { createSession, parseViewport } from '../core/session.ts';
-import { alignStylesheets } from '../core/align.ts';
 import { planIsEmpty, runPlan, validatePlan } from '../core/audit.ts';
 import type { AuditResult } from '../core/audit.ts';
 import { DEFAULT_CONFIG_NAME, loadConfig, mergePlan } from '../core/audit-config.ts';
@@ -90,8 +89,9 @@ export async function runAudit(parsed: ParsedArgs): Promise<void> {
 
   // 4) 建会话并执行
   const frontend = plan.frontend ?? 'desktop';
-  const viewport =
-    parseViewport(plan.viewport, null) ?? parseViewport(frontend === 'mobile' ? '390x844@3' : '1600x1000@1', null);
+  // 只在计划显式给了 viewport 时传给 createSession；缺省交给 session 按前端取预设。
+  // parseViewport(空值) 会返回桌面预设，直接传会让「复用常驻页」误判成用户指定了视口。
+  const viewport = plan.viewport ? parseViewport(plan.viewport, null) : null;
 
   const target = resolveTargetFromPlan(plan.target, parsed);
 
@@ -99,7 +99,6 @@ export async function runAudit(parsed: ParsedArgs): Promise<void> {
     frontend: frontend === 'mobile' ? 'mobile' : 'desktop',
     viewport,
     attach: Boolean(plan.attach),
-    align: (page) => alignStylesheets(page, target),
   });
 
   try {

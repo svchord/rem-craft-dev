@@ -32,13 +32,6 @@ export interface MountState {
   reason: string | null;
 }
 
-/** 重载结果。 */
-export interface ReloadResult {
-  ok: boolean;
-  /** 人类可读的一句话，直接进日志。 */
-  message: string;
-}
-
 /** 激活结果（开发前让宿主用上本对象）。 */
 export interface ActivateResult {
   ok: boolean;
@@ -51,7 +44,7 @@ export interface ActivateResult {
  *
  * 字段全部显式声明——之前用 `TargetContext & Record<string, unknown>` 当属性袋，
  * 描述符里到处是 `context as ThemeContext` 这类断言。现在靠字段就能取到选项。
- * `resolveCss` 预先绑好：描述符内部（比如插件的 reload）读磁盘产物时直接用，
+ * `resolveCss` 预先绑好：描述符内部读磁盘产物时直接用，
  * 不必回调 target 的方法，也就不会出现 this 绑不上的问题。
  */
 export interface TargetContext {
@@ -67,14 +60,6 @@ export interface TargetContext {
   readonly cssPaths?: string[];
   /** 插件专用：显式插件目录。 */
   readonly pluginDir?: string | null;
-}
-
-/** 重载时由编排层传进来的事实。 */
-export interface ReloadContext extends TargetContext {
-  /** 变化的产物文件名。 */
-  readonly filename: string;
-  /** kernel 端口；需要经 kernel 重载的类型（插件 JS）才用得上。 */
-  readonly port: number | null;
 }
 
 /** 激活时由编排层传进来的事实。 */
@@ -199,14 +184,6 @@ export interface TargetDescriptor {
 
   /** 产物校验（可选）。通用部分（expectedFiles 齐不齐）在 core/verify.ts 里。 */
   verifyArtifact?(context: VerifyContext): VerifyIssue[];
-
-  /**
-   * 让页面用上新产物。主题换 link href；插件 CSS 换 style、JS 走 kernel。
-   *
-   * `page` 为 null 表示当前没有受控页面（开发时未打开预览窗口）；
-   * 这时应返回 ok=false 并说明「未热重载」，不要伪装成重载失败。
-   */
-  reload(page: Page | null, context: ReloadContext): Promise<ReloadResult>;
 
   /** 要审计的 CSS 文本。 */
   resolveCss(context: TargetContext): Promise<CssSheet[]>;

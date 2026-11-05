@@ -57,7 +57,6 @@ import { createTarget } from '../core/targets.ts';
 import type { Target } from '../core/targets.ts';
 import { detectTargetType, targetType } from '../core/target-types.ts';
 import { frontendLinks } from '../core/siyuan.ts';
-import type { Frontend } from '../core/siyuan.ts';
 
 /** 插件名，用于日志前缀。 */
 const NAME = 'siyuan-devkit';
@@ -100,20 +99,6 @@ export interface SiYuanPluginOptions {
   /** 产物目录；缺省取类型描述符的值（通常是 ./dev）。 */
   outDir?: string | null;
   /**
-   * 开发时是否打开一个受本工具控制的预览窗口，缺省 false。
-   *
-   * **热重载依赖它**：主题 CSS 的重载方式是在受控页面里换 `#themeStyle` 的 href。
-   * 思源没有等价的外科式内核接口（`/api/ui/reloadUI` 会整页刷新、丢掉编辑状态），
-   * 所以不打开窗口时只重建产物、不热重载，日志会如实说明。
-   *
-   * 不打开窗口时仍打印桌面端/移动端预览链接，方便手动打开或截图。
-   */
-  browser?: boolean;
-  /** `browser: true` 时打开哪个前端，缺省 desktop。 */
-  frontend?: Frontend;
-  /** `browser: true` 时是否无头，缺省 false（可见窗口）。 */
-  headless?: boolean;
-  /**
    * 清单路径（相对项目根）。缺省按类型取 `public/theme.json` 或 `public/plugin.json`；
    * 清单不放在 `public/` 时显式传这个值。
    */
@@ -131,15 +116,7 @@ export interface SiYuanPluginOptions {
  * siyuanAssets / siyuanPost 自行组合。
  */
 export default function siyuanDev(options: SiYuanPluginOptions = {}): Plugin[] {
-  const {
-    target = null,
-    entry = null,
-    outDir = null,
-    browser = false,
-    frontend = 'desktop',
-    headless = false,
-    manifestPath = null,
-  } = options;
+  const { target = null, entry = null, outDir = null, manifestPath = null } = options;
 
   /** 显式指定的类型；null 表示从清单推断。 */
   const requestedKind = target;
@@ -305,9 +282,6 @@ export default function siyuanDev(options: SiYuanPluginOptions = {}): Plugin[] {
         kind: resolved.kind,
         cwd: state.root,
         outDir,
-        browser,
-        frontend,
-        headless,
         log,
         // 变更由宿主的 writeBundle 喂进来，不自己 watch 目录。
         watch: false,
@@ -427,7 +401,7 @@ export default function siyuanDev(options: SiYuanPluginOptions = {}): Plugin[] {
           firstBundle = false;
           try {
             const created = await ensureSession();
-            log('会话就绪，改源码会自动重载', 'success');
+            log('会话就绪，改源码会刷新页面（本体 + 两个常驻测量页）', 'success');
             logPreviewLinks(created.kernelPort);
           } catch (cause) {
             // watch 形态必须有思源在跑（热重载依赖 kernel + 浏览器）。连不上就明确报错、

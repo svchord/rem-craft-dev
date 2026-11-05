@@ -36,7 +36,7 @@
  *
  * 退出码：成功 0，参数/运行错误 2。
  */
-import { createSession, parseViewport, viewportFor } from '../core/session.ts';
+import { createSession, parseViewport } from '../core/session.ts';
 import type { Session } from '../core/session.ts';
 import { runActions, snapshotRoot } from '../core/actions.ts';
 import { contrastRatio } from '../core/color.ts';
@@ -58,7 +58,6 @@ import type {
   SelectorCount,
 } from '../core/measure.ts';
 import { lastValue, allValues, parseArgs, wantsHelp } from './cli-args.ts';
-import { alignStylesheets } from '../core/align.ts';
 import type { MountState } from '../core/target-types.ts';
 import { DEFAULT_PROPS } from '../core/audit.ts';
 import { resolveTargetFromParsed } from './targets.ts';
@@ -293,7 +292,10 @@ export async function runMeasureCli(argv: string[] = process.argv.slice(2)): Pro
   }
 
   const frontend = (lastValue(parsed, '--frontend') ?? 'desktop') === 'mobile' ? 'mobile' : 'desktop';
-  const viewport = viewportFor(frontend, parseViewport(lastValue(parsed, '--viewport'), null));
+  // 只在用户显式给了 --viewport 时传给 createSession；缺省交给 session 自己按前端取预设。
+  // parseViewport(空值) 会返回桌面预设，直接传会让「复用常驻页」误判成用户指定了视口。
+  const viewportArg = lastValue(parsed, '--viewport');
+  const viewport = viewportArg ? parseViewport(viewportArg, null) : null;
   const asJson = parsed.flags.has('--json');
   const props =
     lastValue(parsed, '--props')
@@ -309,7 +311,6 @@ export async function runMeasureCli(argv: string[] = process.argv.slice(2)): Pro
     frontend,
     viewport,
     attach: parsed.flags.has('--attach'),
-    align: (page) => alignStylesheets(page, target),
   });
 
   const output: MeasureOutput = {

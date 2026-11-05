@@ -5,15 +5,18 @@
  *   // ...读数...
  *   await session.dispose();
  *
- * 两个入口：desktop /stage/build/desktop/（默认）、mobile /stage/build/mobile/
+ * 两个常驻页：desktop /stage/build/desktop/ 与 mobile /stage/build/mobile/
  * （独立构建，需 theme.json 的 frontends 含 mobile/browser-mobile/all）。
+ * `frontend` 在这里的语义是「从 dev 会话的两个常驻页里选哪个」，不是「打开哪个前端」。
  *
  * 端点通过本地控制服务发现（control-server.ts），不是项目目录下的相对文件——
  * 在插件项目起的 dev 浏览器，也能被主题项目的 measure 复用。
+ *
+ * 复用时先等 dev 会话的刷新屏障：整页刷新期间读数会是空的，等页面重新挂载完再量。
  */
 import puppeteer from 'puppeteer-core';
 import type { Browser, Page } from 'puppeteer-core';
-import { discover } from './control-server.ts';
+import { acquireReadLease, discover } from './control-server.ts';
 import { findChrome, findKernelPort, frontendUrl } from './siyuan.ts';
 import type { Frontend } from './siyuan.ts';
 import { DEFAULT_VIEWPORT, MOBILE_VIEWPORT } from './viewport.ts';
@@ -55,15 +58,12 @@ export interface Session {
 
 /** 开会话的选项。 */
 export interface CreateSessionOptions {
+  /** 从两个常驻页里选哪个（缺省 desktop）。 */
   frontend?: Frontend;
+  /** 仅在新开浏览器时生效；复用常驻页时视口已固定，见下方检查。 */
   viewport?: ResolvedViewport | null;
-  /** 复用正在跑的 dev 会话（省一次启动，且量的是你眼前那个窗口）。 */
+  /** 复用正在跑的 dev 会话的两个常驻页之一。 */
   attach?: boolean;
-  /**
-   * 复用页面时把 CSS 跟磁盘对齐的回调。由调用方提供（它才知道被测对象是谁），
-   * 不传则只对齐主题 CSS。这样 session.ts 不必依赖被测对象层，避免循环依赖。
-   */
-  align?: (page: Page) => Promise<void>;
 }
 
 /** 等思源前端把 config 挂上来（函数体在浏览器里跑，不引用 Node 作用域）。 */
@@ -84,48 +84,39 @@ function tolerateWaitFailure(cause: unknown): void {
   requireRecoverable(cause);
 }
 
-/**
- * 让页面重新拉一次磁盘上的 theme.css。
- *
- * 复用活页面时（--attach），那个页面的 `#themeStyle` 可能还停在旧 CSS——
- * 热重载没跑、跑失败、或根本没开浏览器。只换 href、等 load/error，
- * 不整页刷新、不动用户自己的本体窗口。
- *
- * 有了它，测量读数的正确性就不再依赖热重载是否成功：不管页面活了多久，
- * 量之前都先跟磁盘对齐一次。
- */
-export async function refreshThemeStylesheet(page: Page): Promise<void> {
-  await page.evaluate(async (timeout: number) => {
-    const link = document.getElementById('themeStyle');
-    if (!link) return;
-    const base = (link.getAttribute('href') || '').split('?')[0];
-    link.setAttribute('href', `${base}?v=${Date.now()}`);
-    await new Promise<void>((resolve) => {
-      const done = (): void => resolve();
-      link.addEventListener('load', done, { once: true });
-      link.addEventListener('error', done, { once: true });
-      setTimeout(done, timeout);
-    });
-  }, TIMING.stylesheetLoad);
-}
-
-/** 打开会话。attach 时复用 dev 浏览器；找不到就新开无头 Chrome。 */
+/** 打开会话。attach 时复用 dev 浏览器的常驻页；找不到就新开无头 Chrome。 */
 export async function createSession({
   frontend = 'desktop',
   viewport = null,
   attach = false,
-  align,
 }: CreateSessionOptions = {}): Promise<Session> {
   let browser: Browser;
   let attached = false;
+  let releaseLease: (() => Promise<void>) | null = null;
   const targetViewport = viewportFor(frontend, viewport);
 
   const discovered = attach ? await discover() : null;
   if (discovered?.ok) {
-    browser = await puppeteer.connect({
-      browserWSEndpoint: discovered.ws,
-      defaultViewport: null,
-    });
+    // 常驻页的视口在建页时就定死了，--viewport 覆盖不了它。
+    // 静默忽略会让 agent 以为自己量的是 390 宽，实际是 1600——必须报错。
+    if (viewport) {
+      throw new Error('复用 dev 常驻页时不能用 --viewport：该页视口已固定。去掉 --attach 会新开一个指定视口的页面。');
+    }
+    // 读租约：刷新期间会等待，拿到后 dev 会等我们释放才广播下一次刷新。
+    // 只检查 ready 有竞态——检查完、读数前刷新才开始的那种挡不住。
+    if (discovered.port !== undefined) {
+      releaseLease = await acquireReadLease(discovered.port, TIMING.refreshReadyTimeout);
+      if (!releaseLease) throw new Error('等待 dev 会话刷新完成超时（页面可能卡住），本次测量已取消');
+    }
+    try {
+      browser = await puppeteer.connect({
+        browserWSEndpoint: discovered.ws,
+        defaultViewport: null,
+      });
+    } catch (cause) {
+      await releaseLease?.();
+      throw cause;
+    }
     attached = true;
   } else {
     const port = await findKernelPort();
@@ -145,52 +136,56 @@ export async function createSession({
     await sleep(TIMING.pageReady);
   }
 
-  // 按前端挑页面：attach 时浏览器里可能同时开着桌面和移动端，选错就量错地方。
-  const pages = await browser.pages();
-  const page = pages.find((candidate) => candidate.url().includes(`stage/build/${frontend}`));
-  if (!page) {
-    try {
-      await browser.disconnect();
-    } catch (cause) {
-      tolerateWaitFailure(cause);
+  try {
+    // 按前端挑页面：attach 时浏览器里可能同时开着桌面和移动端，选错就量错地方。
+    const pages = await browser.pages();
+    const page = pages.find((candidate) => candidate.url().includes(`stage/build/${frontend}`));
+    if (!page) {
+      try {
+        await browser.disconnect();
+      } catch (cause) {
+        tolerateWaitFailure(cause);
+      }
+      throw new Error(
+        `浏览器里没有 ${frontend} 页面（已有页面：${pages.map((candidate) => candidate.url()).join(' | ')}）`
+      );
     }
-    throw new Error(
-      `浏览器里没有 ${frontend} 页面（已有页面：${pages.map((candidate) => candidate.url()).join(' | ')}）`
-    );
+
+    await waitForSiyuanConfig(page);
+    // 主题样式在壳子之后异步挂载；等不到不报错，由 environment 读数如实反映。
+    await page
+      .waitForFunction(() => Boolean(document.getElementById('themeStyle')?.getAttribute('href')), {
+        timeout: TIMING.themeStyleWait,
+      })
+      .catch((cause: unknown) => tolerateWaitFailure(cause));
+
+    // 复用的常驻页由 dev 会话负责保持最新（产物一变就整页刷新，屏障解除后才放行测量）。
+    // 这里不需要、也不该再对页面做任何 DOM 修改：那会污染共享页，且和刷新机制重复。
+    await sleep(TIMING.navSettle);
+
+    return {
+      browser,
+      page,
+      attached,
+      frontend,
+      viewport: attached
+        ? await page.evaluate(() => ({
+            width: window.innerWidth,
+            height: window.innerHeight,
+            deviceScaleFactor: window.devicePixelRatio || 1,
+          }))
+        : targetViewport,
+      async dispose(): Promise<void> {
+        try {
+          if (attached) await browser.disconnect();
+          else await browser.close();
+        } finally {
+          await releaseLease?.();
+        }
+      },
+    };
+  } catch (cause) {
+    await releaseLease?.();
+    throw cause;
   }
-
-  await waitForSiyuanConfig(page);
-  // 主题样式在壳子之后异步挂载；等不到不报错，由 environment 读数如实反映。
-  await page
-    .waitForFunction(() => Boolean(document.getElementById('themeStyle')?.getAttribute('href')), {
-      timeout: TIMING.themeStyleWait,
-    })
-    .catch((cause: unknown) => tolerateWaitFailure(cause));
-
-  // 复用的活页面可能停留在旧 CSS。量之前先跟磁盘对齐，正确性不依赖热重载。
-  // 新开的页面本身就是刚加载的，不必多这一次往返。
-  if (attached) {
-    if (align) await align(page);
-    else await refreshThemeStylesheet(page);
-  }
-
-  await sleep(TIMING.navSettle);
-
-  return {
-    browser,
-    page,
-    attached,
-    frontend,
-    viewport: attached
-      ? await page.evaluate(() => ({
-          width: window.innerWidth,
-          height: window.innerHeight,
-          deviceScaleFactor: window.devicePixelRatio || 1,
-        }))
-      : targetViewport,
-    async dispose(): Promise<void> {
-      if (attached) await browser.disconnect();
-      else await browser.close();
-    },
-  };
 }

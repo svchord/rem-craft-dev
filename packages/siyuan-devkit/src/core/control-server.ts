@@ -11,6 +11,9 @@
  * 端口文件只存端口号，不含浏览器状态——状态在 dev 进程内存里。
  * 残留孤儿文件由显式的 pruneDeadEndpoints() 清理：discover 是只读发现，
  * 不再顺手删文件（之前 JSON 解析失败也 rmSync，把 IO 错误一起吞了）。
+ *
+ * 刷新屏障：产物变化时 dev 会话会广播整页刷新。刷新期间 /info 的 ready=false，
+ * measure 连上后会等它变回 true 再读数，避免撞进页面重新加载的空窗。
  */
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
@@ -38,11 +41,24 @@ export interface DevSessionInfo {
   name: string;
   /** 拥有该会话的进程。 */
   pid?: number;
+  /** 控制服务端口，measure 用它轮询刷新屏障。 */
+  port?: number;
+  /** 页面是否可测（false = 正在整页刷新）。 */
+  ready?: boolean;
 }
 
 /** 控制服务句柄。 */
 export interface ControlServer {
   port: number;
+  /** 刷新期间置 false，页面重新挂载后置 true。 */
+  setReady(ready: boolean): void;
+  /** 当前正在读数的测量会话数。 */
+  activeReaders(): number;
+  /**
+   * 等所有读租约释放再刷新。超时返回 false（有崩溃的读者没释放），
+   * 由调用方决定是强刷还是跳过，不在这里死等。
+   */
+  waitForIdle(timeoutMs: number): Promise<boolean>;
   stop(): void;
 }
 
@@ -71,6 +87,8 @@ async function probeEndpoint(port: number): Promise<DevSessionInfo | null> {
       kind: typeof data['kind'] === 'string' ? data['kind'] : '',
       name: typeof data['name'] === 'string' ? data['name'] : '',
       pid: typeof data['pid'] === 'number' ? data['pid'] : undefined,
+      port: typeof data['port'] === 'number' ? data['port'] : undefined,
+      ready: typeof data['ready'] === 'boolean' ? data['ready'] : true,
     };
   } catch (cause) {
     requireRecoverable(cause);
@@ -79,13 +97,41 @@ async function probeEndpoint(port: number): Promise<DevSessionInfo | null> {
 }
 
 /** 起控制服务，由 dev 进程持有。 */
-export async function startControlServer(info: Omit<DevSessionInfo, 'pid'>): Promise<ControlServer> {
+export async function startControlServer(info: Omit<DevSessionInfo, 'pid' | 'port' | 'ready'>): Promise<ControlServer> {
   mkdirSync(CONTROL_DIR, { recursive: true });
 
+  // ready 与读租约都只存在 dev 进程内存里，端口文件不写——和「状态不放文件」一致。
+  // 读租约是屏障的关键：只检查 ready 有竞态（检查完、读数前刷新才开始），
+  // 必须让 dev 在广播刷新前等所有在读数的人释放租约。
+  let ready = true;
+  let readers = 0;
+  let boundPort = 0;
   const server = createServer((req, res) => {
-    if (req.url === '/info') {
+    const json = (body: unknown): void => {
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ...info, pid: process.pid }));
+      res.end(JSON.stringify(body));
+    };
+    if (req.url === '/info') {
+      json({ ...info, pid: process.pid, ready, port: boundPort });
+      return;
+    }
+    if (req.url === '/ready') {
+      json({ ready, readers });
+      return;
+    }
+    // 申请读租约：刷新期间拒绝，刷新结束后由调用方重试。
+    if (req.url === '/acquire') {
+      if (!ready) {
+        json({ ok: false, reason: 'refreshing' });
+        return;
+      }
+      readers += 1;
+      json({ ok: true });
+      return;
+    }
+    if (req.url === '/release') {
+      readers = Math.max(0, readers - 1);
+      json({ ok: true });
       return;
     }
     res.writeHead(404);
@@ -103,12 +149,26 @@ export async function startControlServer(info: Omit<DevSessionInfo, 'pid'>): Pro
     throw new Error('控制服务没能拿到监听端口');
   }
   const port = address.port;
+  boundPort = port;
   const file = endpointFile(process.pid);
   writeFileSync(file, JSON.stringify({ port, pid: process.pid }));
 
   let stopped = false;
   return {
     port,
+    setReady(value: boolean): void {
+      ready = value;
+    },
+    activeReaders(): number {
+      return readers;
+    },
+    async waitForIdle(timeoutMs: number): Promise<boolean> {
+      const deadline = Date.now() + timeoutMs;
+      while (readers > 0 && Date.now() < deadline) {
+        await new Promise((resolve) => setTimeout(resolve, TIMING.controlProbe));
+      }
+      return readers === 0;
+    },
     stop(): void {
       if (stopped) return;
       stopped = true;
@@ -122,6 +182,37 @@ export async function startControlServer(info: Omit<DevSessionInfo, 'pid'>): Pro
 export function endpointFiles(): string[] {
   if (!existsSync(CONTROL_DIR)) return [];
   return readdirSync(CONTROL_DIR).filter(isEndpointFile);
+}
+
+/**
+ * 申请一次读租约：刷新期间会一直重试，直到 dev 会话把页面刷新完。
+ * 拿到租约后 dev 会等所有人释放才广播下一次刷新，所以「检查完才开始的刷新」
+ * 也能挡住，不只是刷新中才开始的那些。
+ *
+ * 返回释放函数；调用方必须在读数结束后调它（包括异常路径），否则 dev 会一直等。
+ */
+export async function acquireReadLease(port: number, timeoutMs: number): Promise<(() => Promise<void>) | null> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const response = await fetchOk(`http://127.0.0.1:${port}/acquire`, TIMING.controlProbe);
+    if (response) {
+      try {
+        const data: unknown = await response.json();
+        if (isRecord(data) && data['ok'] === true) {
+          let released = false;
+          return async (): Promise<void> => {
+            if (released) return;
+            released = true;
+            await fetchOk(`http://127.0.0.1:${port}/release`, TIMING.controlProbe);
+          };
+        }
+      } catch (cause) {
+        requireRecoverable(cause);
+      }
+    }
+    await new Promise((resolve) => setTimeout(resolve, TIMING.controlProbe));
+  }
+  return null;
 }
 
 /** 找可复用的 dev 会话；只读，不删文件。 */

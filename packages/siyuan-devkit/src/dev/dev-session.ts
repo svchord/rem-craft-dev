@@ -8,12 +8,15 @@
  * 一次会话做四件事：
  *   1. 把产物目录链接到 <workspace>/data/<subdir>/<name>
  *   2. 让思源用上它（主题切 themeLight/themeDark；插件由思源自己管）
- *   3. 开浏览器、登记控制服务（measure / open 靠它找到本会话）
- *   4. 等挂载就绪，之后每次产物变化按类型重载
+ *   3. 起一个常驻无头浏览器，桌面端和移动端各开一页，并登记控制服务
+ *   4. 产物一变就广播整页刷新，页面回来后解除测量屏障
  *
- * 为什么刷新后不需要额外处理：
- *   主题选择与插件启用状态都在思源配置里，F5 之后思源自己会恢复，
- *   不依赖任何注入的存活。
+ * 为什么统一整页刷新：主题 CSS、插件 CSS、插件 JS 三种产物的加载机制不同，
+ * 各写一条外科式分支既脆弱又会互相污染测量。整页刷新让思源自己重新走一遍
+ * 启动流程，三种产物一并拿到磁盘真值，交互态也天然清空。
+ *
+ * 代价（明确接受）：本体窗口会被一起刷新，丢光标/滚动/打开面板；人工摆好的
+ * 交互场景会被冲掉。测量侧靠「每次 --setup 重建场景」应对。
  */
 import { mkdtempSync, rmSync } from 'node:fs';
 import { spawn } from 'node:child_process';
@@ -27,11 +30,12 @@ import { startControlServer } from '../core/control-server.ts';
 import type { ControlServer } from '../core/control-server.ts';
 import { checkLinkedFiles, ensureLink } from '../core/link.ts';
 import { findChrome, findKernelPort, frontendUrl, MOBILE_VIEWPORT } from '../core/siyuan.ts';
-import type { Frontend } from '../core/siyuan.ts';
+import { callKernel } from '../core/kernel.ts';
 import { createTarget } from '../core/targets.ts';
 import type { Target, TargetBuildConfig } from '../core/targets.ts';
 import type { MountState } from '../core/target-types.ts';
 import type { Logger } from '../core/log.ts';
+import { TIMING } from '../core/timing.ts';
 
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -53,12 +57,6 @@ export interface StartDevSessionOptions {
   outDir?: string | null;
   /** 是否建立链接，缺省 true。 */
   link?: boolean;
-  /** 是否无头。 */
-  headless?: boolean;
-  /** 是否启动浏览器，缺省 true。false 时桌面端靠思源本体温热重载。 */
-  browser?: boolean;
-  /** 打开哪个前端。 */
-  frontend?: Frontend;
   /** 日志回调。 */
   log?: Logger;
   /**
@@ -69,17 +67,14 @@ export interface StartDevSessionOptions {
 }
 
 /**
- * 启动本机 Chrome 浏览器并接上 CDP。
- *
- * 恢复最早（fa053ae）的实现方式：`spawn` 启动 Chrome + `puppeteer.connect`，
- * 而不是 `puppeteer.launch`。headful 时显式带 `--new-window --window-position`，
- * 保证窗口真的被创建并显示；跨平台（Node 的 spawn，各平台传各自 Chrome 路径）。
+ * 启动本机 Chrome 并接上 CDP。常驻页固定无头：测量页不需要被人看见，
+ * 也就没有「开哪个前端 / 要不要窗口」这些入参。
  */
-async function launchChromeBrowser(profile: string, headless: boolean): Promise<Browser> {
+async function launchChromeBrowser(profile: string): Promise<Browser> {
   const chrome = findChrome();
   const debugPort = 9333 + Math.floor(Math.random() * 400);
   const args = [
-    ...(headless ? ['--headless=new'] : ['--new-window', '--window-position=40,40']),
+    '--headless=new',
     `--remote-debugging-port=${debugPort}`,
     '--window-size=1600,1000',
     '--enable-automation',
@@ -111,7 +106,10 @@ export interface DevSession {
   target: Target;
   buildConfig: TargetBuildConfig;
   browser: Browser | null;
+  /** 桌面端常驻页。 */
   page: Page | null;
+  /** 移动端常驻页。 */
+  mobilePage: Page | null;
   kernelPort: number;
   /** 链接目标（`<workspace>/data/<subdir>/<name>`）；未建立链接（link:false）时为 null。 */
   installPath: string | null;
@@ -154,10 +152,15 @@ async function waitForMount(
   return last;
 }
 
-/** 等页面回到可用状态（导航、手动 F5 之后）。 */
+/** 等页面回到可用状态：整页刷新后思源要重新挂载 config 与样式表。 */
 async function waitForApp(page: Page, log: Logger): Promise<boolean> {
   try {
     await page.waitForFunction('window.siyuan && window.siyuan.config' as never, { timeout: 20000 });
+    await page
+      .waitForFunction(() => Boolean(document.getElementById('themeStyle')?.getAttribute('href')) as never, {
+        timeout: 10000,
+      })
+      .catch(() => undefined);
     return true;
   } catch {
     log('页面刷新后没能恢复（可能仍在导航），下一次改动会再试', 'warn');
@@ -174,9 +177,6 @@ export async function startDevSession({
   cwd = process.cwd(),
   outDir = null,
   link = true,
-  headless = false,
-  browser: startBrowser = true,
-  frontend = 'mobile',
   log = (message) => console.log(message),
   watch = true,
 }: StartDevSessionOptions): Promise<DevSession> {
@@ -239,48 +239,62 @@ export async function startDevSession({
       if (!activation.ok) throw new Error(activation.message);
     }
 
-    // 3) 浏览器 + 控制服务（browser:false 时不起；桌面端靠思源本体温热重载）
-    let page: Page | null = null;
-    if (startBrowser) {
-      profile = mkdtempSync(join(tmpdir(), 'vps-dev-'));
-      browser = await launchChromeBrowser(profile, headless);
-      control = await startControlServer({
-        ws: browser.wsEndpoint(),
-        cwd,
-        kind: target.kind,
-        name: target.name,
-      });
+    // 3) 常驻无头浏览器：桌面端与移动端各一页，控制服务对外登记
+    profile = mkdtempSync(join(tmpdir(), 'vps-dev-'));
+    browser = await launchChromeBrowser(profile);
+    control = await startControlServer({
+      ws: browser.wsEndpoint(),
+      cwd,
+      kind: target.kind,
+      name: target.name,
+    });
 
-      const pages = await browser.pages();
-      page = pages[0] ?? (await browser.newPage());
-      // 桌面与移动是两个独立构建入口；移动端用 390x844@3 视口（与 shot.ts 一致）。
-      await page.setViewport(frontend === 'mobile' ? { ...MOBILE_VIEWPORT } : { width: 1600, height: 1000 });
+    /** 打开一个前端的常驻页，视口与 shot.ts 保持一致。 */
+    const openFrontend = async (frontend: 'desktop' | 'mobile'): Promise<Page> => {
+      const page = await browser!.newPage();
+      await page.setViewport(
+        frontend === 'mobile' ? { ...MOBILE_VIEWPORT } : { width: 1600, height: 1000, deviceScaleFactor: 1 }
+      );
       await page.goto(frontendUrl(kernelPort, frontend), { waitUntil: 'domcontentloaded', timeout: 30000 });
       await page.waitForFunction('window.siyuan && window.siyuan.config' as never, { timeout: 30000 });
+      return page;
+    };
 
-      mount = await waitForMount(target, page, 10000);
-      log(`挂载：${mount.loaded ?? mount.reason ?? '(无样式表)'}`, mount.ok ? 'success' : 'warn');
-    }
+    const page = await openFrontend('desktop');
+    const mobilePage = await openFrontend('mobile');
+    mount = await waitForMount(target, page, 10000);
+    log(`挂载：${mount.loaded ?? mount.reason ?? '(无样式表)'}`, mount.ok ? 'success' : 'warn');
+    log('常驻测量页：桌面端 + 移动端（无头）', 'info');
 
-    // 4) 重载：一批改动只处理一次
+    // 4) 产物变化 → 统一整页刷新。刷新前关屏障，两页都回来后开屏障。
     let reloads = 0;
     let pending = new Set<string>();
     let batchTimer: NodeJS.Timeout | null = null;
+    let refreshing = false;
 
-    const applyReload = async (filename: string): Promise<boolean> => {
-      // page 允许为 null：插件 JS 走内核「禁用→启用」，本来就不需要受控页面。
-      // 主题 CSS 与插件 CSS 需要页面，由描述符如实返回「未热重载」说明。
+    const applyReload = async (): Promise<boolean> => {
+      if (refreshing) return false;
+      refreshing = true;
+      // 先关屏障：新的测量会被挡在 /acquire 之外重试，不会撞进刷新。
+      control?.setReady(false);
       try {
-        const result = await target.reload(page, { filename, port: kernelPort });
-        if (result.message) log(result.message, result.ok ? 'success' : 'warn');
-        return result.ok;
-      } catch (cause) {
-        const message = cause instanceof Error ? cause.message : String(cause);
-        // 页面恰好被手动刷新（F5）时 evaluate 会抛上下文销毁，不是错误。
-        if (page && /Execution context|detached|navigat|Target closed/i.test(message)) {
-          return waitForApp(page, log);
+        // 等已经在读数的人释放租约。只检查 ready 有竞态——有人检查完才开始刷新。
+        // 超时说明有崩溃的测量进程没释放，照常刷新但如实警告。
+        const idle = control ? await control.waitForIdle(TIMING.readLeaseDrainTimeout) : true;
+        if (!idle) log('有测量会话未释放读租约（进程可能崩溃），仍继续刷新', 'warn');
+        const result = await callKernel(kernelPort, '/api/ui/reloadUI', {});
+        if (result.code !== 0) {
+          log(`刷新失败：${result.msg || '未知错误'}`, 'warn');
+          return false;
         }
-        throw cause;
+        // 广播是全局的（本体 + 两个常驻页）。等两页重新挂载完再放行测量，
+        // 否则 agent 会撞进 themeStyle 还没挂上的空窗。
+        const [desktopOk, mobileOk] = await Promise.all([waitForApp(page, log), waitForApp(mobilePage, log)]);
+        if (!desktopOk || !mobileOk) return false;
+        return true;
+      } finally {
+        control?.setReady(true);
+        refreshing = false;
       }
     };
 
@@ -292,15 +306,12 @@ export async function startDevSession({
       const primary = buildConfig.primary(files);
       reloads += 1;
       const suffix = files.length > 1 ? `（+ ${files.length - 1}）` : '';
-      const label = `已重载 #${reloads}：${primary}${suffix}`;
+      const label = `已刷新 #${reloads}：${primary}${suffix}`;
       try {
-        // 不在这里按 page 是否存在提前返回：插件形态（arco 等）通常不开浏览器，
-        // 但它的 JS 变更经内核广播就能重载，提前返回会把这条路一起挡掉。
-        const ok = await applyReload(primary);
-        if (ok) log(label, 'success');
-        else log(`${label}（未生效）`, 'warn');
+        const ok = await applyReload();
+        log(ok ? `${label}（桌面端 + 移动端）` : `${label}（未生效）`, ok ? 'success' : 'warn');
       } catch (cause) {
-        log(`重载出错：${cause instanceof Error ? cause.message : String(cause)}`, 'error');
+        log(`刷新出错：${cause instanceof Error ? cause.message : String(cause)}`, 'error');
       }
     };
 
@@ -327,6 +338,7 @@ export async function startDevSession({
       buildConfig,
       browser,
       page,
+      mobilePage,
       kernelPort,
       installPath,
       mount,

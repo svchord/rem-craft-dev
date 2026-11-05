@@ -1,4 +1,3 @@
-import { createServer } from 'node:http';
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -6,14 +5,13 @@ import { inflateRawSync } from 'node:zlib';
 import { describe, expect, it, beforeEach } from 'vitest';
 import type { Page } from 'puppeteer-core';
 import { probeTokens } from '../src/core/probes.ts';
-import { parseViewport, refreshThemeStylesheet, viewportFor } from '../src/core/session.ts';
-import { alignStylesheets } from '../src/core/align.ts';
+import { parseViewport, viewportFor } from '../src/core/session.ts';
 import { frontendUrl, MOBILE_VIEWPORT } from '../src/core/siyuan.ts';
 import { findDoubleWrappedColors, findProblemsIn } from '../src/core/lints.ts';
 import { pluginTarget, themeTarget, createTarget } from '../src/core/targets.ts';
 import { detectTargetType, registerTargetType, targetType, targetTypes } from '../src/core/target-types.ts';
 import { checkLinkedFiles, ensureLink, inspectLink, samePath } from '../src/core/link.ts';
-import { CONTROL_DIR, discover, startControlServer } from '../src/core/control-server.ts';
+import { CONTROL_DIR, acquireReadLease, discover, startControlServer } from '../src/core/control-server.ts';
 import siyuanVitePlugin from '../src/plugin/plugin.ts';
 import { resolveViteBin, startBuild } from '../src/dev/build.ts';
 import { planIsEmpty, validatePlan } from '../src/core/audit.ts';
@@ -107,71 +105,29 @@ describe('frontend selection', () => {
     expect(viewportFor('mobile', explicit), '显式视口优先').toEqual(explicit);
   });
 
-  it('re-aligns a reused page with disk CSS before measuring', async () => {
-    // attach 复用的是活页面，它的 themeStyle 可能还停在旧 CSS。
-    // 测量前必须换一次 href 逼浏览器重拉，否则读到的是过期样式。
-    const hrefs: string[] = [];
-    const link = {
-      getAttribute: () => '/appearance/themes/T/theme.css?v=old',
-      setAttribute: (_name: string, value: string) => void hrefs.push(value),
-      addEventListener: (_event: string, handler: () => void) => handler(),
-    };
-    const page = asPage({
-      evaluate: async (fn: (timeout: number) => Promise<void>, timeout: number) => {
-        // 在假 document 上跑真实实现，确认它换的是 #themeStyle 的 href
-        const original = Reflect.get(globalThis, 'document');
-        Reflect.set(globalThis, 'document', { getElementById: () => link });
-        try {
-          await fn(timeout);
-        } finally {
-          if (original === undefined) Reflect.deleteProperty(globalThis, 'document');
-          else Reflect.set(globalThis, 'document', original);
-        }
-      },
-    });
-
-    await refreshThemeStylesheet(page);
-    expect(hrefs.length, '必须真的换一次 href').toBe(1);
-    expect(hrefs[0]).toMatch(/\/appearance\/themes\/T\/theme\.css\?v=\d+$/);
+  it('keeps the measure session free of DOM patches (refresh owns freshness)', () => {
+    // 统一整页刷新后，常驻页的 CSS 由思源自己重新加载，测量侧不该再改页面 DOM。
+    // 之前那套「换 href / 覆盖内联 <style>」补丁已删除，别让它悄悄回来。
+    const source = stripComments(readSource('session.ts'));
+    expect(source, '不该再改 #themeStyle 的 href').not.toMatch(/setAttribute\(['"]href['"]/);
+    expect(source, '不该再覆盖插件内联 style').not.toMatch(/pluginsStyle|textContent\s*=/);
+    expect(source, '不该再有 align 回调').not.toMatch(/align\?:/);
+    expect(existsSync(join(root, 'src', 'core', 'align.ts')), 'align.ts 已删除').toBe(false);
   });
 
-  it('aligns plugin inline CSS with disk when reusing a page', async () => {
-    // 插件 CSS 是内联 <style>，换主题 href 不会动它。复用页面量插件时必须
-    // 从磁盘重读并覆盖 textContent，否则量到的是旧值。
-    const hrefs: string[] = [];
-    const link = {
-      getAttribute: () => '/appearance/themes/T/theme.css?v=old',
-      setAttribute: (_name: string, value: string) => void hrefs.push(value),
-      addEventListener: (_event: string, handler: () => void) => handler(),
-    };
-    const pluginStyle = { textContent: 'OLD CSS' };
-    const documentStub = {
-      getElementById: (id: string) => {
-        if (id === 'themeStyle') return link;
-        if (id === 'pluginsStyleMyPlugin') return pluginStyle;
-        return null;
-      },
-    };
-    const page = {
-      evaluate: async (fn: (...args: never[]) => Promise<void>, ...args: never[]) => {
-        const original = Reflect.get(globalThis, 'document');
-        Reflect.set(globalThis, 'document', documentStub);
-        try {
-          await fn(...args);
-        } finally {
-          if (original === undefined) Reflect.deleteProperty(globalThis, 'document');
-          else Reflect.set(globalThis, 'document', original);
-        }
-      },
-    } as unknown as Page;
-    const target = {
-      name: 'MyPlugin',
-      resolveCss: async () => [{ label: 'index.css', text: 'NEW CSS FROM DISK' }],
-    } as unknown as ReturnType<typeof pluginTarget>;
+  it('holds a read lease while measuring so a refresh cannot start mid-read', () => {
+    const source = stripComments(readSource('session.ts'));
+    expect(source, '复用页面前必须拿读租约').toMatch(/acquireReadLease/);
+    expect(source, '读数结束要释放租约').toMatch(/releaseLease/);
+    // 只检查 ready 有竞态，dev 会话必须等租约释放才广播刷新。
+    const devSession = stripComments(readSource('dev-session.ts', 'dev'));
+    expect(devSession, '刷新前等所有读者释放').toMatch(/waitForIdle/);
+  });
 
-    await alignStylesheets(page, target);
-    expect(hrefs.length, '主题 href 也要跟着换').toBe(1);
-    expect(pluginStyle.textContent, '插件内联 CSS 必须被磁盘值覆盖').toBe('NEW CSS FROM DISK');
+  it('rejects --viewport when attaching to a fixed-viewport resident page', () => {
+    // 常驻页视口建页时就定死了，静默忽略 --viewport 会让 agent 量错尺寸。
+    const source = stripComments(readSource('session.ts'));
+    expect(source, '必须显式报错而不是忽略').toMatch(/不能用 --viewport/);
   });
 });
 
@@ -547,6 +503,36 @@ describe('dev session discovery', () => {
     rmSync(root, { recursive: true, force: true });
   });
 
+  it('blocks new reads during refresh and waits for existing leases to drain', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'rc-lease-'));
+    const cwd = join(root, 'project');
+    mkdirSync(cwd);
+    const control = await startControlServer({ ws: 'ws://127.0.0.1:1/x', cwd, kind: 'theme', name: 'T' });
+    try {
+      const release = await acquireReadLease(control.port, 2000);
+      expect(release, '正常状态应能拿到读租约').not.toBeNull();
+      expect(control.activeReaders(), '租约被计数').toBe(1);
+
+      // 刷新开始：关屏障后新的申请要被拒绝，且必须等现有租约释放。
+      control.setReady(false);
+      const blocked = await acquireReadLease(control.port, 300);
+      expect(blocked, '刷新期间不能拿到新租约').toBeNull();
+      expect(await control.waitForIdle(300), '还有读者时不该放行刷新').toBe(false);
+
+      await release?.();
+      expect(await control.waitForIdle(1000), '租约释放后放行刷新').toBe(true);
+
+      // 刷新结束后新的申请恢复
+      control.setReady(true);
+      const again = await acquireReadLease(control.port, 1000);
+      expect(again, '刷新结束后应能再拿到租约').not.toBeNull();
+      await again?.();
+    } finally {
+      control.stop();
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it('gives a readable reason instead of garbage when nothing is running', async () => {
     const found = await discover({ cwd: join(tmpdir(), 'rc-definitely-no-dev-here') });
     expect(found.ok).toBe(false);
@@ -561,149 +547,40 @@ describe('target adapters drive the dev loop', () => {
     for (const target of [themeTarget({ name: 'T' }), pluginTarget({ name: 'p' })]) {
       expect(typeof target.buildConfig, target.kind + ' 缺少 buildConfig').toBe('function');
       expect(typeof target.installDir, target.kind + ' 缺少 installDir').toBe('function');
-      expect(typeof target.reload, target.kind + ' 缺少 reload').toBe('function');
       expect(typeof target.resolveCss, target.kind + ' 缺少 resolveCss').toBe('function');
       expect(typeof target.mountState, target.kind + ' 缺少 mountState').toBe('function');
     }
   });
 
-  it('lets a descriptor reload without relying on its own this', async () => {
-    // 真实 bug：插件描述符的 reload 需要读磁盘 CSS，早先写成 this.resolveCss()
-    // 就报了 "resolveCss is not a function"——热重载静默失效，日志里只有一行错。
-    // 现在 resolveCss 预先绑进 context，描述符不依赖 this。
-    const dir = mkdtempSync(join(tmpdir(), 'rc-reload-'));
-    try {
-      writeFileSync(join(dir, 'index.css'), '.x { color: red }');
-      const target = pluginTarget({ name: 'p', pluginDir: dir });
+  it('drives every artifact change through one unified refresh, not per-type branches', () => {
+    // 统一整页刷新后，主题 CSS / 插件 CSS / 插件 JS 不再各写一条重载分支。
+    // 刷新让思源自己重走启动流程，三种产物一并拿到磁盘真值。
+    const devSession = stripComments(readSource('dev-session.ts', 'dev'));
+    expect(devSession, '必须调用 reloadUI').toMatch(/\/api\/ui\/reloadUI/);
+    expect(devSession, '刷新前关屏障').toMatch(/setReady\(false\)/);
+    expect(devSession, '刷新后开屏障').toMatch(/setReady\(true\)/);
+    expect(devSession, '两个常驻页都要等回来').toMatch(/waitForApp\(page/);
+    expect(devSession, '移动端常驻页也要等回来').toMatch(/waitForApp\(mobilePage/);
+    expect(devSession, '编排层不再按类型分流').not.toMatch(/target\.reload/);
 
-      const seen: string[] = [];
-      const fakePage = asPage({
-        evaluate: (_fn: unknown, _name: string, css: string) => {
-          seen.push(css);
-          return Promise.resolve(true);
-        },
-      });
+    const targets = stripComments(readSource('builtin-targets.ts'));
+    expect(targets, '描述符不再实现 reload').not.toMatch(/async reload\(/);
+    expect(targets, '不再走插件禁用启用分支').not.toMatch(/setPetalEnabled|reloadPlugin/);
+  });
 
-      const result = await target.reload(fakePage, { filename: 'index.css' });
-      expect(result.ok, 'reload 必须成功，不能因 this 丢失而抛错').toBe(true);
-      expect(seen, 'reload 要把磁盘上的 CSS 注入页面').toEqual(['.x { color: red }']);
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
+  it('opens two resident headless pages, one per frontend', () => {
+    const devSession = stripComments(readSource('dev-session.ts', 'dev'));
+    expect(devSession, '桌面端常驻页').toMatch(/openFrontend\('desktop'\)/);
+    expect(devSession, '移动端常驻页').toMatch(/openFrontend\('mobile'\)/);
+    expect(devSession, '固定在无头模式').toMatch(/--headless=new/);
+    // 三个开关已删：不再有「开不开浏览器 / 开哪个前端 / 要不要窗口」
+    for (const option of ['browser', 'frontend', 'headless']) {
+      expect(devSession, `dev 会话不该再有 ${option} 开关`).not.toMatch(new RegExp(`${option}\\?:`));
     }
-  });
-
-  it('reloads a plugin via kernel even when no controlled page exists', async () => {
-    // 插件形态（arco 等）通常不开预览窗口，page 为 null。
-    // 但插件 JS 走的是内核广播，本来就不需要页面——通用层不得因为
-    // page 为空就提前返回，否则插件的热重载会被一起挡掉。
-    const calls: string[] = [];
-    const server = createServer((req, res) => {
-      let body = '';
-      req.on('data', (chunk) => {
-        body += chunk;
-      });
-      req.on('end', () => {
-        calls.push(req.url ?? '');
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end('{"code":0,"msg":"","data":null}');
-      });
-    });
-    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-    const address = server.address();
-    const port = typeof address === 'object' && address ? address.port : 0;
-
-    try {
-      const result = await pluginTarget({ name: 'p' }).reload(null, { filename: 'index.js', port });
-      expect(result.ok, '没有受控页面时插件 JS 仍应经内核重载').toBe(true);
-      expect(calls, '必须真的发出禁用+启用两次内核调用').toEqual([
-        '/api/petal/setPetalEnabled',
-        '/api/petal/setPetalEnabled',
-      ]);
-    } finally {
-      server.close();
-    }
-  });
-
-  it('reloads a plugin via kernel when its JS changes, never a full page refresh', async () => {
-    // 插件 JS 是 window.eval 执行的、带副作用（注册 dock/顶栏/事件监听），
-    // 换 <style> 撤销不了；也不能整页刷新（会丢掉用户正在编辑的文档）。
-    // 正确路径是 /api/petal/setPetalEnabled 禁用再启用，让思源重建插件实例。
-    // 这条分流必须留在插件描述符里，通用层不该知道插件是怎么加载的。
-    const calls: Array<{ path: string; enabled: boolean }> = [];
-    const server = createServer((req, res) => {
-      let body = '';
-      req.on('data', (chunk) => {
-        body += chunk;
-      });
-      req.on('end', () => {
-        calls.push({ path: req.url ?? '', enabled: JSON.parse(body || '{}').enabled });
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end('{"code":0,"msg":"","data":null}');
-      });
-    });
-    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-    const address = server.address();
-    const port = typeof address === 'object' && address ? address.port : 0;
-
-    try {
-      const target = pluginTarget({ name: 'p' });
-      const fakePage = asPage({
-        evaluate: () => {
-          throw new Error('JS 变更不该走 DOM 重注入');
-        },
-      });
-
-      const result = await target.reload(fakePage, { filename: 'index.js', port });
-      expect(result.ok, 'kernel 路径成功应返回 ok').toBe(true);
-      expect(
-        calls.map((c) => c.path),
-        '两次调用都走 setPetalEnabled'
-      ).toEqual(['/api/petal/setPetalEnabled', '/api/petal/setPetalEnabled']);
-      expect(
-        calls.map((c) => c.enabled),
-        '顺序必须是禁用再启用'
-      ).toEqual([false, true]);
-    } finally {
-      server.close();
-    }
-  });
-
-  it('keeps theme reload a pure DOM operation that ignores kernel context', async () => {
-    // 主题是 <link href>，换地址就够了，完全不需要 kernel 往返。
-    // 这条保证「修插件侧不影响主题侧」。
-    const target = themeTarget({ name: 'T' });
-    let swapped = false;
-    const fakePage = asPage({
-      evaluate: async () => {
-        swapped = true;
-        return true;
-      },
-    });
-
-    const result = await target.reload(fakePage, { filename: 'theme.css', port: 1 });
-    expect(result.ok).toBe(true);
-    expect(swapped, '主题仍走原来的换 href 路径').toBe(true);
-  });
-
-  it('reports no hot reload when the theme has no controlled page', async () => {
-    // 主题 CSS 只能靠受控页面换 #themeStyle 的 href。内核侧试过的路径都不采用：
-    //   /api/ui/reloadTheme   对已打开前端无效果
-    //   /api/ui/reloadUI      有效但整页刷新
-    //   切走主题再切回        有效但约 870ms 挂在内置 daylight 上，期间测量会读到宿主值
-    // 所以没有页面时如实报「未热重载」，不能伪装成成功或失败。
-    const result = await themeTarget({ name: 'T' }).reload(null, { filename: 'theme.css', port: 6806 });
-    expect(result.ok, '没有页面时不该谎报成功').toBe(false);
-    expect(result.message, '要说明为什么没重载').toMatch(/未热重载|没有受控页面/);
-  });
-
-  it('reports no hot reload even when a kernel port is available', async () => {
-    // 有端口也不该让主题走内核：切主题会闪、会污染测量。这条保证"别绕回去"。
-    const result = await themeTarget({ name: 'T' }).reload(null, { filename: 'theme.css', port: 6806 });
-    expect(result.ok).toBe(false);
   });
 
   it('names the right build artifact per target kind', () => {
-    // 主题产物只有 theme.css；插件有 index.js + index.css，两者都要触发重载。
+    // 主题产物只有 theme.css；插件有 index.js + index.css，两者都要触发刷新。
     const theme = themeTarget({ name: 'T' }).buildConfig();
     expect(theme.artifact).toBe('theme.css');
     expect(theme.match('theme.css')).toBe(true);
@@ -711,8 +588,8 @@ describe('target adapters drive the dev loop', () => {
 
     const plugin = pluginTarget({ name: 'p' }).buildConfig();
     expect(plugin.artifact).toBe('index.js');
-    expect(plugin.match('index.js'), 'JS 变了要重载').toBe(true);
-    expect(plugin.match('index.css'), 'CSS 变了也要重载').toBe(true);
+    expect(plugin.match('index.js'), 'JS 变了要刷新').toBe(true);
+    expect(plugin.match('index.css'), 'CSS 变了也要刷新').toBe(true);
   });
 
   it('puts theme and plugin in different install directories', async () => {
@@ -812,13 +689,11 @@ describe('vite plugin shape', () => {
 
   it('keeps fixed dev behaviors out of the plugin options', () => {
     // 链接、校验、资产监听是固定行为；做成开关只会多一条静默失效路径。
-    // browser 是唯一保留的开关：主题热重载依赖受控页面换 themeStyle 的 href。
+    // 常驻页固定无头、两个前端各一页，所以 browser/frontend/headless 也都不是入参。
     const source = stripComments(readSource('plugin.ts'));
-    for (const option of ['link', 'verify', 'assets', 'name']) {
+    for (const option of ['link', 'verify', 'assets', 'name', 'browser', 'frontend', 'headless']) {
       expect(source, `不该再有 ${option} 开关`).not.toMatch(new RegExp(`${option}\\?:`));
     }
-    expect(source, '浏览器默认不自动打开').toMatch(/browser = false/);
-    expect(source, 'browser 开关必须保留（热重载依赖它）').toMatch(/browser\?:/);
     expect(source, '清单路径仍是可配置入参').toMatch(/manifestPath\?:/);
   });
 
@@ -1087,7 +962,7 @@ describe('cdp layering', () => {
       const typeOnlyFromDev = source.match(/import\s+type\s+\{[^}]*\}\s+from\s+['"][^'"]*dev\/[^'"]*['"]/g) ?? [];
       for (const statement of typeOnlyFromDev) {
         expect(statement, `plugin/${file} 的类型契约不该来自 dev/：${statement}`).not.toMatch(
-          /LogLevel|Logger|TargetContext|ReloadContext/
+          /LogLevel|Logger|TargetContext/
         );
       }
     }
@@ -1182,21 +1057,20 @@ describe('cdp layering', () => {
     expect(allFiles.includes('sandbox.ts'), 'sandbox.mjs 已删除；再加回来意味着隔离测量复活').toBe(false);
   });
 
-  it('keeps the loading mechanism of each target inside its own descriptor', () => {
-    // 主题是 <link href>，插件是 window.eval + setPetalEnabled。
-    // 这两种机制的知识必须留在 targets.ts 的描述符里；一旦漏进会话层或编排层
-    // （比如 if (filename.endsWith('.js')) page.reload()），修插件就会动到主题。
+  it('keeps the unified refresh free of per-type loading knowledge', () => {
+    // 统一整页刷新后，会话层/编排层不该知道「主题是 <link>、插件是 window.eval、
+    // JS 要走 setPetalEnabled」。这些细节连同分叉一起删掉了；刷新由思源自己负责。
     for (const file of ['dev.ts', 'dev-session.ts', 'plugin.ts']) {
       const source = stripComments(readSource(file));
       expect(source, file + ' 不得判断产物扩展名').not.toMatch(/endsWith\(['"]\.js['"]\)/);
-      expect(source, file + ' 不得整页刷新来重载产物').not.toMatch(/page\.reload/);
-      expect(source, file + ' 不得直接调 selectTheme / setPetalEnabled').not.toMatch(
-        /selectTheme|setPetalEnabled|reloadPlugin|reloadThemeCss/
+      expect(source, file + ' 不得自己逐页 reload').not.toMatch(/page\.reload/);
+      expect(source, file + ' 不得直接调类型专属重载接口').not.toMatch(
+        /setPetalEnabled|reloadPlugin|reloadThemeCss|reloadPluginCss/
       );
     }
-    // 会话层只把 filename 和 port 交给描述符。
-    expect(stripComments(readSource('dev-session.ts')), '会话层只把 filename 和 port 交给描述符').toMatch(
-      /target\.reload\(/
+    // 会话层只广播一次刷新，不碰具体产物。
+    expect(stripComments(readSource('dev-session.ts')), '会话层只广播 reloadUI').toMatch(
+      /callKernel\(kernelPort, '\/api\/ui\/reloadUI'/
     );
   });
 

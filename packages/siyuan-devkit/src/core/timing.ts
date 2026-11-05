@@ -33,6 +33,10 @@ export const TIMING = {
   themeStyleWait: 5000,
   /** 换 href 后等新样式表 load/error 的上限。 */
   stylesheetLoad: 1500,
+  /** 等 dev 会话整页刷新完成（拿到读租约）的上限。 */
+  refreshReadyTimeout: 20000,
+  /** 刷新前等所有读租约释放的上限；超时照常刷新并警告。 */
+  readLeaseDrainTimeout: 10000,
   /** 禁用→启用插件之间留一次 WebSocket 往返。 */
   pluginReloadGap: 500,
   /** 打开新页面/等待 siyuan.config 的超时。 */

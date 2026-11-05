@@ -15,7 +15,7 @@ import type { Page } from 'puppeteer-core';
 import { isSemver } from './semver.ts';
 import { judgeMount } from './theme.ts';
 import { stripCssComments } from './lints.ts';
-import { reloadPlugin, reloadPluginCss, reloadThemeCss, selectTheme } from './kernel.ts';
+import { selectTheme } from './kernel.ts';
 import { findWorkspaceDir } from './siyuan.ts';
 import { requireRecoverable } from './errors.ts';
 import { isString } from './guards.ts';
@@ -24,7 +24,6 @@ import type {
   BuildContext,
   CssSheet,
   MountState,
-  ReloadResult,
   TargetBuildSpec,
   TargetBuildSpecOptions,
   TargetContext,
@@ -142,22 +141,6 @@ const themeDescriptor = {
     return issues;
   },
 
-  /**
-   * 换 #themeStyle 的 href 即可，纯前端动作，不需要 kernel、也不整页刷新。
-   *
-   * 只有受控页面这一条路。实测（2026-11 桌面端）内核侧没有等价的外科式接口：
-   *   /api/ui/reloadTheme  对已打开前端无效果
-   *   /api/ui/reloadUI     有效，但整页刷新（丢编辑状态）
-   *   「切走主题再切回」     有效且不刷新，但会有约 870ms 挂在内置 daylight 上
-   * 最后一条既闪用户的眼，又会让这段时间内的测量读到宿主值，所以不采用；
-   * 没有页面时如实报「未热重载」。
-   */
-  async reload(page: Page | null): Promise<ReloadResult> {
-    if (!page) return { ok: false, message: '没有受控页面，主题 CSS 未热重载（传 browser: true 可启用）' };
-    const ok = await reloadThemeCss(page);
-    return { ok, message: ok ? '主题 CSS 已更新' : '主题 CSS 重载失败' };
-  },
-
   /** 开发前让思源真正选中本主题，否则量到的是宿主主题的级联。 */
   async activate(_page: Page | null, { name, port }): Promise<ActivateResult> {
     if (port === null) return { ok: false, message: '切换主题需要 kernel 端口' };
@@ -272,27 +255,6 @@ const pluginDescriptor = {
       }
     }
     return issues;
-  },
-
-  /**
-   * index.css 换 <style> 文本即可；index.js 带副作用，必须经 kernel 禁用再启用
-   * 让思源重跑 unload → eval → onload，也不能整页刷新（会丢用户文档与面板）。
-   * 分流留在描述符里，编排层不需要知道插件是怎么加载的。
-   */
-  async reload(page: Page | null, { name, resolveCss, filename, port }): Promise<ReloadResult> {
-    // 插件 JS 走内核广播（不依赖我们自己的页面）；CSS 只能改受控页面里的 <style>。
-    if (filename.endsWith('.js')) {
-      if (port === null) return { ok: false, message: '插件 JS 重载需要 kernel 端口' };
-      const result = await reloadPlugin(port, name);
-      return result.ok ? { ok: true, message: '插件已重新加载' } : { ok: false, message: result.reason ?? '' };
-    }
-    if (!page) return { ok: false, message: '没有受控页面，插件 CSS 未热重载（传 browser: true 可启用）' };
-
-    const sheets = await resolveCss();
-    const first = sheets[0];
-    if (!first) return { ok: false, message: '找不到插件 CSS' };
-    const ok = await reloadPluginCss(page, name, first.text);
-    return { ok, message: ok ? '插件 CSS 已更新' : '插件 CSS 重载失败' };
   },
 
   /**

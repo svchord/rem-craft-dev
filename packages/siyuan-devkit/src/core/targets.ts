@@ -18,7 +18,6 @@ import type {
   BuildContext,
   CssSheet,
   MountState,
-  ReloadResult,
   TargetBuildSpec,
   TargetBuildSpecOptions,
   TargetContext,
@@ -46,7 +45,6 @@ export interface Target {
   mountState(page: Page): Promise<MountState>;
   buildConfig(): TargetBuildConfig;
   installDir(options?: { workspace?: string | null; port?: number | null }): Promise<string>;
-  reload(page: Page | null, options?: { filename?: string; port?: number | null }): Promise<ReloadResult>;
   /** 生成构建配置片段；描述符没实现时返回 null。 */
   buildSpec(context: BuildContext, options?: TargetBuildSpecOptions): TargetBuildSpec | null;
   /** 描述符本身：校验时要用它的 verifyManifest / verifyArtifact。 */
@@ -129,7 +127,6 @@ export function createTarget(kind: string, options: CreateTargetOptions = {}): T
         workspace: opts.workspace ?? null,
         port: opts.port ?? null,
       }),
-    reload: (page, { filename = '', port = null } = {}) => descriptor.reload(page, { ...context, filename, port }),
     activate: activate ? (page, opts = {}) => activate(page, { ...context, port: opts.port ?? null }) : null,
   };
 }

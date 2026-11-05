@@ -52,9 +52,8 @@ export type { LogLevel, Logger } from './core/log.ts';
 export { DEFAULT_LOG_LEVEL } from './core/log.ts';
 
 // 会话层
-export { createSession, parseViewport, viewportFor, refreshThemeStylesheet } from './core/session.ts';
+export { createSession, parseViewport, viewportFor } from './core/session.ts';
 export type { Session, CreateSessionOptions, ResolvedViewport } from './core/session.ts';
-export { alignStylesheets } from './core/align.ts';
 
 // 测量层
 export {
@@ -108,7 +107,6 @@ export type {
   DetectResult,
   MountState,
   RegisterOptions,
-  ReloadResult,
   TargetDescriptor,
   TargetTypeEntry,
   TargetTypeRegistry,
@@ -116,8 +114,8 @@ export type {
 export { BUILTIN_TYPES } from './core/builtin-targets.ts';
 export { judgeMount, readThemeName } from './core/theme.ts';
 export type { MountJudgement } from './core/theme.ts';
-export { callKernel, selectTheme, reloadThemeCss, reloadPluginCss, reloadPlugin } from './core/kernel.ts';
-export type { KernelResponse, ReloadPluginResult, SelectThemeResult } from './core/kernel.ts';
+export { callKernel, selectTheme } from './core/kernel.ts';
+export type { KernelResponse, SelectThemeResult } from './core/kernel.ts';
 export { listWorkspaces, readWorkspaceManifest, resolveInstallDir } from './core/workspace.ts';
 export type { Workspace } from './core/workspace.ts';
 export { checkLinkedFiles, detectLinkType, ensureLink, inspectLink, samePath } from './core/link.ts';

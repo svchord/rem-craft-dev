@@ -33,7 +33,8 @@ export async function runAudit(parsed: ParsedArgs): Promise<void> {
     loaded = await loadConfig(explicitConfig, cwd);
   } catch (cause) {
     fail(cause instanceof Error ? cause.message : String(cause));
-    process.exit(2);
+    process.exitCode = 2;
+    return;
   }
 
   // 2) 命令行覆盖
@@ -68,14 +69,16 @@ export async function runAudit(parsed: ParsedArgs): Promise<void> {
   if (!validated.ok) {
     fail('计划有问题：');
     for (const error of validated.errors) fail(`  - ${error}`);
-    process.exit(2);
+    process.exitCode = 2;
+    return;
   }
   if (planIsEmpty(validated.plan)) {
     fail('计划里没有任何测量项（tokens / styles / counts / boxes / probes / contrast / diffs）');
     if (!loaded.path) {
       fail(`提示：缺省读 ${DEFAULT_CONFIG_NAME}，或用 --config <path> 指定`);
     }
-    process.exit(2);
+    process.exitCode = 2;
+    return;
   }
 
   // --json 时 stdout 只允许 JSON：计划来源这类人类日志全部延后到非 JSON 分支。

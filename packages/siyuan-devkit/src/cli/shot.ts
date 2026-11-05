@@ -21,7 +21,7 @@ import { wantsHelp } from './cli-args.ts';
 import { findChrome, findKernelPort, frontendLinks, frontendUrl, MOBILE_VIEWPORT } from '../core/siyuan.ts';
 import type { Frontend } from '../core/siyuan.ts';
 import { readThemeName } from '../core/theme.ts';
-import { box, fail, info, linkRow, list, section, status, table, warn } from './ui.ts';
+import { box, info, linkRow, list, section, status, table, warn } from './ui.ts';
 
 const DEFAULT_OUT = './shots';
 
@@ -173,9 +173,6 @@ export async function runShotCli(argv: string[] = process.argv.slice(2)): Promis
       await captureFrontend(browser, port, frontend, outDir, themeState);
     }
     info(`截图完成：${resolve(outDir)}`);
-  } catch (cause) {
-    fail(cause instanceof Error ? cause.message : String(cause));
-    process.exitCode = 2;
   } finally {
     try {
       await browser?.close();

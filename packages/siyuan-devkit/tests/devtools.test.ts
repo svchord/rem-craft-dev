@@ -1,4 +1,13 @@
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { inflateRawSync } from 'node:zlib';
@@ -10,7 +19,7 @@ import { frontendUrl, MOBILE_VIEWPORT } from '../src/core/siyuan.ts';
 import { findDoubleWrappedColors, findProblemsIn } from '../src/core/lints.ts';
 import { pluginTarget, themeTarget, createTarget } from '../src/core/targets.ts';
 import { detectTargetType, registerTargetType, targetType, targetTypes } from '../src/core/target-types.ts';
-import { checkLinkedFiles, ensureLink, inspectLink, samePath } from '../src/core/link.ts';
+import { checkLinkedFiles, detectLinkType, ensureLink, inspectLink, samePath } from '../src/core/link.ts';
 import { CONTROL_DIR, acquireReadLease, discover, startControlServer } from '../src/core/control-server.ts';
 import siyuanVitePlugin from '../src/plugin/plugin.ts';
 import { resolveViteBin, startBuild } from '../src/dev/build.ts';
@@ -362,6 +371,7 @@ describe('target type registry', () => {
       expect(target.buildConfig().artifact).toBe('index.html');
 
       process.env.SIYUAN_WIDGET_DIR = join(root, 'installed');
+      mkdirSync(join(root, 'installed'), { recursive: true });
       expect(await target.installDir()).toBe(join(root, 'installed'));
     } finally {
       if (savedEnv === undefined) delete process.env.SIYUAN_WIDGET_DIR;
@@ -372,6 +382,69 @@ describe('target type registry', () => {
 
   it('lists the available types when asked for an unknown one', () => {
     expect(() => targetType('nonexistent')).toThrow(/已注册/);
+  });
+});
+
+describe('link exception handling', () => {
+  it('refuses to link when the artifact directory does not exist', () => {
+    // 以前 prepareSourceDir 会造一个空目录再链过去，报「已链接」；思源读到空目录
+    // 静默不加载，而 dev 会话一直「活着」。outDir 配错必须当场报错。
+    const root = mkdtempSync(join(tmpdir(), 'rc-link-nosrc-'));
+    try {
+      const result = ensureLink(join(root, 'missing-dev'), join(root, 'installed'), {
+        kind: 'theme',
+        allowElevation: false,
+      });
+      expect(result.ok, '源目录不存在不该报成功').toBe(false);
+      expect(result.reason).toMatch(/产物目录不存在/);
+      expect(existsSync(join(root, 'missing-dev')), '不该凭空造出源目录').toBe(false);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('refuses an existing junction for a plugin install directory', () => {
+    // Go 的 Lstat 把 junction 当普通目录，插件会静默加载不到。
+    // 「必须是真 symlink」的承诺要覆盖「已存在的链接」，不能只在新建时兑现。
+    if (process.platform !== 'win32') return;
+    const root = mkdtempSync(join(tmpdir(), 'rc-link-junction-'));
+    const src = join(root, 'dev');
+    const parent = join(root, 'plugins');
+    const target = join(parent, 'p');
+    try {
+      mkdirSync(src);
+      mkdirSync(parent);
+      symlinkSync(src, target, 'junction');
+      expect(detectLinkType(target)).toBe('junction');
+      const result = ensureLink(src, target, { kind: 'plugin', allowElevation: false });
+      expect(result.ok, '插件目录是 junction 不该报成功').toBe(false);
+      expect(result.reason).toMatch(/junction/);
+    } finally {
+      try {
+        rmSync(target, { recursive: true, force: true });
+      } catch {
+        // junction 可能已被删
+      }
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('refuses to create an install link when the parent directory is absent', () => {
+    // workspace.json 残留旧路径时，递归造出 <错误路径>/data/themes 并报 success，
+    // 思源根本不读那里。必须当场拦住。
+    const root = mkdtempSync(join(tmpdir(), 'rc-link-noparent-'));
+    try {
+      const src = join(root, 'dev');
+      mkdirSync(src);
+      const result = ensureLink(src, join(root, 'bogus', 'themes', 'T'), {
+        kind: 'theme',
+        allowElevation: false,
+      });
+      expect(result.ok).toBe(false);
+      expect(result.reason).toMatch(/安装父目录不存在/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });
 
@@ -480,6 +553,28 @@ describe('dev session discovery', () => {
       expect(found.cwd).toBe(cwd);
       expect(found.ws).toBe('ws://127.0.0.1:1/devtools/browser/test');
       expect(found.kind).toBe('theme');
+    } finally {
+      control.stop();
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('refuses a single endpoint that belongs to a different project', async () => {
+    // 以前只有一个 alive 端点就无条件返回它，在 A 项目 --attach 会连到 B 项目的
+    // 浏览器、输出 attached:true、量错页面，agent 完全无从察觉。
+    const root = mkdtempSync(join(tmpdir(), 'rc-ctrl-foreign-'));
+    const cwd = join(root, 'project');
+    mkdirSync(cwd);
+    const control = await startControlServer({
+      ws: 'ws://127.0.0.1:1/x',
+      cwd: join(root, 'other-project'),
+      kind: 'theme',
+      name: 'T',
+    });
+    try {
+      const found = await discover({ cwd });
+      expect(found.ok, '不属于当前项目的单端点不该被猜中').toBe(false);
+      if (!found.ok) expect(found.reason).toMatch(/不是当前目录/);
     } finally {
       control.stop();
       rmSync(root, { recursive: true, force: true });
@@ -604,14 +699,31 @@ describe('target adapters drive the dev loop', () => {
 
   it('puts theme and plugin in different install directories', async () => {
     // 装错目录思源根本加载不到，而且不会有明显报错。
-    process.env.SIYUAN_THEME_DIR = 'C:/ws/data/themes';
-    process.env.SIYUAN_PLUGIN_DIR = 'C:/ws/data/plugins';
+    // env 覆盖会校验目录存在，所以这里用真实建出来的临时目录。
+    const root = mkdtempSync(join(tmpdir(), 'rc-install-'));
+    const themes = join(root, 'data', 'themes');
+    const plugins = join(root, 'data', 'plugins');
+    mkdirSync(themes, { recursive: true });
+    mkdirSync(plugins, { recursive: true });
+    process.env.SIYUAN_THEME_DIR = themes;
+    process.env.SIYUAN_PLUGIN_DIR = plugins;
     try {
       expect(await themeTarget({ name: 'T' }).installDir()).toMatch(/themes$/);
       expect(await pluginTarget({ name: 'p' }).installDir()).toMatch(/plugins$/);
     } finally {
       delete process.env.SIYUAN_THEME_DIR;
       delete process.env.SIYUAN_PLUGIN_DIR;
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects an install-dir override that points at a nonexistent directory', async () => {
+    // 写错一层 data 会递归造出空壳、在错误位置建链接还报成功，思源根本不读。
+    process.env.SIYUAN_THEME_DIR = join(tmpdir(), 'rc-no-such-workspace', 'data', 'themes');
+    try {
+      await expect(themeTarget({ name: 'T' }).installDir()).rejects.toThrow(/目录不存在/);
+    } finally {
+      delete process.env.SIYUAN_THEME_DIR;
     }
   });
 });

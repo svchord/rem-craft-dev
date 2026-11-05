@@ -13,7 +13,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { fetchOk } from './net.ts';
 import { portMapCandidates, readWorkspacePaths } from './paths.ts';
 import { isRecord, isString } from './guards.ts';
-import { isRecoverable, requireRecoverable } from './errors.ts';
+import { isRecoverable, requireRecoverable, UserFacingError } from './errors.ts';
 import { TIMING } from './timing.ts';
 
 // 兼容既有导入：视口常量统一放在 viewport.ts。
@@ -106,7 +106,18 @@ async function probeKernelPort(port: number): Promise<boolean> {
 /** 找运行中的 kernel 端口：SIYUAN_PORT → PID 查 port.json → 兜底端口。 */
 export async function findKernelPort(): Promise<number> {
   const explicit = process.env.SIYUAN_PORT?.trim();
-  if (explicit) return Number(explicit);
+  if (explicit) {
+    const port = Number(explicit);
+    // 显式端口也必须探测：否则思源没起时会返回一个死端口，插件形态（没有 activate
+    // 这条兜底）会一路走到「会话就绪」并打印必然 404 的预览链接，看着活着其实全废。
+    if (!Number.isFinite(port) || port <= 0) {
+      throw new UserFacingError(`SIYUAN_PORT 不是有效端口：${explicit}（应为正整数）`);
+    }
+    if (await probeKernelPort(port)) return port;
+    throw new UserFacingError(
+      `SIYUAN_PORT=${port} 上的思源内核没有响应：确认思源已启动、端口正确，或去掉该环境变量让工具自动探测。`
+    );
+  }
 
   const pidText = await findKernelPid().catch((cause: unknown) => {
     requireRecoverable(cause);
@@ -132,7 +143,7 @@ export async function findKernelPort(): Promise<number> {
   for (const port of DEFAULT_KERNEL_PORTS) {
     if (await probeKernelPort(port)) return port;
   }
-  throw new Error('无法定位 SiYuan kernel 端口：确认思源已启动，或设置 SIYUAN_PORT');
+  throw new UserFacingError('无法定位 SiYuan kernel 端口：确认思源已启动，或设置 SIYUAN_PORT');
 }
 
 /** 前端入口。桌面与移动是两个独立构建，路径不同。 */

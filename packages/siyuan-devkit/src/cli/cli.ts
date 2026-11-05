@@ -94,7 +94,9 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
     const message = cause instanceof Error ? cause.message : String(cause);
     fail(message);
     if (cause instanceof Error && !(cause instanceof UserFacingError) && cause.stack) {
-      console.error(cause.stack);
+      // stack 首行就是 message，已经打过了；只输出调用栈，避免同一句重复刷屏。
+      const frames = cause.stack.split('\n').slice(1).join('\n');
+      if (frames.trim()) console.error(frames);
     }
     process.exitCode = 2;
   }

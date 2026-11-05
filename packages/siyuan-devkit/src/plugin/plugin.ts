@@ -298,6 +298,12 @@ export default function siyuanDev(options: SiYuanPluginOptions = {}): Plugin[] {
         watch: false,
       });
       session = created;
+      // 就绪日志放在这里，而不是 writeBundle 的 firstBundle 分支：
+      // 首次启动失败（思源没开）后，用户后来启动思源、下一次重建才建成功，
+      // 那时也必须能看到就绪提示和预览链接。
+      const scope = auditBrowser ? '思源本体 + 两个常驻测量页' : '思源本体窗口';
+      log(`会话就绪，改源码会刷新页面（${scope}）`, 'success');
+      logPreviewLinks(created.kernelPort);
       if (!exitHandler) {
         exitHandler = onProcessExit;
         process.once('exit', exitHandler);
@@ -411,10 +417,7 @@ export default function siyuanDev(options: SiYuanPluginOptions = {}): Plugin[] {
         if (firstBundle) {
           firstBundle = false;
           try {
-            const created = await ensureSession();
-            const scope = auditBrowser ? '思源本体 + 两个常驻测量页' : '思源本体窗口';
-            log(`会话就绪，改源码会刷新页面（${scope}）`, 'success');
-            logPreviewLinks(created.kernelPort);
+            await ensureSession();
           } catch (cause) {
             // watch 形态必须有思源在跑（刷新靠 kernel 广播）。连不上就明确报错、
             // 并让构建失败，而不是静默继续——否则会以为改源码在生效，其实刷新没起来。
@@ -423,10 +426,22 @@ export default function siyuanDev(options: SiYuanPluginOptions = {}): Plugin[] {
           return;
         }
 
+        // 会话没建起来（首次失败、思源当时没开）时，每次重建都重试启动；
+        // 仍然失败就继续让本轮构建打红，并保留「需要思源在运行」的可操作前缀。
+        // 不能只 log 一句「重载失败」还让构建显示绿色 built——那是假成功。
+        if (!session) {
+          try {
+            await ensureSession();
+          } catch (cause) {
+            throw new Error(`watch 模式需要思源在运行：${messageOf(cause)}`);
+          }
+          return;
+        }
+
         try {
-          const current = await ensureSession();
-          current.notifyChange(files);
+          session.notifyChange(files);
         } catch (cause) {
+          // 会话已建立，只是这一轮通知失败：如实标成重载失败，不伪装成会话问题。
           log(`重载失败：${messageOf(cause)}`, 'error');
         }
       },

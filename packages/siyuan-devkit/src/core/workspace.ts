@@ -6,11 +6,12 @@
  * 环境变量优先（SIYUAN_THEME_DIR / SIYUAN_PLUGIN_DIR）：CI 与自定义工作区
  * 要能绕过内核探测，否则一台机器上跑多工作区就没法脚本化。
  */
+import { existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { callKernel } from './kernel.ts';
 import { readWorkspacePaths } from './paths.ts';
 import { isRecord, isString } from './guards.ts';
-import { requireRecoverable } from './errors.ts';
+import { requireRecoverable, UserFacingError } from './errors.ts';
 import { TIMING } from './timing.ts';
 
 /** 一个工作区。 */
@@ -71,13 +72,33 @@ export async function resolveInstallDir({
   if (!subdir) throw new Error('resolveInstallDir 需要 subdir（如 themes / plugins）');
 
   const explicitDir = dirEnv ? process.env[dirEnv]?.trim() : undefined;
-  if (explicitDir) return resolve(explicitDir);
+  if (explicitDir) {
+    const dir = resolve(explicitDir);
+    // 显式覆盖也要校验：写错一层 data 就递归造目录、在错误位置建链接还报成功，
+    // 思源根本不读那里，用户只会看到「改源码不生效」却无从查起。
+    if (!existsSync(dir)) {
+      throw new UserFacingError(
+        `${dirEnv} 指向的目录不存在：${dir}\n` +
+          `  请指向思源工作区的 <workspace>/data/${subdir}（当前类型：${kind}），或去掉该环境变量让工具自动探测。`
+      );
+    }
+    return dir;
+  }
 
   const root = workspace ?? (await listWorkspaces({ port }))[0]?.path;
   if (!root) {
-    throw new Error(
+    throw new UserFacingError(
       `找不到思源工作区：确认思源已启动，或设置 ${dirEnv} 为 <workspace>/data/${subdir}（当前类型：${kind}）`
     );
   }
-  return resolve(join(root, 'data', subdir));
+  // workspace.json 里可能残留旧工作区路径。data 目录不存在就说明这个 root 不是
+  // 可用的思源工作区，别让 ensureLink 递归造出一个看似合法的空壳。
+  const dataDir = join(root, 'data');
+  if (!existsSync(dataDir)) {
+    throw new UserFacingError(
+      `工作区路径下没有 data 目录：${root}\n` +
+        `  workspace.json 可能残留了旧路径。请确认当前打开的工作区，或设置 ${dirEnv} 指向正确的 <workspace>/data/${subdir}。`
+    );
+  }
+  return resolve(join(dataDir, subdir));
 }

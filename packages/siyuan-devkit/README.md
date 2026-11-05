@@ -117,9 +117,17 @@ vite build --watch
 插件开发日志用 `consola` 做级别/颜色/图标，预览入口用 `boxen` 排版；
 CLI 命令的输出则保持纯文本。首次会话就绪后会给出桌面端与移动端两个稳定预览链接。
 
-> **watch 需要本地思源在运行**：热重载靠连 kernel 广播整页刷新。连不上会**明确报错并让构建失败**，
-> 不会静默假成功。常驻测量页由可选的 `auditBrowser` 控制，默认不起浏览器。
+> **watch 需要本地思源在运行**：热重载靠连 kernel 广播整页刷新。`SIYUAN_PORT` 显式
+> 指定时也会真实探测端口，思源没起就**明确报错并让每次重建都打红**，不会静默假成功
+> 也不会给必然 404 的预览链接；用户后来启动思源，下一次重建会自动重试并显示就绪日志。
+> 常驻测量页由可选的 `auditBrowser` 控制，默认不起浏览器。
 > 纯生产构建（`vite build`）与 `syt verify` 都不需要思源。
+
+> **目录校验**：产物目录（`outDir`）不存在、或安装父目录 `<workspace>/data` 不存在
+> 时会当场报错，不会递归造空目录再报「已链接」——那会让思源静默加载不到。
+> `SIYUAN_THEME_DIR` / `SIYUAN_PLUGIN_DIR` 指向的目录也会校验存在。
+> 插件安装目录必须是真正的符号链接；已是 junction 时会明确拒绝（思源 Go 运行时
+> 按 ModeSymlink 判定，junction 会让插件静默加载不到）。
 
 > **为什么必须是 `build --watch` 而不是 `vite dev`？**
 > 思源从磁盘读 `<workspace>/data/themes/<name>/theme.css`，而 `vite dev` 只在内存里

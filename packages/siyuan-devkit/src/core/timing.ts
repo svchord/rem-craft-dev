@@ -37,6 +37,12 @@ export const TIMING = {
   refreshReadyTimeout: 20000,
   /** 刷新前等所有读租约释放的上限；超时照常刷新并警告。 */
   readLeaseDrainTimeout: 10000,
+  /** reloadUI 广播的超时；内核挂起时不能让刷新链路无限等。 */
+  kernelReloadTimeout: 10000,
+  /** 读租约 TTL：测量进程崩溃没归还时，超时自动清掉，避免刷新永久降级。 */
+  readLeaseTtl: 30000,
+  /** UAC 提权弹窗等待上限；超时按「提权被拒/未完成」处理，不无限阻塞 watch。 */
+  uacPromptTimeout: 120000,
   /** 禁用→启用插件之间留一次 WebSocket 往返。 */
   pluginReloadGap: 500,
   /** 打开新页面/等待 siyuan.config 的超时。 */

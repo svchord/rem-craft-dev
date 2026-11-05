@@ -22,7 +22,6 @@
  * 交互场景会被冲掉。测量侧靠「每次 --setup 重建场景」应对。
  */
 import { mkdtempSync, rmSync } from 'node:fs';
-import { spawn } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import puppeteer from 'puppeteer-core';
@@ -39,6 +38,7 @@ import type { Target, TargetBuildConfig } from '../core/targets.ts';
 import type { MountState } from '../core/target-types.ts';
 import type { Logger } from '../core/log.ts';
 import { TIMING } from '../core/timing.ts';
+import { UserFacingError } from '../core/errors.ts';
 
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -75,38 +75,35 @@ export interface StartDevSessionOptions {
 }
 
 /**
- * 启动本机 Chrome 并接上 CDP。常驻页固定无头：测量页不需要被人看见，
- * 也就没有「开哪个前端 / 要不要窗口」这些入参。
+ * 启动常驻无头 Chrome。
+ *
+ * 用 puppeteer.launch 而不是「spawn Chrome + 猜端口 + connect」：
+ *   - 端口由 puppeteer 用 `--remote-debugging-port=0` 交给 OS 分配，不会撞上别人的 CDP
+ *     还误报「连上了」；
+ *   - 拿得到 browser.process()，close() 会真的把子进程收掉，启动失败也不留孤儿；
+ *   - 子进程启动错误由 puppeteer 转成异常，不会以未处理 'error' 事件崩掉 Vite。
  */
 async function launchChromeBrowser(profile: string): Promise<Browser> {
   const chrome = findChrome();
-  const debugPort = 9333 + Math.floor(Math.random() * 400);
-  const args = [
-    '--headless=new',
-    `--remote-debugging-port=${debugPort}`,
-    '--window-size=1600,1000',
-    '--enable-automation',
-    '--no-first-run',
-    '--no-default-browser-check',
-    `--user-data-dir=${profile}`,
-    'about:blank',
-  ];
-  spawn(chrome, args, { stdio: 'ignore', windowsHide: false });
-
-  const deadline = Date.now() + 15000;
-  while (Date.now() < deadline) {
-    try {
-      const response = await fetch(`http://127.0.0.1:${debugPort}/json/version`);
-      const data = (await response.json()) as { webSocketDebuggerUrl?: string };
-      if (data.webSocketDebuggerUrl) {
-        return await puppeteer.connect({ browserWSEndpoint: data.webSocketDebuggerUrl, defaultViewport: null });
-      }
-    } catch {
-      // CDP 还没起来，继续等
-    }
-    await new Promise((resolve) => setTimeout(resolve, 250));
+  try {
+    return await puppeteer.launch({
+      executablePath: chrome,
+      headless: true,
+      defaultViewport: null,
+      args: [
+        '--window-size=1600,1000',
+        '--enable-automation',
+        '--no-first-run',
+        '--no-default-browser-check',
+        `--user-data-dir=${profile}`,
+      ],
+    });
+  } catch (cause) {
+    throw new UserFacingError(
+      `常驻测量页启动失败（${chrome}）：${cause instanceof Error ? cause.message : String(cause)}\n` +
+        '  确认 Chrome/Edge 可执行且依赖齐全，或设置 CHROME_PATH 指向正确的浏览器；也可关闭 auditBrowser。'
+    );
   }
-  throw new Error('等待 Chrome DevTools 端口超时');
 }
 
 /** 开发会话句柄。 */
@@ -277,6 +274,14 @@ export async function startDevSession({
       mobilePage = await openFrontend('mobile');
       mount = await waitForMount(target, page, 10000);
       log(`挂载：${mount.loaded ?? mount.reason ?? '(无样式表)'}`, mount.ok ? 'success' : 'warn');
+      if (!mount.ok) {
+        // 页面没挂上目标，--attach 会连到一个量到宿主值的页面，还报 attached:true。
+        // 宁可让会话起不来，也不要给 agent 一个看似可用的常驻页。
+        throw new UserFacingError(
+          `常驻测量页没有挂上 ${target.name}：${mount.reason ?? '未知原因'}\n` +
+            '  确认思源已启用该主题/插件，且 theme.json 的 frontends 含当前前端；修好后重新运行 pnpm dev。'
+        );
+      }
       log('常驻测量页：桌面端 + 移动端（无头）', 'info');
     } else {
       log('常驻测量页未开启（auditBrowser: false）；产物变化仍会刷新思源本体窗口', 'info');
@@ -298,7 +303,9 @@ export async function startDevSession({
         // 超时说明有崩溃的测量进程没释放，照常刷新但如实警告。
         const idle = control ? await control.waitForIdle(TIMING.readLeaseDrainTimeout) : true;
         if (!idle) log('有测量会话未释放读租约（进程可能崩溃），仍继续刷新', 'warn');
-        const result = await callKernel(kernelPort, '/api/ui/reloadUI', {});
+        // 显式超时：回环 fetch 默认不限时，内核挂起会让 refreshing 长期为 true、
+        // 屏障一直关着，后续变更被消费后丢弃。
+        const result = await callKernel(kernelPort, '/api/ui/reloadUI', {}, TIMING.kernelReloadTimeout);
         if (result.code !== 0) {
           log(`刷新失败：${result.msg || '未知错误'}`, 'warn');
           return false;
@@ -322,14 +329,23 @@ export async function startDevSession({
       const files = [...pending];
       pending = new Set();
       if (!files.length) return;
+      // 上一次刷新还没结束：把这批塞回去重排，绝不能清空 pending 后直接 return，
+      // 否则这批源码变更永久丢失，日志还打「已刷新 #N」。
+      if (refreshing) {
+        for (const file of files) pending.add(file);
+        batchTimer = setTimeout(() => void flush(), BATCH_MS);
+        return;
+      }
       const primary = buildConfig.primary(files);
-      reloads += 1;
       const suffix = files.length > 1 ? `（+ ${files.length - 1}）` : '';
-      const label = `已刷新 #${reloads}：${primary}${suffix}`;
+      const label = `刷新 #${reloads + 1}：${primary}${suffix}`;
+      reloads += 1;
       try {
         const ok = await applyReload();
         const scope = auditBrowser ? '（本体 + 桌面端 + 移动端）' : '（仅思源本体窗口）';
-        log(ok ? `${label}${scope}` : `${label}（未生效）`, ok ? 'success' : 'warn');
+        // 「已广播」而非「已刷新」：auditBrowser:false 时只代表 kernel 收了请求，
+        // 没有可观测页面能证明前端真的重载了。
+        log(ok ? `已广播 reloadUI ${label}${scope}` : `${label}（未生效）`, ok ? 'success' : 'warn');
       } catch (cause) {
         log(`刷新出错：${cause instanceof Error ? cause.message : String(cause)}`, 'error');
       }
@@ -368,6 +384,11 @@ export async function startDevSession({
     };
   } catch (cause) {
     await shutdown();
+    if (installPath) {
+      // 链接持久化是 dev 安装的预期行为，但启动失败时用户拿到红字、磁盘上却
+      // 多了个指向 dev/ 的链接，下次排查会误以为已经装好了。如实说明。
+      log(`会话未启动；链接仍留在 ${installPath}（构建产物目录的软链接）`, 'warn');
+    }
     throw cause;
   }
 }

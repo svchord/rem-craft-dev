@@ -19,6 +19,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { randomUUID } from 'node:crypto';
 import { samePath } from './paths.ts';
 import { fetchOk } from './net.ts';
 import { isRecord } from './guards.ts';
@@ -100,37 +101,51 @@ async function probeEndpoint(port: number): Promise<DevSessionInfo | null> {
 export async function startControlServer(info: Omit<DevSessionInfo, 'pid' | 'port' | 'ready'>): Promise<ControlServer> {
   mkdirSync(CONTROL_DIR, { recursive: true });
 
-  // ready 与读租约都只存在 dev 进程内存里，端口文件不写——和「状态不放文件」一致。
-  // 读租约是屏障的关键：只检查 ready 有竞态（检查完、读数前刷新才开始），
-  // 必须让 dev 在广播刷新前等所有在读数的人释放租约。
+  // 读租约用「客户端给的 token」标识，Set.add/delete 天然幂等：
+  //   - 客户端即使拿不到响应体也知道自己的 token，可以无条件归还；
+  //   - 崩溃的读者由 TTL 清理，不会让 waitForIdle 永远等不到 0。
   let ready = true;
-  let readers = 0;
+  const leases = new Map<string, number>();
   let boundPort = 0;
+  /** 清掉超过 TTL 的租约（测量进程崩溃没归还的情况）。 */
+  const pruneLeases = (): void => {
+    const cutoff = Date.now() - TIMING.readLeaseTtl;
+    for (const [token, since] of leases) if (since < cutoff) leases.delete(token);
+  };
   const server = createServer((req, res) => {
     const json = (body: unknown): void => {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(body));
     };
-    if (req.url === '/info') {
+    const url = new URL(req.url ?? '/', 'http://127.0.0.1');
+    if (url.pathname === '/info') {
       json({ ...info, pid: process.pid, ready, port: boundPort });
       return;
     }
-    if (req.url === '/ready') {
-      json({ ready, readers });
+    if (url.pathname === '/ready') {
+      pruneLeases();
+      json({ ready, readers: leases.size });
       return;
     }
-    // 申请读租约：刷新期间拒绝，刷新结束后由调用方重试。
-    if (req.url === '/acquire') {
+    // 申请读租约：刷新期间拒绝（不占用名额），刷新结束后由调用方重试。
+    if (url.pathname === '/acquire') {
       if (!ready) {
         json({ ok: false, reason: 'refreshing' });
         return;
       }
-      readers += 1;
+      const token = url.searchParams.get('token');
+      if (!token) {
+        json({ ok: false, reason: 'missing token' });
+        return;
+      }
+      pruneLeases();
+      leases.set(token, Date.now());
       json({ ok: true });
       return;
     }
-    if (req.url === '/release') {
-      readers = Math.max(0, readers - 1);
+    if (url.pathname === '/release') {
+      const token = url.searchParams.get('token');
+      if (token) leases.delete(token);
       json({ ok: true });
       return;
     }
@@ -151,7 +166,13 @@ export async function startControlServer(info: Omit<DevSessionInfo, 'pid' | 'por
   const port = address.port;
   boundPort = port;
   const file = endpointFile(process.pid);
-  writeFileSync(file, JSON.stringify({ port, pid: process.pid }));
+  try {
+    writeFileSync(file, JSON.stringify({ port, pid: process.pid }));
+  } catch (cause) {
+    // 端点文件写不出去时，已 listen 的 server 必须关掉，否则留一个没人能发现的孤儿端口。
+    server.close();
+    throw cause;
+  }
 
   let stopped = false;
   return {
@@ -160,14 +181,18 @@ export async function startControlServer(info: Omit<DevSessionInfo, 'pid' | 'por
       ready = value;
     },
     activeReaders(): number {
-      return readers;
+      pruneLeases();
+      return leases.size;
     },
     async waitForIdle(timeoutMs: number): Promise<boolean> {
       const deadline = Date.now() + timeoutMs;
-      while (readers > 0 && Date.now() < deadline) {
+      while (Date.now() < deadline) {
+        pruneLeases();
+        if (leases.size === 0) return true;
         await new Promise((resolve) => setTimeout(resolve, TIMING.controlProbe));
       }
-      return readers === 0;
+      pruneLeases();
+      return leases.size === 0;
     },
     stop(): void {
       if (stopped) return;
@@ -193,22 +218,33 @@ export function endpointFiles(): string[] {
  */
 export async function acquireReadLease(port: number, timeoutMs: number): Promise<(() => Promise<void>) | null> {
   const deadline = Date.now() + timeoutMs;
+  const token = randomUUID();
+  const endpoint = (path: string): string => `http://127.0.0.1:${port}${path}?token=${encodeURIComponent(token)}`;
+  // token 由客户端给，release 无条件幂等：响应体坏掉、进程中途失败都能归还，
+  // 不会像「计数器 + 盲目 -1」那样泄漏读者或误减别人的名额。
+  const release = async (): Promise<void> => {
+    await fetchOk(endpoint('/release'), TIMING.controlProbe);
+  };
   while (Date.now() < deadline) {
-    const response = await fetchOk(`http://127.0.0.1:${port}/acquire`, TIMING.controlProbe);
+    const response = await fetchOk(endpoint('/acquire'), TIMING.controlProbe);
     if (response) {
+      let acquired = false;
       try {
         const data: unknown = await response.json();
-        if (isRecord(data) && data['ok'] === true) {
-          let released = false;
-          return async (): Promise<void> => {
-            if (released) return;
-            released = true;
-            await fetchOk(`http://127.0.0.1:${port}/release`, TIMING.controlProbe);
-          };
-        }
+        acquired = isRecord(data) && data['ok'] === true;
       } catch (cause) {
         requireRecoverable(cause);
       }
+      if (acquired) {
+        let released = false;
+        return async (): Promise<void> => {
+          if (released) return;
+          released = true;
+          await release();
+        };
+      }
+      // 被拒绝（refreshing）或响应坏掉：先归还再重试。
+      await release();
     }
     await new Promise((resolve) => setTimeout(resolve, TIMING.controlProbe));
   }
@@ -246,13 +282,13 @@ export async function discover({ cwd = process.cwd() }: { cwd?: string } = {}): 
 
   const mine = alive.find((info) => samePath(info.cwd, cwd));
   if (mine) return { ok: true, ...mine };
-  const only = alive[0];
-  if (alive.length === 1 && only) return { ok: true, ...only };
-
+  // 单端点也校验 cwd：在 A 项目 --attach 却连到 B 项目的 dev 浏览器，
+  // 会输出 attached:true 并量错页面，agent 完全无从察觉。
   return {
     ok: false,
     reason:
-      '有多个 dev 会话在跑，且都不属于当前目录：切到对应项目目录再跑，或把该会话的 cwd 作为 discover({ cwd }) 传入',
+      `找到 dev 会话，但它的项目目录不是当前目录（${cwd}）。\n` +
+      '  --attach 只复用同一项目的常驻页：请切到对应项目目录，或在那个目录下跑 pnpm dev。',
     candidates: alive.map((info) => ({ cwd: info.cwd, kind: info.kind, name: info.name, pid: info.pid })),
   };
 }

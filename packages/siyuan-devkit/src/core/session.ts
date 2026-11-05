@@ -117,9 +117,15 @@ export async function createSession({
     }
     // 读租约：刷新期间会等待，拿到后 dev 会等我们释放才广播下一次刷新。
     // 只检查 ready 有竞态——检查完、读数前刷新才开始的那种挡不住。
-    if (discovered.port !== undefined) {
-      releaseLease = await acquireReadLease(discovered.port, TIMING.refreshReadyTimeout);
-      if (!releaseLease) throw new Error('等待 dev 会话刷新完成超时（页面可能卡住），本次测量已取消');
+    // 没有 port 就没法申请租约，必须报错，不能静默降级成「无屏障读数」。
+    if (discovered.port === undefined) {
+      throw new UserFacingError(
+        '--attach 连上的 dev 会话没有提供控制端口，无法申请读租约；请重启 pnpm dev（升级到支持读租约的版本）后重试。'
+      );
+    }
+    releaseLease = await acquireReadLease(discovered.port, TIMING.refreshReadyTimeout);
+    if (!releaseLease) {
+      throw new UserFacingError('等待 dev 会话刷新完成超时（页面可能卡住），本次测量已取消');
     }
     try {
       browser = await puppeteer.connect({
@@ -139,14 +145,30 @@ export async function createSession({
       defaultViewport: targetViewport,
       args: ['--no-first-run', '--no-default-browser-check'],
     });
-    const fresh = await browser.newPage();
-    if (frontend === 'mobile') await fresh.setViewport(targetViewport);
-    await fresh.goto(frontendUrl(port, frontend), {
-      waitUntil: 'domcontentloaded',
-      timeout: TIMING.navigationTimeout,
-    });
-    await waitForSiyuanConfig(fresh);
-    await sleep(TIMING.pageReady);
+    // goto / 等 config 失败时必须关掉刚起的 Chrome，否则进程会挂住不退出。
+    try {
+      const fresh = await browser.newPage();
+      if (frontend === 'mobile') await fresh.setViewport(targetViewport);
+      await fresh.goto(frontendUrl(port, frontend), {
+        waitUntil: 'domcontentloaded',
+        timeout: TIMING.navigationTimeout,
+      });
+      await waitForSiyuanConfig(fresh);
+      await sleep(TIMING.pageReady);
+    } catch (cause) {
+      try {
+        await browser.close();
+      } catch {
+        // 已经关了
+      }
+      if (cause instanceof Error && /net::ERR_|ECONNREFUSED|ERR_CONNECTION/i.test(cause.message)) {
+        throw new UserFacingError(
+          `打不开思源前端页面（kernel 端口 ${port} 不可达）：${cause.message}\n` +
+            '确认思源已启动、端口正确，或设置 SIYUAN_PORT 指向运行中的内核。'
+        );
+      }
+      throw cause;
+    }
   }
 
   try {
@@ -198,6 +220,14 @@ export async function createSession({
       },
     };
   } catch (cause) {
+    // 失败路径也要断开 CDP / 关掉新开的 Chrome，否则 CLI 用 exitCode 不 exit 时
+    // 泄漏的进程会吊住 event loop，退出码都交不出去。
+    try {
+      if (attached) await browser.disconnect();
+      else await browser.close();
+    } catch {
+      // 清理尽力而为，不能盖掉原始错误
+    }
     await releaseLease?.();
     throw cause;
   }

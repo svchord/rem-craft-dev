@@ -524,6 +524,38 @@ describe('target adapters drive the dev loop', () => {
     }
   });
 
+  it('reloads a plugin via kernel even when no controlled page exists', async () => {
+    // 插件形态（arco 等）通常不开预览窗口，page 为 null。
+    // 但插件 JS 走的是内核广播，本来就不需要页面——通用层不得因为
+    // page 为空就提前返回，否则插件的热重载会被一起挡掉。
+    const calls: string[] = [];
+    const server = createServer((req, res) => {
+      let body = '';
+      req.on('data', (chunk) => {
+        body += chunk;
+      });
+      req.on('end', () => {
+        calls.push(req.url ?? '');
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end('{"code":0,"msg":"","data":null}');
+      });
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const address = server.address();
+    const port = typeof address === 'object' && address ? address.port : 0;
+
+    try {
+      const result = await pluginTarget({ name: 'p' }).reload(null, { filename: 'index.js', port });
+      expect(result.ok, '没有受控页面时插件 JS 仍应经内核重载').toBe(true);
+      expect(calls, '必须真的发出禁用+启用两次内核调用').toEqual([
+        '/api/petal/setPetalEnabled',
+        '/api/petal/setPetalEnabled',
+      ]);
+    } finally {
+      server.close();
+    }
+  });
+
   it('reloads a plugin via kernel when its JS changes, never a full page refresh', async () => {
     // 插件 JS 是 window.eval 执行的、带副作用（注册 dock/顶栏/事件监听），
     // 换 <style> 撤销不了；也不能整页刷新（会丢掉用户正在编辑的文档）。

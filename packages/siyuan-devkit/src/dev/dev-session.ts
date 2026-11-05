@@ -268,7 +268,8 @@ export async function startDevSession({
     let batchTimer: NodeJS.Timeout | null = null;
 
     const applyReload = async (filename: string): Promise<boolean> => {
-      if (!page) return false;
+      // page 允许为 null：插件 JS 走内核广播，本来就不需要受控页面。
+      // 主题 CSS / 插件 CSS 需要页面，由描述符返回「未热重载」说明。
       try {
         const result = await target.reload(page, { filename, port: kernelPort });
         if (result.message) log(result.message, result.ok ? 'success' : 'warn');
@@ -276,7 +277,7 @@ export async function startDevSession({
       } catch (cause) {
         const message = cause instanceof Error ? cause.message : String(cause);
         // 页面恰好被手动刷新（F5）时 evaluate 会抛上下文销毁，不是错误。
-        if (/Execution context|detached|navigat|Target closed/i.test(message)) {
+        if (page && /Execution context|detached|navigat|Target closed/i.test(message)) {
           return waitForApp(page, log);
         }
         throw cause;
@@ -291,17 +292,13 @@ export async function startDevSession({
       const primary = buildConfig.primary(files);
       reloads += 1;
       const suffix = files.length > 1 ? `（+ ${files.length - 1}）` : '';
-      // 主题 CSS 的重载只能靠「我们控制的那个页面」换 #themeStyle href：
-      // 思源没有外科式的内核接口（/api/ui/reloadUI 会整页刷新，丢掉编辑状态）。
-      // 没起浏览器时如实说明，而不是打一条误导的「重载失败」。
-      if (!page) {
-        log(`已重建 #${reloads}：${primary}${suffix}（未启动浏览器，未热重载）`, 'info');
-        return;
-      }
       const label = `已重载 #${reloads}：${primary}${suffix}`;
       try {
+        // 不在这里按 page 是否存在提前返回：插件形态（arco 等）通常不开浏览器，
+        // 但它的 JS 变更经内核广播就能重载，提前返回会把这条路一起挡掉。
         const ok = await applyReload(primary);
-        log(label + (ok ? '' : '（失败）'), ok ? 'success' : 'warn');
+        if (ok) log(label, 'success');
+        else log(`${label}（未生效）`, 'warn');
       } catch (cause) {
         log(`重载出错：${cause instanceof Error ? cause.message : String(cause)}`, 'error');
       }

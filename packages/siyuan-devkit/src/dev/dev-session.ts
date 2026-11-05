@@ -31,21 +31,15 @@ import type { Frontend } from '../core/siyuan.ts';
 import { createTarget } from '../core/targets.ts';
 import type { Target, TargetBuildConfig } from '../core/targets.ts';
 import type { MountState } from '../core/target-types.ts';
+import type { Logger } from '../core/log.ts';
 
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
 /** 一批产物变化的合并窗口（一次构建常同时写多个文件）。 */
 const BATCH_MS = 250;
 
-/** 日志级别；由展示层决定图标与颜色。debug 只在 SYT_DEBUG=1 时显示。 */
-export type LogLevel = 'debug' | 'info' | 'success' | 'warn' | 'error';
-
-/**
- * 日志回调。
- *
- * level 可选，缺省按 info 处理——插件形态只需要一句话，不必逐个标注。
- */
-export type Logger = (message: string, level?: LogLevel) => void;
+/** 日志级别的公共契约在 core/log.ts；这里重导出，保持既有导入路径可用。 */
+export type { LogLevel, Logger } from '../core/log.ts';
 
 /** startDevSession 的选项。 */
 export interface StartDevSessionOptions {

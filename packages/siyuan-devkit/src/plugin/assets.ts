@@ -25,7 +25,7 @@ import { applyResolvedConfig, createPluginState } from './state.ts';
 import type { PluginState } from './state.ts';
 import { isRecord, messageOf, walkFiles } from './shared.ts';
 import type { WalkedFile } from './shared.ts';
-import type { LogLevel } from '../dev/dev-session.ts';
+import type { LogLevel } from '../core/log.ts';
 
 /** 诊断日志函数；单独使用资产插件时可省略。 */
 export type AssetLog = (message: string, level?: LogLevel) => void;

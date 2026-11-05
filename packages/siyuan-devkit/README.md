@@ -391,11 +391,19 @@ core/    被测对象契约、测量原语与运行时胶水。不依赖 vite、
          workspace.ts / link.ts / paths.ts                         工作区与目录
          target-types.ts / targets.ts / builtin-targets.ts         类型契约、注册表、内置描述符
          verify.ts / audit.ts / audit-config.ts                    校验与审计
-         control-server.ts / errors.ts / timing.ts / guards.ts    运行支撑
+         log.ts / control-server.ts / errors.ts / timing.ts        共享契约与运行支撑
 dev/     两种形态共用的开发链路：build.ts / dev-session.ts / dev.ts（startDev 程序 API）
 plugin/  Vite 插件形态：plugin.ts / assets.ts / post.ts / state.ts / shared.ts
 cli/     唯一入口 cli.ts + 纯导出的子命令处理函数（不自动执行）
 ```
+
+**共享契约必须落在 `core/`。** 例如日志级别 `LogLevel` 由 `core/log.ts` 定义：
+主题、插件、CLI 三条链路都要用它。若把它留在 `dev/dev-session.ts`，`plugin/`
+就得反向 import `dev/` 才能拿到类型——那是假解耦，`tests/` 里有断言拦这种情况。
+
+`plugin/` 对 `dev/` 的唯一依赖是 `startDevSession`（会话层是两种形态共用的编排）。
+两者是并列形态，谁都不该成为对方的实现依赖：所有「主题 vs 插件」的差异都收敛在
+`core/builtin-targets.ts` 的各自描述符里，`dev-session.ts` 里没有任何类型分支。
 
 `puppeteer-core` 的**运行时**导入只出现在 `session.ts`、`shot.ts`、`dev-session.ts`
 三个浏览器所有者里；其余模块只 `import type`，编译后擦除。

@@ -28,7 +28,7 @@ import { deflateRawSync } from 'node:zlib';
 import type { Plugin } from 'vite';
 import type { Target } from '../core/targets.ts';
 import { formatIssues, verifyTarget } from '../core/verify.ts';
-import type { LogLevel } from '../dev/dev-session.ts';
+import type { LogLevel } from '../core/log.ts';
 import { applyResolvedConfig, createPluginState } from './state.ts';
 import type { PluginState } from './state.ts';
 import { messageOf, walkFiles } from './shared.ts';

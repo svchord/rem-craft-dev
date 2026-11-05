@@ -51,7 +51,8 @@ import { applyResolvedConfig, createPluginState, isWatchBuild } from './state.ts
 import type { PluginState } from './state.ts';
 import { messageOf } from './shared.ts';
 import { startDevSession } from '../dev/dev-session.ts';
-import type { DevSession, LogLevel } from '../dev/dev-session.ts';
+import type { DevSession } from '../dev/dev-session.ts';
+import type { LogLevel } from '../core/log.ts';
 import { createTarget } from '../core/targets.ts';
 import type { Target } from '../core/targets.ts';
 import { detectTargetType, targetType } from '../core/target-types.ts';

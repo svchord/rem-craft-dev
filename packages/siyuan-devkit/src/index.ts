@@ -25,12 +25,12 @@
  *            workspace.ts / link.ts / paths.ts                         工作区与目录
  *            target-types.ts / targets.ts / builtin-targets.ts         类型契约、注册表、内置描述符
  *            verify.ts / audit.ts / audit-config.ts                    校验与审计
- *            control-server.ts / errors.ts / timing.ts / guards.ts    运行支撑
+ *            log.ts / control-server.ts / errors.ts / timing.ts       共享契约与运行支撑
  *
  *   dev/     两种形态共用的开发链路。会起浏览器，但不依赖 vite 插件 API。
- *            build.ts          CLI 形态的构建看护（默认 vite，可换），监听产物
+ *            build.ts          构建看护（默认 vite，可换），监听产物
  *            dev-session.ts    链接→激活→浏览器→重载的会话层（两形态共用）
- *            dev.ts            CLI 形态：自己起构建 + 会话
+ *            dev.ts            startDev 程序 API：自己起构建 + 会话
  *
  *   plugin/  依赖 vite 的插件形态。
  *            plugin.ts         挂进宿主 vite 的 config / writeBundle
@@ -46,6 +46,10 @@
  *            measure-cli / shot / verify-cli / audit / targets
  *            各 runXCli 是纯导出的处理函数，不自动执行，也不各自暴露 bin。
  */
+
+// 日志契约：三条链路（主题/插件/CLI）共用，放在 core 以免 plugin 反向依赖 dev
+export type { LogLevel, Logger } from './core/log.ts';
+export { DEFAULT_LOG_LEVEL } from './core/log.ts';
 
 // 会话层
 export { createSession, parseViewport, viewportFor } from './core/session.ts';

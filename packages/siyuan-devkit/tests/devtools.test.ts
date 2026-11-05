@@ -970,6 +970,22 @@ describe('cdp layering', () => {
     }
   });
 
+  it('keeps shared contracts in core so plugin never depends on dev', () => {
+    // plugin/ 与 dev/ 是两种并列的形态，谁都不该是对方的依赖。
+    // 两边都要用的契约（如 LogLevel）必须下沉到 core/log.ts；
+    // 若由 dev/ 定义，plugin/ 就得反向 import dev/，解耦就是假的。
+    for (const file of filesByLayer.plugin) {
+      const source = readLayer('plugin', file);
+      // 允许复用 dev-session 的运行时（会话层是共用的编排），但纯粹的契约类型必须来自 core。
+      const typeOnlyFromDev = source.match(/import\s+type\s+\{[^}]*\}\s+from\s+['"][^'"]*dev\/[^'"]*['"]/g) ?? [];
+      for (const statement of typeOnlyFromDev) {
+        expect(statement, `plugin/${file} 的类型契约不该来自 dev/：${statement}`).not.toMatch(
+          /LogLevel|Logger|TargetContext|ReloadContext/
+        );
+      }
+    }
+    expect(allFiles.includes('log.ts'), 'core/log.ts 必须存在（共享契约的落点）').toBe(true);
+  });
   it('keeps cli free of vite plugin hooks', () => {
     // CLI 形态不经过 vite 插件 API（它要么自己 spawn 构建，要么什么都不构建）。
     for (const file of filesByLayer.cli) {

@@ -310,7 +310,8 @@ const pluginDescriptor = {
     }
     return {
       ok: true,
-      loaded: state.hasStyle ? `pluginsStyle${name}（${state.styleLength} 字符）` : null,
+      // 不把 DOM id（pluginsStyle<name>）直接抛给用户；说明「插件名 + 样式表长度」更有意义。
+      loaded: state.hasStyle ? `插件 ${name} 已注入样式表（${state.styleLength} 字符）` : null,
       reason: state.hasStyle ? null : '插件没有注入样式表，只做 DOM 断言',
     };
   },

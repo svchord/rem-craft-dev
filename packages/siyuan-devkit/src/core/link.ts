@@ -86,6 +86,11 @@ export interface EnsureLinkOptions {
    * 不传表示「普通目录，可以用 junction 兜底」。
    */
   requireSymlink?: boolean;
+  /**
+   * 权限不足时是否允许弹 UAC 提权。默认 true（面向真实用户）；
+   * 测试、CI 等无人值守场景传 false，避免卡在系统弹窗上。
+   */
+  allowElevation?: boolean;
   /** @deprecated 用 requireSymlink；kind === 'plugin' 等价于 requireSymlink: true。 */
   kind?: string;
 }
@@ -139,7 +144,7 @@ function elevateSymlink(srcPath: string, targetPath: string): boolean {
 export function ensureLink(
   srcPath: string,
   targetPath: string,
-  { mode = 'auto', requireSymlink, kind }: EnsureLinkOptions = {}
+  { mode = 'auto', requireSymlink, allowElevation = true, kind }: EnsureLinkOptions = {}
 ): EnsureLinkResult {
   prepareSourceDir(srcPath);
 
@@ -167,7 +172,7 @@ export function ensureLink(
       // 权限不足（Windows symlink 需要 SeCreateSymbolicLinkPrivilege）：不要求开发者模式，
       // 直接弹一次 UAC 提权建符号链接，用户点「是」即可，之后热重载正常。
       if ((code === 'EPERM' || code === 'EACCES') && linkType === 'symlink') {
-        if (elevateSymlink(srcPath, targetPath)) {
+        if (allowElevation && elevateSymlink(srcPath, targetPath)) {
           return { ok: true, changed: true, linkType: 'symlink', reason: null };
         }
         continue;

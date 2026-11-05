@@ -20,18 +20,18 @@ description: 用 syt 在真实思源前端里读取主题/插件的渲染事实�
 ## 命令
 
 命令名是 `syt`，所有功能都走子命令，没有其它入口。
-在父项目里可用 `pnpm dev` / `pnpm measure` / `pnpm open:theme` / `pnpm watch:theme` 这些别名。
+在父项目里可用 `pnpm dev` / `pnpm measure` / `pnpm shot` 这些别名。
 
-| 用途               | 命令                     |
-| ------------------ | ------------------------ |
-| 开发：构建+热重载  | `syt dev`                |
-| **多项一起量**     | `syt measure audit`      |
-| 单项测量           | `syt measure <子命令>`   |
-| 改完重跑你的命令   | `syt watch --exec "..."` |
-| 人工复审（看页面） | `syt open`               |
-| 只建/查链接        | `syt link [--check]`     |
+| 用途              | 命令                    |
+| ----------------- | ----------------------- |
+| 开发：构建+热重载 | `pnpm dev`（Vite 插件） |
+| **多项一起量**    | `syt measure audit`     |
+| 单项测量          | `syt measure <子命令>`  |
+| 视觉复核（截图）  | `syt shot`              |
 
-`dev` 会**自动推断被测类型**（看 `public/` 下有 `theme.json` 还是 `plugin.json`），
+开发链路（构建、链接、热重载）由 Vite 插件负责，CLI 只做审计与人工复审。
+`pnpm dev` 首次会话就绪后会打印桌面端/移动端两个预览链接。
+Vite 插件会**自动推断被测类型**（看 `public/` 下有 `theme.json` 还是 `plugin.json`），
 不需要写任何配置或脚本。要显式指定用 `--kind theme|plugin`。
 
 ### 多项测量：优先用 audit，别连跑 N 个子命令
@@ -96,7 +96,7 @@ syt measure audit --tokens a,b        # 命令行覆盖文件里的 tokens
 ### `--attach`：量你眼前那个窗口
 
 ```bash
-syt dev                    # 终端 A：起开发会话（持有浏览器）
+pnpm dev                   # 终端 A：Vite 插件开发会话（持有浏览器）
 syt measure tokens --attach  # 终端 B：量同一个页面
 ```
 

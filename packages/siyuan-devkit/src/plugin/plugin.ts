@@ -35,13 +35,15 @@
  * 时只调用一次，正好对应「进程退出」。非 watch 构建根本不启动会话，
  * 也没有 watcher，无需清理。另有进程 exit 时的同步兜底。
  *
- * ## 与 CLI 形态的关系
+ * ## 与程序 API 的关系
  *
  * 两者共用 dev-session.ts。差别只在「谁跑构建」：
- *   CLI     dev.ts 自己 spawn vite build --watch
- *   插件    宿主 vite 跑构建，本插件在 writeBundle 里喂变更给会话
+ *   startDev() 自己 spawn vite build --watch
+ *   插件形态    宿主 vite 跑构建，本插件在 writeBundle 里喂变更给会话
  */
 import { resolve } from 'node:path';
+import boxen from 'boxen';
+import { createConsola } from 'consola';
 import type { Plugin } from 'vite';
 import { siyuanAssets } from './assets.ts';
 import { siyuanPost } from './post.ts';
@@ -49,14 +51,21 @@ import { applyResolvedConfig, createPluginState, isWatchBuild } from './state.ts
 import type { PluginState } from './state.ts';
 import { messageOf } from './shared.ts';
 import { startDevSession } from '../dev/dev-session.ts';
-import type { DevSession } from '../dev/dev-session.ts';
+import type { DevSession, LogLevel } from '../dev/dev-session.ts';
 import { createTarget } from '../core/targets.ts';
 import type { Target } from '../core/targets.ts';
 import { detectTargetType, targetType } from '../core/target-types.ts';
-import type { Frontend } from '../core/siyuan.ts';
+import { frontendLinks } from '../core/siyuan.ts';
 
 /** 插件名，用于日志前缀。 */
 const NAME = 'siyuan-devkit';
+
+/** 插件日志用 consola：只优化给人看的开发日志，CLI 输出仍保持纯文本。 */
+const rootLogger = createConsola({
+  level: process.env.SYT_DEBUG ? 5 : 3,
+  formatOptions: { compact: false },
+});
+const logger = rootLogger.withTag(NAME);
 
 /** 插件选项。 */
 export interface SiYuanPluginOptions {
@@ -71,8 +80,6 @@ export interface SiYuanPluginOptions {
    * 或清单还没创建时不猜。
    */
   target?: string | null;
-  /** 显式指定名字；缺省从清单读。 */
-  name?: string | null;
   /**
    * 构建入口，相对项目根。两种类型都接受：
    *
@@ -90,33 +97,10 @@ export interface SiYuanPluginOptions {
   entry?: string | null;
   /** 产物目录；缺省取类型描述符的值（通常是 ./dev）。 */
   outDir?: string | null;
-  /** 是否建立链接，缺省 true。 */
-  link?: boolean;
-  /** 浏览器是否无头，缺省 false。 */
-  headless?: boolean;
   /**
-   * 是否在开发时自动起 Chrome 看效果，缺省 true。
-   * 默认打开**移动端**页面（desktop 端可直接看你自己思源窗口，JS 热重载会经 kernel 广播过去）。
-   * 不想自动起浏览器就传 `browser: false`。
+   * 清单路径（相对项目根）。缺省按类型取 `public/theme.json` 或 `public/plugin.json`；
+   * 清单不放在 `public/` 时显式传这个值。
    */
-  browser?: boolean;
-  /** 浏览器打开哪个前端，缺省 desktop。 */
-  frontend?: Frontend;
-  /**
-   * 是否校验产物，缺省 true。
-   *
-   * 两种环境都校验，但失败处理不同：watch（开发）只警告，
-   * 非 watch（CI / 发布）中断构建——产物要发布，坏了代价更大。
-   */
-  verify?: boolean;
-  /**
-   * 是否附带产物资产插件（搬运 README/icon 等 + 监听 public/）。
-   *
-   * 缺省 true。关掉它意味着你自己处理 `public/` 变更监听——
-   * 注意 Vite 不监听 publicDir，改清单不会触发重建。
-   */
-  assets?: boolean;
-  /** 清单路径（相对项目根）；缺省按类型取 `public/theme.json` 或 `public/plugin.json`。 */
   manifestPath?: string | null;
 }
 
@@ -131,26 +115,48 @@ export interface SiYuanPluginOptions {
  * siyuanAssets / siyuanPost 自行组合。
  */
 export default function siyuanDev(options: SiYuanPluginOptions = {}): Plugin[] {
-  const {
-    target = null,
-    name = null,
-    entry = null,
-    outDir = null,
-    link = true,
-    headless = false,
-    browser = true,
-    frontend = 'mobile',
-    verify = true,
-    assets = true,
-    manifestPath = null,
-  } = options;
+  const { target = null, entry = null, outDir = null, manifestPath = null } = options;
 
   /** 显式指定的类型；null 表示从清单推断。 */
   const requestedKind = target;
 
   /** 三个插件共享的只读状态；只有 configResolved 写它。 */
   const state: PluginState = createPluginState(process.cwd());
-  const log = (message: string): void => console.log(`[${NAME}] ${message}`);
+
+  /** 插件日志：按级别交给 consola，与 CLI 的纯文本输出分开。 */
+  const log = (message: string, level: LogLevel = 'info'): void => {
+    switch (level) {
+      case 'success':
+        logger.success(message);
+        break;
+      case 'warn':
+        logger.warn(message);
+        break;
+      case 'error':
+        logger.error(message);
+        break;
+      case 'debug':
+        logger.debug(message);
+        break;
+      default:
+        logger.info(message);
+    }
+  };
+
+  /** 首次会话就绪后给出桌面端/移动端两个稳定预览入口。 */
+  const logPreviewLinks = (port: number): void => {
+    const [desktop, mobile] = frontendLinks(port);
+    rootLogger.log(
+      boxen([`桌面端  ${desktop.url}`, `移动端  ${mobile.url}`].join('\n'), {
+        title: '开发预览（F5 后仍是当前主题）',
+        titleAlignment: 'left',
+        borderStyle: 'round',
+        borderColor: 'cyan',
+        dimBorder: true,
+        padding: { top: 0, right: 1, bottom: 0, left: 1 },
+      })
+    );
+  };
 
   let session: DevSession | null = null;
   let starting: Promise<DevSession> | null = null;
@@ -174,9 +180,9 @@ export default function siyuanDev(options: SiYuanPluginOptions = {}): Plugin[] {
     }
     try {
       await current.stop();
-      log('开发会话已释放');
+      log('开发会话已释放', 'success');
     } catch (cause) {
-      log(`开发会话释放失败：${messageOf(cause)}`);
+      log(`开发会话释放失败：${messageOf(cause)}`, 'error');
     }
   }
 
@@ -225,7 +231,7 @@ export default function siyuanDev(options: SiYuanPluginOptions = {}): Plugin[] {
     }
 
     try {
-      return { kind: resolvedKind, target: createTarget(resolvedKind, { name, cwd }) };
+      return { kind: resolvedKind, target: createTarget(resolvedKind, { cwd }) };
     } catch (cause) {
       return { ok: false, reason: messageOf(cause) };
     }
@@ -248,7 +254,7 @@ export default function siyuanDev(options: SiYuanPluginOptions = {}): Plugin[] {
     if (!kind) {
       const detected = detectTargetType(cwd);
       if (!detected.ok) {
-        log(`识别不到清单，资产清单暂按 theme.json：${detected.reason}（可用 target 显式指定）`);
+        log(`识别不到清单，资产清单暂按 theme.json：${detected.reason}（可用 target 显式指定）`, 'warn');
         return 'theme.json';
       }
       kind = detected.kind;
@@ -257,7 +263,7 @@ export default function siyuanDev(options: SiYuanPluginOptions = {}): Plugin[] {
       return targetType(kind).descriptor.manifestName();
     } catch (cause) {
       // 注册了新类型却取不到描述符时必须让人看见，不能悄悄退回内置类型。
-      log(`取清单名失败（target=${kind}），暂按 theme.json：${messageOf(cause)}`);
+      log(`取清单名失败（target=${kind}），暂按 theme.json：${messageOf(cause)}`, 'warn');
       return 'theme.json';
     }
   }
@@ -273,13 +279,10 @@ export default function siyuanDev(options: SiYuanPluginOptions = {}): Plugin[] {
 
       const created = await startDevSession({
         kind: resolved.kind,
-        name,
         cwd: state.root,
         outDir,
-        link,
-        headless,
-        browser,
-        frontend,
+        // 插件形态不自动打开浏览器：预览链接会打印出来，由用户自己打开。
+        browser: false,
         log,
         // 变更由宿主的 writeBundle 喂进来，不自己 watch 目录。
         watch: false,
@@ -326,7 +329,7 @@ export default function siyuanDev(options: SiYuanPluginOptions = {}): Plugin[] {
         const resolvedTarget = targetOrNull(resolved);
         if (!resolvedTarget) {
           // 没有清单就不知道产物该叫什么；交给项目自己配，不在这里报错。
-          log('跳过构建配置注入：识别不到被测类型');
+          log('跳过构建配置注入：识别不到被测类型', 'warn');
           return undefined;
         }
         // entry 是相对项目根的路径，解析成绝对路径再交给 rollup。
@@ -380,7 +383,7 @@ export default function siyuanDev(options: SiYuanPluginOptions = {}): Plugin[] {
         // this.meta.watchMode 或 userConfig.build.watch。
         applyResolvedConfig(state, resolvedConfig);
         if (configWatch !== null && configWatch !== state.watch) {
-          log(`注意：config() 看到 watch=${configWatch}，Vite 归一化后为 ${state.watch}，以归一化值为准`);
+          log(`注意：config() 看到 watch=${configWatch}，Vite 归一化后为 ${state.watch}，以归一化值为准`, 'warn');
         }
         if (!state.watch) {
           log('生产构建：不启动热重载会话；会校验产物并打包。开发请用 `vite build --watch`。');
@@ -398,8 +401,9 @@ export default function siyuanDev(options: SiYuanPluginOptions = {}): Plugin[] {
         if (firstBundle) {
           firstBundle = false;
           try {
-            await ensureSession();
-            log('会话就绪，改源码会自动重载');
+            const created = await ensureSession();
+            log('会话就绪，改源码会自动重载', 'success');
+            logPreviewLinks(created.kernelPort);
           } catch (cause) {
             // watch 形态必须有思源在跑（热重载依赖 kernel + 浏览器）。连不上就明确报错、
             // 并让构建失败，而不是静默继续——否则会以为改源码在生效，其实热重载没起来。
@@ -412,7 +416,7 @@ export default function siyuanDev(options: SiYuanPluginOptions = {}): Plugin[] {
           const current = await ensureSession();
           current.notifyChange(files);
         } catch (cause) {
-          log(`重载失败：${messageOf(cause)}`);
+          log(`重载失败：${messageOf(cause)}`, 'error');
         }
       },
 
@@ -427,23 +431,18 @@ export default function siyuanDev(options: SiYuanPluginOptions = {}): Plugin[] {
     },
 
     // 产物资产：监听 public/（Vite 不监听 publicDir）+ 搬运清单声明的元数据文件。
-    // 默认带上——没有它，改 theme.json 不会触发重建，这让「改清单不生效」很难查。
-    ...(assets
-      ? [
-          siyuanAssets({
-            state,
-            // 清单名从描述符取，不硬编码；惰性求值，等 Vite 解析出 root 再定清单路径。
-            manifestPath: (projectRoot: string) => manifestPath ?? `public/${manifestFile(projectRoot)}`,
-            log,
-          }),
-        ]
-      : []),
+    // 固定开启——没有它，改 theme.json 不会触发重建，这让「改清单不生效」很难查。
+    siyuanAssets({
+      state,
+      // 清单名从描述符取，不硬编码；惰性求值，等 Vite 解析出 root 再定清单路径。
+      manifestPath: (projectRoot: string) => manifestPath ?? `public/${manifestFile(projectRoot)}`,
+      log,
+    }),
 
     // 收尾：校验产物 + 打包。用 enforce: 'post' 确保在所有产物写完之后跑，
     // 且校验失败时不打包。它只读共享 state，两个环境都校验，只是失败处理不同。
     siyuanPost({
       state,
-      verify,
       resolveTarget: () => targetOrNull(resolveTarget(state.root)),
       log,
     }),

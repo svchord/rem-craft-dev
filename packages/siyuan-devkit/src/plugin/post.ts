@@ -28,6 +28,7 @@ import { deflateRawSync } from 'node:zlib';
 import type { Plugin } from 'vite';
 import type { Target } from '../core/targets.ts';
 import { formatIssues, verifyTarget } from '../core/verify.ts';
+import type { LogLevel } from '../dev/dev-session.ts';
 import { applyResolvedConfig, createPluginState } from './state.ts';
 import type { PluginState } from './state.ts';
 import { messageOf, walkFiles } from './shared.ts';
@@ -52,7 +53,7 @@ export interface PostPluginOptions {
   /** 与 siyuan() 组合时共享同一状态；单独使用时留空，插件自建并自行 configResolved。 */
   state?: PluginState;
   /** 诊断日志；缺省 console.log。 */
-  log?: (message: string) => void;
+  log?: (message: string, level?: LogLevel) => void;
 }
 
 const defaultLog = (message: string): void => console.log(`[siyuan-devkit:post] ${message}`);
@@ -241,20 +242,20 @@ export function siyuanPost(options: PostPluginOptions = {}): Plugin {
       if (verify) {
         const target = resolveTarget?.() ?? null;
         if (!target) {
-          log('跳过校验：识别不到被测类型');
+          log('跳过校验：识别不到被测类型', 'warn');
         } else {
           const result = verifyTarget(target, { root, outDir });
           if (!result.ok) {
             const text = formatIssues(result.issues);
             if (watch) {
               // 开发中中断会让 vite build --watch 退出，得手动重开，代价太大。
-              log(`产物校验未通过（开发模式，仅警告）：\n${text}`);
+              log(`产物校验未通过（开发模式，仅警告）：\n${text}`, 'warn');
             } else {
               // 生产构建：产物要发布，坏包代价远大于构建失败。
               throw new Error(`产物校验未通过：\n${text}`);
             }
           } else {
-            log('产物校验通过');
+            log('产物校验通过', 'success');
           }
         }
       }
@@ -272,7 +273,7 @@ export function siyuanPost(options: PostPluginOptions = {}): Plugin {
         if (result.files === 0) {
           throw new Error(`产物目录 ${outDir} 里没有文件`);
         }
-        log(`已打包：${PACKAGE_NAME}（${result.files} 个文件，${result.bytes} 字节）`);
+        log(`已打包：${PACKAGE_NAME}（${result.files} 个文件，${result.bytes} 字节）`, 'success');
       } catch (cause) {
         // 生产构建里打包失败必须让构建失败；同时清掉可能写了一半的坏包。
         rmSync(outFile, { force: true });

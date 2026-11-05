@@ -1,7 +1,7 @@
 /**
  * 开发会话：把「产物已经在了」之后的全部工作收在一处。
  *
- * 谁负责构建不是这里的事——CLI 形态自己 spawn `vite build --watch`，
+ * 谁负责构建不是这里的事——`startDev()` 自己 spawn `vite build --watch`，
  * 插件形态挂在宿主 vite 的 `writeBundle` 上。两种形态共用本文件，
  * 所以这里不含任何构建器知识。
  *
@@ -30,14 +30,22 @@ import { findChrome, findKernelPort, frontendUrl, MOBILE_VIEWPORT } from '../cor
 import type { Frontend } from '../core/siyuan.ts';
 import { createTarget } from '../core/targets.ts';
 import type { Target, TargetBuildConfig } from '../core/targets.ts';
+import type { MountState } from '../core/target-types.ts';
 
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
 /** 一批产物变化的合并窗口（一次构建常同时写多个文件）。 */
 const BATCH_MS = 250;
 
-/** 开局的日志函数。 */
-export type Logger = (message: string) => void;
+/** 日志级别；由展示层决定图标与颜色。debug 只在 SYT_DEBUG=1 时显示。 */
+export type LogLevel = 'debug' | 'info' | 'success' | 'warn' | 'error';
+
+/**
+ * 日志回调。
+ *
+ * level 可选，缺省按 info 处理——插件形态只需要一句话，不必逐个标注。
+ */
+export type Logger = (message: string, level?: LogLevel) => void;
 
 /** startDevSession 的选项。 */
 export interface StartDevSessionOptions {
@@ -111,6 +119,10 @@ export interface DevSession {
   browser: Browser | null;
   page: Page | null;
   kernelPort: number;
+  /** 链接目标（`<workspace>/data/<subdir>/<name>`）；未建立链接（link:false）时为 null。 */
+  installPath: string | null;
+  /** 启动时的挂载检查结果；未启动浏览器（browser:false）时为 null。 */
+  mount: MountState | null;
   control: ControlServer | null;
   /** 外部（插件形态的 writeBundle）直接把变更文件喂进来。 */
   notifyChange(filenames: string | string[]): void;
@@ -137,9 +149,9 @@ async function waitForMount(
   while (Date.now() < deadline) {
     try {
       last = await target.mountState(page);
-      // ok 只表示「这个类型允许没有样式表」，不代表已经挂上。
-      // 要等真正读到东西（loaded 有值）才算就绪。
-      if (last.ok && last.loaded) return last;
+      // ok 表示「这个类型允许没有样式表」，loaded/reason 给出实际状态。
+      // 两者有一个就说明检查已经完成，不再空等到超时（无 CSS 插件就是 loaded=null + reason）。
+      if (last.ok && (last.loaded || last.reason)) return last;
     } catch {
       // 页面还在导航，继续等
     }
@@ -154,7 +166,7 @@ async function waitForApp(page: Page, log: Logger): Promise<boolean> {
     await page.waitForFunction('window.siyuan && window.siyuan.config' as never, { timeout: 20000 });
     return true;
   } catch {
-    log('页面刷新后没能恢复（可能仍在导航），下一次改动会再试');
+    log('页面刷新后没能恢复（可能仍在导航），下一次改动会再试', 'warn');
     return false;
   }
 }
@@ -171,7 +183,7 @@ export async function startDevSession({
   headless = false,
   browser: startBrowser = true,
   frontend = 'mobile',
-  log = (message) => console.log(`[dev] ${message}`),
+  log = (message) => console.log(message),
   watch = true,
 }: StartDevSessionOptions): Promise<DevSession> {
   const target = createTarget(kind, { name, cwd });
@@ -182,6 +194,8 @@ export async function startDevSession({
   let watcher: ArtifactWatcher | null = null;
   let profile: string | null = null;
   let control: ControlServer | null = null;
+  let installPath: string | null = null;
+  let mount: MountState | null = null;
   let closing = false;
 
   const shutdown = async (): Promise<void> => {
@@ -214,16 +228,20 @@ export async function startDevSession({
       const targetPath = join(installDir, target.name);
       const result = ensureLink(join(cwd, resolvedOutDir), targetPath, { kind });
       if (!result.ok) throw new Error(result.reason ?? '建立链接失败');
-      log(result.changed ? `已链接：${targetPath}（${result.linkType}）` : `链接已存在：${targetPath}`);
+      installPath = targetPath;
+      if (result.changed) log(`已链接：${targetPath}（${result.linkType}）`, 'success');
+      else log(`链接已存在：${targetPath}`, 'info');
 
       const check = checkLinkedFiles(targetPath, buildConfig.expectedFiles);
-      if (!check.ok) log(`提示：链接目录里还缺 ${check.missing.join('、')}（构建可能还没写完）`);
+      if (!check.ok) {
+        log(`提示：链接目录里还缺 ${check.missing.join('、')}（构建可能还没写完）`, 'warn');
+      }
     }
 
     // 2) 让思源用上它。只问「有没有 activate 能力」，不做类型判断。
     if (target.activate) {
       const activation = await target.activate(null, { port: kernelPort });
-      log(activation.message);
+      log(activation.message, activation.ok ? 'success' : 'error');
       if (!activation.ok) throw new Error(activation.message);
     }
 
@@ -241,15 +259,13 @@ export async function startDevSession({
 
       const pages = await browser.pages();
       page = pages[0] ?? (await browser.newPage());
-      // 桌面与移动是两个独立构建入口；移动端用 390x844@3 视口（与 open.ts 一致）。
+      // 桌面与移动是两个独立构建入口；移动端用 390x844@3 视口（与 shot.ts 一致）。
       await page.setViewport(frontend === 'mobile' ? { ...MOBILE_VIEWPORT } : { width: 1600, height: 1000 });
       await page.goto(frontendUrl(kernelPort, frontend), { waitUntil: 'domcontentloaded', timeout: 30000 });
       await page.waitForFunction('window.siyuan && window.siyuan.config' as never, { timeout: 30000 });
 
-      const mount = await waitForMount(target, page, 10000);
-      log(`挂载：${mount.ok ? (mount.loaded ?? '(无样式表)') : `未挂上 — ${mount.reason}`}`);
-    } else {
-      log('未启动浏览器（browser:false）：桌面端请用思源本体温热重载；需要看移动端效果时设 browser:true');
+      mount = await waitForMount(target, page, 10000);
+      log(`挂载：${mount.loaded ?? mount.reason ?? '(无样式表)'}`, mount.ok ? 'success' : 'warn');
     }
 
     // 4) 重载：一批改动只处理一次
@@ -261,7 +277,7 @@ export async function startDevSession({
       if (!page) return false;
       try {
         const result = await target.reload(page, { filename, port: kernelPort });
-        if (result.message) log(result.message);
+        if (result.message) log(result.message, result.ok ? 'success' : 'warn');
         return result.ok;
       } catch (cause) {
         const message = cause instanceof Error ? cause.message : String(cause);
@@ -283,9 +299,9 @@ export async function startDevSession({
       const label = `已重载 #${reloads}：${primary}${files.length > 1 ? `（+ ${files.length - 1}）` : ''}`;
       try {
         const ok = await applyReload(primary);
-        log(label + (ok ? '' : '（失败）'));
+        log(label + (ok ? '' : '（失败）'), ok ? 'success' : 'warn');
       } catch (cause) {
-        log(`重载出错：${cause instanceof Error ? cause.message : String(cause)}`);
+        log(`重载出错：${cause instanceof Error ? cause.message : String(cause)}`, 'error');
       }
     };
 
@@ -305,8 +321,7 @@ export async function startDevSession({
       });
     }
 
-    log(`kernel: http://127.0.0.1:${kernelPort}`);
-    log('另开终端：syt measure <子命令> --attach   # 量真实渲染');
+    log(`kernel: http://127.0.0.1:${kernelPort}`, 'info');
 
     return {
       target,
@@ -314,6 +329,8 @@ export async function startDevSession({
       browser,
       page,
       kernelPort,
+      installPath,
+      mount,
       control,
       notifyChange,
       stop: shutdown,

@@ -237,6 +237,20 @@ describe('target adapters', () => {
     expect(mount.ok).toBe(true);
     expect(mount.reason).toMatch(/只做 DOM 断言/);
   });
+
+  it('reports plugin mount in human-readable form, not the DOM id', async () => {
+    // 开发日志会直接打印 loaded。给用户看「插件 X 已注入样式表（N 字符）」，
+    // 而不是内部 <style id="pluginsStyleX"> 的 id。
+    const target = pluginTarget({ name: 'arco-calendar' });
+    const mount = await target.mountState(
+      asPage({
+        evaluate: () => Promise.resolve({ hasStyle: true, styleLength: 275334 }),
+      })
+    );
+    expect(mount.loaded).toContain('arco-calendar');
+    expect(mount.loaded).toContain('275334');
+    expect(mount.loaded).not.toContain('pluginsStyle');
+  });
 });
 
 describe('target type registry', () => {
@@ -349,11 +363,11 @@ describe('link management', () => {
 
       expect(inspectLink(src, target).state).toBe('absent');
 
-      ensureLink(src, target, { kind: 'theme' });
+      ensureLink(src, target, { kind: 'theme', allowElevation: false });
       expect(inspectLink(src, target).state, '建完应该是 linked').toBe('linked');
 
       // 再建一次必须幂等，不能报错
-      const again = ensureLink(src, target, { kind: 'theme' });
+      const again = ensureLink(src, target, { kind: 'theme', allowElevation: false });
       expect(again.ok).toBe(true);
       expect(again.changed, '已链接时不应重复创建').toBe(false);
     } finally {
@@ -370,7 +384,7 @@ describe('link management', () => {
       mkdirSync(src);
       mkdirSync(target);
 
-      const result = ensureLink(src, target, { kind: 'theme' });
+      const result = ensureLink(src, target, { kind: 'theme', allowElevation: false });
       expect(result.ok).toBe(false);
       expect(result.reason).toMatch(/不是链接/);
     } finally {
@@ -387,8 +401,8 @@ describe('link management', () => {
       mkdirSync(srcA);
       mkdirSync(srcB);
 
-      ensureLink(srcA, target, { kind: 'theme' });
-      const result = ensureLink(srcB, target, { kind: 'theme' });
+      ensureLink(srcA, target, { kind: 'theme', allowElevation: false });
+      const result = ensureLink(srcB, target, { kind: 'theme', allowElevation: false });
       expect(result.ok, '指向别处时不能悄悄改指').toBe(false);
       expect(result.reason).toMatch(/链接到别处/);
     } finally {
@@ -679,6 +693,16 @@ describe('vite plugin shape', () => {
     expect(plugins[0]?.apply).toBe('build');
   });
 
+  it('keeps fixed dev behaviors out of the plugin options', () => {
+    // 链接、校验、资产监听、浏览器都是固定行为；做成开关只会多一条静默失效路径。
+    const source = stripComments(readSource('plugin.ts'));
+    for (const option of ['link', 'verify', 'assets', 'browser', 'frontend', 'headless', 'name']) {
+      expect(source, `不该再有 ${option} 开关`).not.toMatch(new RegExp(`${option}\\?:`));
+    }
+    expect(source, '插件形态固定不自动打开浏览器').toMatch(/browser: false/);
+    expect(source, '清单路径仍是可配置入参').toMatch(/manifestPath\?:/);
+  });
+
   it('ships a post plugin so verify sees the complete output', () => {
     // 校验必须等所有产物写完。实测 Vite 按 enforce 分三段执行 writeBundle
     // （pre → 普通 → post），所以收尾插件必须是 post。
@@ -710,9 +734,8 @@ describe('vite plugin shape', () => {
     expect(typeof assets?.buildStart, '必须 addWatchFile 监听 public/').toBe('function');
     expect(typeof assets?.writeBundle, '必须搬运清单声明的元数据文件').toBe('function');
 
-    // 可关闭：调用方自己接管时不该被强制。
-    const bare = siyuanVitePlugin({ assets: false });
-    expect(bare.some((plugin) => plugin.name === 'siyuan-devkit:assets')).toBe(false);
+    // 固定启用：不再提供 assets 开关，避免「关掉后改清单不生效」的静默问题。
+    expect(stripComments(readSource('plugin.ts')), '不该再有 assets 开关').not.toMatch(/assets\?:/);
   });
 
   it('shares mount judgement between theme.ts and the descriptor', () => {
@@ -948,7 +971,7 @@ describe('cdp layering', () => {
   it('starts the browser only in the three owners that need their own lifecycle', () => {
     // 三个所有者，理由各不相同，都不是「顺手起一个」：
     //   core/session.ts       测量会话：无头、attach 优先、用完即关
-    //   cli/open.ts           人工复审：必须可见窗口，且要能 --shot / 多前端标签页
+    //   cli/shot.ts           截图：无头窗口，按需截桌面端/移动端
     //   dev/dev-session.ts    开发会话：可见窗口长驻，产物变了由它驱动重载
     // 两种开发形态（CLI 的 dev.ts、插件 plugin.ts）都复用 dev-session，
     // 所以浏览器生命周期只有一处。measure / watch / CLI 也不得自己起浏览器。
@@ -957,7 +980,7 @@ describe('cdp layering', () => {
         .filter((file) => /puppeteer\.(launch|connect)/.test(readLayer(layer, file)))
         .map((file) => `${layer}/${file}`)
     );
-    expect(launchers.sort()).toEqual(['cli/open.ts', 'core/session.ts', 'dev/dev-session.ts']);
+    expect(launchers.sort()).toEqual(['cli/shot.ts', 'core/session.ts', 'dev/dev-session.ts']);
   });
 
   it('imports puppeteer-core at runtime only in those three owners', () => {
@@ -970,7 +993,7 @@ describe('cdp layering', () => {
         .filter((file) => /^import\s+puppeteer\s+from\s+['"]puppeteer-core['"]/m.test(readLayer(layer, file)))
         .map((file) => `${layer}/${file}`)
     );
-    expect(runtimeImporters.sort()).toEqual(['cli/open.ts', 'core/session.ts', 'dev/dev-session.ts']);
+    expect(runtimeImporters.sort()).toEqual(['cli/shot.ts', 'core/session.ts', 'dev/dev-session.ts']);
   });
 
   /** 既有的「只看文件名」断言用的扁平清单校验：确认收集到了东西。 */
@@ -981,7 +1004,7 @@ describe('cdp layering', () => {
   it('keeps the CLI layer free of browser and build plumbing', () => {
     // CLI 只解析参数、打印结果；浏览器与构建都该在模块层，才能被编程调用。
     // 例外：watch.mjs 的 spawn 是它自己的功能（重跑用户给的 --exec 命令），不是构建。
-    for (const file of ['measure-cli.ts', 'dev-cli.ts', 'link-cli.ts']) {
+    for (const file of ['measure-cli.ts']) {
       const source = stripComments(readSource(file));
       expect(source, file + ' 不得自己碰 puppeteer').not.toMatch(/puppeteer/);
       expect(source, file + ' 不得自己起构建进程').not.toMatch(/child_process/);
@@ -1052,14 +1075,11 @@ describe('cdp layering', () => {
   it('keeps target-specific knowledge out of the CLI layer', () => {
     // 类型差异必须收敛在 target-types.mjs / targets.mjs；CLI 里出现主题/插件的
     // 分支判断，说明抽象漏了，加第三种被测对象时就要改 CLI。
-    for (const file of ['measure-cli.ts', 'dev-cli.ts', 'link-cli.ts']) {
+    for (const file of ['measure-cli.ts']) {
       const source = stripComments(readSource(file));
       expect(source, '不得直接读 theme.json 或 pluginsStyle').not.toMatch(/pluginsStyle|public\/theme\.json/);
       expect(source, '不得自己判断产物文件名').not.toMatch(/['"]theme\.css['"]|['"]index\.js['"]/);
     }
-    // 允许出现类型名的唯一地方是「默认值」，不允许用它做分支。
-    const devCli = stripComments(readSource('dev-cli.ts'));
-    expect(devCli, 'dev-cli 必须通过注册表推断类型').toMatch(/detectTargetType/);
   });
 
   it('drives dev through the type registry, not hardcoded kinds', () => {
@@ -1081,14 +1101,14 @@ describe('cdp layering', () => {
   it('keeps mount judgement in one place', () => {
     // 挂载判定错了，测量读数会被张冠李戴。
     // 判定逻辑只许出现在 targets.mjs 的类型描述符里；CLI 与 open 通过 createTarget 拿。
-    for (const file of ['measure-cli.ts', 'open.ts', 'link-cli.ts', 'dev-cli.ts']) {
+    for (const file of ['measure-cli.ts', 'shot.ts']) {
       const source = stripComments(readSource(file));
       expect(source, file + ' 不得自己实现 normalizeThemeName').not.toMatch(/function\s+normalizeThemeName/);
       expect(source, file + ' 不得自己解析 themeStyle 的路径').not.toMatch(/appearance\/themes/);
     }
     const targets = stripComments(readSource('targets.ts'));
     expect(targets, '挂载判定必须在 targets.mjs').toMatch(/mountState/);
-    expect(stripComments(readSource('open.ts')), 'open.mjs 仍需读主题名做展示').toMatch(
+    expect(stripComments(readSource('shot.ts')), 'shot.ts 仍需读主题名做展示').toMatch(
       /from\s+['"][^'"]*core\/theme\.ts['"]/
     );
   });

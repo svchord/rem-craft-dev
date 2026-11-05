@@ -17,14 +17,14 @@ import type { Target } from '../core/targets.ts';
 import { lastValue, allValues } from './cli-args.ts';
 import type { ParsedArgs } from './cli-args.ts';
 import { resolveTargetFromPlan } from './targets.ts';
-
-const PREFIX = '[measure] ';
+import { fail, info, list, section, table, warn } from './ui.ts';
 
 /**
  * 执行审计计划。
  */
 export async function runAudit(parsed: ParsedArgs): Promise<void> {
   const cwd = process.cwd();
+  const asJson = parsed.flags.has('--json');
   const explicitConfig = lastValue(parsed, '--config') ?? null;
 
   // 1) 加载配置文件（可能没有）
@@ -32,7 +32,7 @@ export async function runAudit(parsed: ParsedArgs): Promise<void> {
   try {
     loaded = await loadConfig(explicitConfig, cwd);
   } catch (cause) {
-    console.error(`${PREFIX}${cause instanceof Error ? cause.message : String(cause)}`);
+    fail(cause instanceof Error ? cause.message : String(cause));
     process.exit(2);
   }
 
@@ -66,22 +66,25 @@ export async function runAudit(parsed: ParsedArgs): Promise<void> {
   // 3) 校验（在建会话之前，避免白起浏览器）
   const validated = validatePlan(plan);
   if (!validated.ok) {
-    console.error(`${PREFIX}计划有问题：`);
-    for (const error of validated.errors) console.error(`${PREFIX}  - ${error}`);
+    fail('计划有问题：');
+    for (const error of validated.errors) fail(`  - ${error}`);
     process.exit(2);
   }
   if (planIsEmpty(validated.plan)) {
-    console.error(`${PREFIX}计划里没有任何测量项（tokens / styles / counts / boxes / probes / contrast / diffs）`);
+    fail('计划里没有任何测量项（tokens / styles / counts / boxes / probes / contrast / diffs）');
     if (!loaded.path) {
-      console.error(`${PREFIX}提示：缺省读 ${DEFAULT_CONFIG_NAME}，或用 --config <path> 指定`);
+      fail(`提示：缺省读 ${DEFAULT_CONFIG_NAME}，或用 --config <path> 指定`);
     }
     process.exit(2);
   }
 
-  if (loaded.path) {
-    console.log(`${PREFIX}计划：${loaded.path}${loaded.discovered ? '（自动发现）' : ''}`);
-  } else {
-    console.log(`${PREFIX}计划：仅命令行参数`);
+  // --json 时 stdout 只允许 JSON：计划来源这类人类日志全部延后到非 JSON 分支。
+  if (!asJson) {
+    if (loaded.path) {
+      info(`计划：${loaded.path}${loaded.discovered ? '（自动发现）' : ''}`);
+    } else {
+      info('计划：仅命令行参数');
+    }
   }
 
   // 4) 建会话并执行
@@ -99,13 +102,13 @@ export async function runAudit(parsed: ParsedArgs): Promise<void> {
 
   try {
     const mount = target ? await target.mountState(session.page) : null;
-    if (mount && !mount.ok) {
-      console.log(`${PREFIX}注意：${target?.kind} 未挂载 — ${mount.reason ?? '未知原因'}`);
+    if (mount && !mount.ok && !asJson) {
+      warn(`注意：${target?.kind} 未挂载 — ${mount.reason ?? '未知原因'}`);
     }
 
     const result = await runPlan(session.page, validated.plan);
 
-    if (parsed.flags.has('--json')) {
+    if (asJson) {
       console.log(
         JSON.stringify(
           {
@@ -129,89 +132,134 @@ export async function runAudit(parsed: ParsedArgs): Promise<void> {
   }
 }
 
+/** 非空样式值转成两列表格行。 */
+function styleRows(styles: Record<string, string>): Array<[string, string]> {
+  return Object.entries(styles)
+    .filter(([, value]) => Boolean(value))
+    .map(([prop, value]) => [prop, value]);
+}
+
 /** 人读格式的审计结果。 */
 function printAuditHuman(result: AuditResult, target: Target | null, mount: MountState | null): void {
-  const pad = (text: string, width: number): string => text.padEnd(width);
-
   if (result.environment) {
     const env = result.environment;
-    console.log(`${PREFIX}前端=${env.frontend ?? '?'} 后端=${env.backend ?? '?'} 模式=${env.themeMode ?? '?'}`);
-    console.log(`${PREFIX}themeStyle=${env.themeStyle ?? '(无)'}`);
+    section('环境');
+    list([
+      ['前端', env.frontend ?? '?'],
+      ['后端', env.backend ?? '?'],
+      ['模式', env.themeMode ?? '?'],
+      ['视口', `${env.viewport.width}x${env.viewport.height}@${env.viewport.dpr}`],
+      ['DOM 节点', String(env.domNodes)],
+      ['themeStyle', env.themeStyle ?? '(无)'],
+    ]);
   }
+
   if (target) {
-    console.log(`${PREFIX}目标=${target.kind}/${target.name}${mount?.ok ? '（已挂载）' : ''}`);
-  }
-  if (result.actions?.length) {
-    console.log(`${PREFIX}动作：${result.actions.join(' → ')}`);
+    section('目标');
+    const rows: Array<[string, string]> = [
+      ['目标', `${target.kind}/${target.name}`],
+      ['挂载', mount?.ok ? '已挂载' : `未挂载${mount?.reason ? ` — ${mount.reason}` : ''}`],
+    ];
+    if (result.actions?.length) rows.push(['动作', result.actions.join(' → ')]);
+    list(rows);
+  } else if (result.actions?.length) {
+    section('动作');
+    info(result.actions.join(' → '));
   }
 
   if (result.tokens) {
-    const width = Math.max(...Object.keys(result.tokens).map((key) => key.length));
-    for (const [name, value] of Object.entries(result.tokens)) {
-      console.log(`${PREFIX}${pad(name, width)}  ${value || '(空)'}`);
-    }
+    section('令牌');
+    list(Object.entries(result.tokens).map(([name, value]) => [name, value || '(空)'] as const));
   }
 
-  for (const style of result.styles ?? []) {
-    if (!style.found) {
-      console.log(`${PREFIX}未找到元素`);
-      continue;
-    }
-    console.log(`${PREFIX}${style.tag ?? '?'}（共 ${style.count} 个，可见 ${style.visible}）`);
-    for (const [prop, value] of Object.entries(style.styles)) {
-      if (!value) continue;
-      console.log(`  ${pad(prop, 18)}${value}`);
+  if (result.styles?.length) {
+    section('样式');
+    for (const style of result.styles) {
+      if (!style.found) {
+        warn('未找到元素');
+        continue;
+      }
+      const firstClass = style.className?.split(' ')[0];
+      list([
+        ['元素', `${style.tag ?? '?'}${style.className ? `.${firstClass}` : ''}`],
+        ['命中', `共 ${style.count} 个，可见 ${style.visible}`],
+      ]);
+      const rows = styleRows(style.styles);
+      if (rows.length) table([], rows);
     }
   }
 
   if (result.counts) {
-    const width = Math.max(...Object.keys(result.counts).map((key) => key.length));
-    for (const [selector, info] of Object.entries(result.counts)) {
-      console.log(`${PREFIX}${pad(selector, width)}  总数=${info.total} 可见=${info.visible}`);
-    }
-  }
-
-  for (const [selector, boxes] of Object.entries(result.boxes ?? {})) {
-    if (!boxes.length) {
-      console.log(`${PREFIX}${selector}：没有可见的匹配元素`);
-      continue;
-    }
-    for (const box of boxes) {
-      console.log(`${PREFIX}${selector}[${box.index}] ${box.width}×${box.height} @(${box.x},${box.y})`);
-    }
-  }
-
-  for (const [index, probe] of (result.probes ?? []).entries()) {
-    if (!probe.found) {
-      console.log(`${PREFIX}探针 ${index}：没有匹配元素`);
-      continue;
-    }
-    console.log(`${PREFIX}探针 ${index}：`);
-    for (const [prop, value] of Object.entries(probe.styles)) {
-      if (!value) continue;
-      console.log(`  ${pad(prop, 18)}${value}`);
-    }
-  }
-
-  for (const entry of result.contrast ?? []) {
-    console.log(
-      `${PREFIX}${entry.foreground || '(空)'} on ${entry.background || '(空)'} = ` +
-        `${entry.ratio === null ? '解析失败' : `${entry.ratio}:1`}`
+    section('命中数');
+    list(
+      Object.entries(result.counts).map(
+        ([selector, selection]) => [selector, `总数=${selection.total} 可见=${selection.visible}`] as const
+      )
     );
   }
 
-  for (const diff of result.diffs ?? []) {
-    if (!diff.found) {
-      console.log(`${PREFIX}diff：未找到元素`);
-      continue;
+  if (result.boxes && Object.keys(result.boxes).length) {
+    section('盒模型');
+    const rows: Array<Array<string | number>> = [];
+    for (const [selector, boxes] of Object.entries(result.boxes)) {
+      if (!boxes.length) {
+        warn(`${selector}：没有可见的匹配元素`);
+        continue;
+      }
+      for (const entry of boxes) {
+        rows.push([
+          selector,
+          String(entry.index),
+          `${entry.tag}.${entry.className.split(' ')[0] ?? ''}`,
+          `${entry.width}×${entry.height}`,
+          `@(${entry.x},${entry.y})`,
+        ]);
+      }
     }
-    if (!Object.keys(diff.changed).length) {
-      console.log(`${PREFIX}diff：无变化`);
-      continue;
+    if (rows.length) table(['选择器', '#', '元素', '尺寸', '位置'], rows);
+  }
+
+  if (result.probes?.length) {
+    section('探针');
+    for (const [index, probe] of result.probes.entries()) {
+      if (!probe.found) {
+        warn(`探针 ${index}：没有匹配元素`);
+        continue;
+      }
+      info(`探针 ${index}`);
+      const rows = styleRows(probe.styles);
+      if (rows.length) table([], rows);
     }
-    console.log(`${PREFIX}diff：`);
-    for (const [prop, change] of Object.entries(diff.changed)) {
-      console.log(`  ${pad(prop, 18)}${change.from} → ${change.to}`);
+  }
+
+  if (result.contrast?.length) {
+    section('对比度');
+    table(
+      ['前景', '背景', '对比度'],
+      result.contrast.map((entry) => [
+        entry.foreground || '(空)',
+        entry.background || '(空)',
+        entry.ratio === null ? '解析失败' : `${entry.ratio}:1`,
+      ])
+    );
+  }
+
+  if (result.diffs?.length) {
+    section('差异');
+    for (const diff of result.diffs) {
+      if (!diff.found) {
+        warn('diff：未找到元素');
+        continue;
+      }
+      if (!Object.keys(diff.changed).length) {
+        info('diff：无变化');
+        continue;
+      }
+      info('diff：');
+      table(
+        ['属性', '变化前', '变化后'],
+        Object.entries(diff.changed).map(([prop, change]) => [prop, change.from, change.to])
+      );
     }
   }
 }

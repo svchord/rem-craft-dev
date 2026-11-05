@@ -27,14 +27,8 @@ export default defineConfig({
 siyuanPlugin({
   target: 'theme', // 'theme' | 'plugin'，缺省从 public/ 清单推断
   entry: 'src/styles/index.css', // 入口；主题给 CSS，插件给 TSX/TS
-  name: 'My Theme', // 缺省从清单读
   outDir: './dev', // 覆盖产物目录；缺省由类型决定（watch→dev，否则→dist）
-  link: true, // 是否链接到 <workspace>/data/<subdir>/
-  headless: false, // 浏览器是否无头
-  frontend: 'desktop', // 'desktop' | 'mobile'
-  verify: true, // 是否校验产物（缺省 true）
-  assets: true, // 是否带产物资产插件（见下）
-  manifestPath: null, // 清单路径；缺省按类型取 public/theme.json 或 public/plugin.json
+  manifestPath: 'config/theme.json', // 清单不在 public/ 时指定；缺省 public/theme.json / plugin.json
 });
 ```
 
@@ -42,11 +36,21 @@ siyuanPlugin({
 判断，打包跟着走：watch 一定不打包、生产一定打包。项目再传一个开关只是重复
 同一件事，还多一处可能不一致的输入。
 
+**链接、产物校验、`public/` 资产监听都是固定行为，不做成入参**：
+它们不是偏好，关掉只会让热重载或发布静默失效。需要单独组合时可以直接
+`import { siyuanAssets, siyuanPost } from 'siyuan-devkit'` 自行拼装。
+
+- 链接：开发会话启动时自动建立到 `<workspace>/data/<subdir>/<name>`
+- 校验：两个环境都跑，watch 失败只警告，生产失败中断构建
+- 资产：监听 `public/` 并把清单声明的 readme/icon/preview 搬进产物
+- 清单路径：缺省 `public/theme.json` / `public/plugin.json`，可用 `manifestPath` 覆盖
+
 > 文中标注「实测」的结论是 2026-11 在 Vite 8 + 思源桌面端上的一次性观察，
 > 随版本升级可能变化；可复跑的验证在 `tests/`，性能数字不进单测。
 
 **`target` 与自动推断**：缺省看 `public/` 下有 `theme.json` 还是 `plugin.json`。
-清单还没创建、或两者并存时，显式传 `target` 更可靠。
+清单还没创建、或两者并存时，显式传 `target` 更可靠；清单不在 `public/` 时，
+需要同时传 `target` 与 `manifestPath`。
 
 ### entry 统一，产物形态随类型
 
@@ -91,9 +95,11 @@ vite build --watch
 ```
 
 产物一变，插件就让思源重载——不用改你的构建配置，也不用学新命令。
+插件开发日志用 `consola` 做级别/颜色/图标，预览入口用 `boxen` 排版；
+CLI 命令的输出则保持纯文本。首次会话就绪后会给出桌面端与移动端两个稳定预览链接。
 
 > **watch 需要本地思源在运行**：热重载靠连 kernel + 起浏览器。连不上会**明确报错并让构建失败**，
-> 不会静默假成功。纯生产构建（`vite build`）、`syt verify`、`syt link` 都不需要思源。
+> 不会静默假成功。纯生产构建（`vite build`）与 `syt verify` 都不需要思源。
 
 > **为什么必须是 `build --watch` 而不是 `vite dev`？**
 > 思源从磁盘读 `<workspace>/data/themes/<name>/theme.css`，而 `vite dev` 只在内存里
@@ -114,7 +120,7 @@ vite build --watch
    `readme` / `icon` / `preview` 字段推导要复制哪些文件到产物。
 
 有了它，项目里不再需要 `vite-plugin-static-copy` 和手写的 `watch-external`。
-要自己接管就传 `assets: false`。
+资产插件固定启用；需要单独组合时可以直接使用导出的 `siyuanAssets`。
 
 ### 产物校验（收尾插件，`enforce: 'post'`）
 
@@ -169,24 +175,36 @@ $ pnpm build
 zip 由包自己写（`node:zlib`，零运行时依赖）；`tests/` 里用标准解压读回并
 校验每个文件的内容与 CRC。打包失败会让构建失败，不会静默丢掉发布包。
 
-### 2. CLI
+### 2. CLI（面向 agent 自动审计与 CI）
 
-不改 vite 配置，或者想换构建器时用：
+**开发热重载走 Vite 插件**：`vite build --watch`（或项目里的 `pnpm dev`）。
+链接与热重载都由插件负责，CLI 不再提供 `syt dev` / `syt link` / `syt watch`，
+只保留审计、截图与校验入口：
 
 ```bash
-syt dev                              # 构建 + 链接 + 热重载
-syt dev --build-command "npx sass --watch src:dev"
+syt measure audit                    # 一次会话跑完审计计划
 syt measure tokens --rc-text-primary --attach
-syt link --check
+syt shot                             # 桌面端 / 移动端各截一张图
+syt verify
 ```
 
-| 命令      | 作用                                          |
-| --------- | --------------------------------------------- |
-| `dev`     | 构建 → 链接 → 让思源加载 → 改完自动重载       |
-| `link`    | 把构建产物目录链接到思源安装目录（`--check`） |
-| `measure` | 在真实前端里量渲染事实、驱动交互              |
-| `open`    | 开可见浏览器人工复审（可截图）                |
-| `watch`   | 盯着源码目录，改动后重跑你给的命令            |
+| 命令      | 作用                                                            |
+| --------- | --------------------------------------------------------------- |
+| `measure` | 在真实前端里量渲染事实、驱动交互（agent 审计主力）              |
+| `shot`    | 无头截取桌面端/移动端页面，供 agent 视觉复核                    |
+| `verify`  | 独立校验清单与产物（不跑构建，可用于 CI / 发布前 / 解包后检查） |
+
+**终端输出**：CLI 命令保持纯文本，不做颜色、图标、边框或表格对齐——CLI 的主要
+消费者是 agent，这些排版只是 token 开销。需要结构化数据时用 `--json`，stdout
+只包含 JSON。开发日志（Vite 插件）是给人看的，才使用 `consola` / `boxen` 排版。
+
+开发模式（Vite 插件）首次会话就绪后会打印桌面端与移动端两个稳定入口：
+
+```text
+开发预览（F5 后仍是当前主题）
+桌面端  http://127.0.0.1:6806/stage/build/desktop/
+移动端  http://127.0.0.1:6806/stage/build/mobile/
+```
 
 ## 热重载的粒度
 
@@ -326,9 +344,10 @@ registerTargetType(
 
 ## 依赖关系
 
-- **运行时依赖**：只有 `puppeteer-core`
-- **`vite`**：optional peerDependency。插件形态需要它，CLI 形态不需要；
-  走 CLI 且用别的构建器时完全不碰 vite
+- **运行时依赖**：`puppeteer-core`（浏览器自动化）；Vite 插件开发日志用
+  `consola` / `boxen`（CLI 输出不依赖它们）
+- **`vite`**：optional peerDependency。插件形态需要它；`startDev()` 程序 API
+  默认也用它，但可以换成任意构建命令，CLI 审计命令则完全不碰 vite
 - 包本身不 import vite 的运行时 API，插件形态只用到类型
 
 ## 实测踩过的坑（都已在代码里处理）
@@ -358,10 +377,10 @@ core/    被测对象契约、测量原语与运行时胶水。不依赖 vite、
          target-types.ts / targets.ts / builtin-targets.ts         类型契约、注册表、内置描述符
          verify.ts / audit.ts / audit-config.ts                    校验与审计
          control-server.ts / errors.ts / timing.ts / guards.ts    运行支撑
-dev/     两种形态共用的开发链路：build.ts / dev-session.ts / dev.ts
+dev/     两种形态共用的开发链路：build.ts / dev-session.ts / dev.ts（startDev 程序 API）
 plugin/  Vite 插件形态：plugin.ts / assets.ts / post.ts / state.ts / shared.ts
 cli/     唯一入口 cli.ts + 纯导出的子命令处理函数（不自动执行）
 ```
 
-`puppeteer-core` 的**运行时**导入只出现在 `session.ts`、`open.ts`、`dev-session.ts`
+`puppeteer-core` 的**运行时**导入只出现在 `session.ts`、`shot.ts`、`dev-session.ts`
 三个浏览器所有者里；其余模块只 `import type`，编译后擦除。

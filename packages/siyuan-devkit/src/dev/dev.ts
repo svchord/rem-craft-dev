@@ -1,5 +1,5 @@
 /**
- * 开发循环（CLI 形态）：一条命令走完「构建 → 链接 → 让思源用上 → 改完自动重载」。
+ * 开发循环（程序 API 形态）：一步走完「构建 → 链接 → 让思源用上 → 改完自动重载」。
  *
  * 本文件只负责**构建这一件事**：起 `vite build --watch`（或自定义命令），
  * 等首个产物出现。之后的所有工作交给 dev-session.ts。
@@ -17,7 +17,7 @@ import { join } from 'node:path';
 import { startBuild } from './build.ts';
 import type { BuildCommand, BuildHandle } from './build.ts';
 import { startDevSession } from './dev-session.ts';
-import type { DevSession } from './dev-session.ts';
+import type { DevSession, Logger } from './dev-session.ts';
 import type { Frontend } from '../core/siyuan.ts';
 import { createTarget } from '../core/targets.ts';
 
@@ -39,8 +39,8 @@ export interface StartDevOptions {
   buildCommand?: string | BuildCommand | null;
   /** 产物目录覆盖。 */
   outDir?: string | null;
-  /** 日志回调。 */
-  log?: (message: string) => void;
+  /** 日志回调；level 缺省按 info 处理。 */
+  log?: Logger;
 }
 
 /** 开发会话（在会话层之上多一个构建进程）。 */
@@ -60,7 +60,7 @@ export async function startDev({
   link = true,
   buildCommand = null,
   outDir = null,
-  log = (message) => console.log(`[dev] ${message}`),
+  log = (message) => console.log(message),
 }: StartDevOptions): Promise<DevHandle> {
   let session: DevSession | null = null;
   let build: BuildHandle | null = null;
@@ -92,12 +92,12 @@ export async function startDev({
       onOutput: (text) => {
         // 构建器自己的输出前缀已经很啰嗦，只把错误行转出来。
         for (const line of text.split('\n')) {
-          if (/error|failed|cannot|ENOENT/i.test(line) && line.trim()) log(`构建：${line.trim()}`);
+          if (/error|failed|cannot|ENOENT/i.test(line) && line.trim()) log(`构建：${line.trim()}`, 'error');
         }
       },
     });
     if (!build.ready) throw new Error(build.reason ?? '构建失败');
-    log(`构建就绪：${join(resolvedOutDir, buildConfig.artifact)}`);
+    log(`构建就绪：${join(resolvedOutDir, buildConfig.artifact)}`, 'success');
 
     // 之后全部交给会话层（链接 / 激活 / 浏览器 / 监听 / 重载）
     session = await startDevSession({
@@ -112,7 +112,7 @@ export async function startDev({
       watch: true,
     });
 
-    log(`改源码自动重建 + 自动重载（F5 后仍是这个${session.target.name}）`);
+    log(`改源码自动重建 + 自动重载（F5 后仍是这个${session.target.name}）`, 'info');
 
     return {
       ...session,

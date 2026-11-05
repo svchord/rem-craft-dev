@@ -18,11 +18,8 @@
     "lint": "oxlint --deny-warnings src scripts packages/siyuan-devkit/src",
     "format": "oxfmt .",
     "format:check": "oxfmt --check .",
-    "make-link": "syt link",
-    "link:check": "syt link --check",
     "measure": "syt measure",
-    "watch:theme": "syt watch --dir src/styles",
-    "open:theme": "syt open"
+    "shot": "syt shot"
   },
   "devDependencies": {
     "siyuan-devkit": "workspace:*",

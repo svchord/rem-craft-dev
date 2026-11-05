@@ -62,8 +62,7 @@ import type { MountState } from '../core/target-types.ts';
 import { DEFAULT_PROPS } from '../core/audit.ts';
 import { resolveTargetFromParsed } from './targets.ts';
 import { runAudit } from './audit.ts';
-
-const PREFIX = '[measure] ';
+import { box, info, list, section, table, warn } from './ui.ts';
 
 const VALUE_FLAGS = [
   '--frontend',
@@ -86,28 +85,40 @@ const VALUE_FLAGS = [
 const BOOLEAN_FLAGS = ['--attach', '--json', '--help', '-h'] as const;
 
 const usage = (): void => {
-  console.log(
+  box('syt measure', ['在真实思源前端里量渲染事实、驱动交互。', '用法：syt measure <子命令> [参数] [选项]']);
+
+  section('子命令');
+  table(
+    ['子命令', '说明'],
     [
-      '用法：syt measure <子命令> [参数] [选项]',
-      '',
-      '  env                              页面环境',
-      '  tokens <name...>                 令牌计算值',
-      '  styles <selector>                元素计算样式',
-      '  count <selector...>              选择器命中数',
-      '  box <selector>                   元素盒模型尺寸',
-      '  probe <html> <target>            插入 HTML 再量',
-      '  diff <selector> --do <action>    动作前后差异',
-      '  contrast <fg> <bg>               两色对比度',
-      '  audit [--config <path>]          一次会话跑完计划里的全部测量',
-      '',
-      '通用选项：--kind --frontend --viewport --do --setup --css --plugin --attach --json --props',
-      '',
-      'audit 的计划文件（缺省 ./.siyuan-audit.json，优先级：命令行 > 文件 > 默认值）：',
-      '  { "tokens": [...], "styles": [...], "counts": [...], "boxes": [...],',
-      '    "probes": [...], "contrast": [[fg, bg]], "diffs": [...],',
-      '    "setup": [...], "actions": [...], "frontend": "mobile" }',
-    ].join('\n')
+      ['env', '页面环境'],
+      ['tokens <name...>', '令牌计算值'],
+      ['styles <selector>', '元素计算样式'],
+      ['count <selector...>', '选择器命中数'],
+      ['box <selector>', '元素盒模型尺寸'],
+      ['probe <html> <target>', '插入 HTML 再量'],
+      ['diff <selector> --do <action>', '动作前后差异'],
+      ['contrast <fg> <bg>', '两色对比度'],
+      ['audit [--config <path>]', '一次会话跑完计划里的全部测量'],
+    ]
   );
+
+  section('通用选项');
+  list([
+    ['--kind <类型>', 'theme | plugin，缺省按当前目录推断'],
+    ['--frontend <端>', 'desktop | mobile，缺省 desktop'],
+    ['--viewport <视口>', '如 390x844@3'],
+    ['--props <属性>', '逗号分隔的样式属性'],
+    ['--do <action>', '驱动交互，可重复'],
+    ['--setup <action>', '场景准备，可重复'],
+    ['--attach', '复用 dev 会话的浏览器'],
+    ['--json', '结构化输出（stdout 只有 JSON）'],
+  ]);
+
+  section('audit 计划文件');
+  info('缺省读 ./.siyuan-audit.json，优先级：命令行 > 文件 > 默认值。');
+  info('{ "tokens": [...], "styles": [...], "counts": [...], "boxes": [...], "probes": [...],');
+  info('  "contrast": [[fg, bg]], "diffs": [...], "setup": [...], "actions": [...], "frontend": "mobile" }');
 };
 
 /** 输出结构。 */
@@ -129,96 +140,118 @@ interface MeasureOutput {
   contrast?: { foreground: string | undefined; background: string | undefined; ratio: number | null };
 }
 
-function printHuman(output: MeasureOutput, frontend: string): void {
-  const pad = (text: string, width: number): string => text.padEnd(width);
+/** 非空样式值转成两列表格行。 */
+function styleRows(styles: Record<string, string>): Array<[string, string]> {
+  return Object.entries(styles)
+    .filter(([, value]) => Boolean(value))
+    .map(([prop, value]) => [prop, value]);
+}
 
+function printHuman(output: MeasureOutput, frontend: string): void {
   // 只在没挂上时提醒，正常情况不打扰。
   if (output.mount && !output.mount.ok) {
-    console.log(`${PREFIX}注意：${output.target?.kind ?? ''} 未挂载 — ${output.mount.reason ?? '未知原因'}`);
+    warn(`注意：${output.target?.kind ?? ''} 未挂载 — ${output.mount.reason ?? '未知原因'}`);
   }
 
   if (output.environment) {
     const env = output.environment;
-    console.log(`${PREFIX}前端=${env.frontend ?? '?'} 后端=${env.backend ?? '?'} 模式=${env.themeMode ?? '?'}`);
-    console.log(
-      `${PREFIX}视口=${env.viewport.width}x${env.viewport.height}@${env.viewport.dpr} DOM节点=${env.domNodes}`
-    );
-    console.log(`${PREFIX}themeStyle=${env.themeStyle ?? '(无)'}`);
+    section('环境');
+    list([
+      ['前端', env.frontend ?? '?'],
+      ['后端', env.backend ?? '?'],
+      ['模式', env.themeMode ?? '?'],
+      ['视口', `${env.viewport.width}x${env.viewport.height}@${env.viewport.dpr}`],
+      ['DOM 节点', String(env.domNodes)],
+      ['themeStyle', env.themeStyle ?? '(无)'],
+    ]);
   }
 
   if (output.tokens) {
-    const width = Math.max(...Object.keys(output.tokens).map((key) => key.length));
-    for (const [name, value] of Object.entries(output.tokens)) {
-      console.log(`${PREFIX}${pad(name, width)}  ${value || '(空)'}`);
-    }
+    section('令牌');
+    list(Object.entries(output.tokens).map(([name, value]) => [name, value || '(空)'] as const));
   }
 
   if (output.styles) {
+    section('样式');
     const style = output.styles;
     if (!style.found) {
-      console.log(`${PREFIX}未找到元素`);
+      warn('未找到元素');
     } else {
-      console.log(
-        `${PREFIX}${style.tag ?? '?'}${style.className ? `.${style.className.split(' ')[0]}` : ''}` +
-          `（共 ${style.count} 个，可见 ${style.visible}）`
-      );
-      for (const [prop, value] of Object.entries(style.styles)) {
-        if (!value) continue;
-        console.log(`  ${pad(prop, 18)}${value}`);
-      }
+      const firstClass = style.className?.split(' ')[0];
+      list([
+        ['元素', `${style.tag ?? '?'}${style.className ? `.${firstClass}` : ''}`],
+        ['命中', `共 ${style.count} 个，可见 ${style.visible}`],
+      ]);
+      const rows = styleRows(style.styles);
+      if (rows.length) table([], rows);
     }
   }
 
   if (output.counts) {
-    const width = Math.max(...Object.keys(output.counts).map((key) => key.length));
-    for (const [selector, info] of Object.entries(output.counts)) {
-      console.log(`${PREFIX}${pad(selector, width)}  总数=${info.total} 可见=${info.visible}`);
-    }
+    section('命中数');
+    list(
+      Object.entries(output.counts).map(
+        ([selector, selection]) => [selector, `总数=${selection.total} 可见=${selection.visible}`] as const
+      )
+    );
   }
 
   if (output.boxes) {
+    section('盒模型');
     if (!output.boxes.length) {
       // 空结果是正常读数（比如移动端没有 .dock__item），必须明说，
       // 否则会被误当成「命令没跑」。
-      console.log(`${PREFIX}没有可见的匹配元素（选择器可能不适用于 ${frontend} 端）`);
-    }
-    for (const box of output.boxes) {
-      console.log(
-        `${PREFIX}[${box.index}] ${box.tag}.${box.className.split(' ')[0] ?? ''}  ` +
-          `${box.width}×${box.height}  @(${box.x},${box.y})`
+      warn(`没有可见的匹配元素（选择器可能不适用于 ${frontend} 端）`);
+    } else {
+      table(
+        ['#', '元素', '尺寸', '位置'],
+        output.boxes.map((entry) => [
+          String(entry.index),
+          `${entry.tag}.${entry.className.split(' ')[0] ?? ''}`,
+          `${entry.width}×${entry.height}`,
+          `@(${entry.x},${entry.y})`,
+        ])
       );
     }
   }
 
   if (output.probe) {
+    section('探针');
     if (!output.probe.found) {
-      console.log(`${PREFIX}探针里没有匹配元素`);
+      warn('探针里没有匹配元素');
     } else {
-      for (const [prop, value] of Object.entries(output.probe.styles)) {
-        if (!value) continue;
-        console.log(`  ${pad(prop, 18)}${value}`);
-      }
+      const rows = styleRows(output.probe.styles);
+      if (rows.length) table([], rows);
     }
   }
 
   if (output.diff) {
+    section('差异');
     const diff = output.diff;
     if (!diff.found) {
-      console.log(`${PREFIX}未找到元素`);
+      warn('未找到元素');
     } else if (!Object.keys(diff.changed).length) {
-      console.log(`${PREFIX}无变化`);
+      info('无变化');
     } else {
-      for (const [prop, change] of Object.entries(diff.changed)) {
-        console.log(`  ${pad(prop, 18)}${change.from} → ${change.to}`);
-      }
+      table(
+        ['属性', '变化前', '变化后'],
+        Object.entries(diff.changed).map(([prop, change]) => [prop, change.from, change.to])
+      );
     }
   }
 
   if (output.contrast) {
+    section('对比度');
     const contrast = output.contrast;
-    console.log(
-      `${PREFIX}${contrast.foreground || '(空)'} on ${contrast.background || '(空)'} = ` +
-        `${contrast.ratio === null ? '解析失败' : `${contrast.ratio}:1`}`
+    table(
+      ['前景', '背景', '对比度'],
+      [
+        [
+          contrast.foreground || '(空)',
+          contrast.background || '(空)',
+          contrast.ratio === null ? '解析失败' : `${contrast.ratio}:1`,
+        ],
+      ]
     );
   }
 }
@@ -368,7 +401,8 @@ export async function runMeasureCli(argv: string[] = process.argv.slice(2)): Pro
       }
 
       default:
-        usage();
+        // --json 时 stdout 只能有 JSON，用法说明不混进来。
+        if (!asJson) usage();
         throw new Error(`未知子命令：${command}`);
     }
   } finally {

@@ -7,7 +7,7 @@
  * 就传 `command` 进来，包一样能跑。
  *
  * 注意：走插件形态时**不需要**这个模块——构建由宿主的 vite 负责。
- * 它只服务于 CLI 形态（`syt dev`）。
+ * 它只服务于开发会话（`startDev()` 程序 API）；Vite 插件形态由宿主 vite 自己构建。
  */
 import { spawn } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';

@@ -131,7 +131,7 @@ export async function discover({ cwd = process.cwd() }: { cwd?: string } = {}): 
     files = endpointFiles();
   } catch (cause) {
     requireRecoverable(cause);
-    return { ok: false, reason: '没有正在运行的 dev 会话（先跑 syt dev）', candidates: [] };
+    return { ok: false, reason: '没有正在运行的 dev 会话（先跑 pnpm dev 或 vite build --watch）', candidates: [] };
   }
 
   const alive: DevSessionInfo[] = [];
@@ -150,7 +150,7 @@ export async function discover({ cwd = process.cwd() }: { cwd?: string } = {}): 
   }
 
   if (!alive.length) {
-    return { ok: false, reason: '没有正在运行的 dev 会话（先跑 syt dev）', candidates: [] };
+    return { ok: false, reason: '没有正在运行的 dev 会话（先跑 pnpm dev 或 vite build --watch）', candidates: [] };
   }
 
   const mine = alive.find((info) => samePath(info.cwd, cwd));

@@ -17,29 +17,43 @@ import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { createTarget } from '../core/targets.ts';
 import { detectTargetType } from '../core/target-types.ts';
-import { formatIssues, verifyTarget } from '../core/verify.ts';
+import { verifyTarget } from '../core/verify.ts';
 import { lastValue, parseArgs, wantsHelp } from './cli-args.ts';
+import { box, fail, list, section, status } from './ui.ts';
 
-const PREFIX = '[verify] ';
 const VALUE_FLAGS = ['--kind', '--dir', '--out-dir'] as const;
 
-const USAGE = [
-  '用法：syt verify [选项]',
-  '',
-  '独立校验清单与产物（不启动浏览器、不跑构建）。',
-  '',
-  '  --dir <路径>      项目根目录，缺省当前目录',
-  '  --out-dir <路径>  产物目录，缺省 dist（不存在则 dev）',
-  '  --kind <类型>     被测类型，缺省按 public/ 清单推断',
-  '  --help            显示本帮助',
-  '',
-  '退出码：通过 0，校验有问题 1，参数/运行错误 2。',
-].join('\n');
+/** 打印 `syt verify --help`。 */
+function usage(): void {
+  box('syt verify', ['独立校验清单与产物（不启动浏览器、不跑构建）。', '用法：syt verify [选项]']);
+
+  section('选项');
+  list([
+    ['--dir <路径>', '项目根目录，缺省当前目录'],
+    ['--out-dir <路径>', '产物目录，缺省 dist（不存在则 dev）'],
+    ['--kind <类型>', '被测类型，缺省按 public/ 清单推断'],
+    ['--help', '显示本帮助'],
+  ]);
+
+  section('示例');
+  list([
+    ['syt verify', '校验默认产物目录'],
+    ['syt verify --out-dir dist --kind plugin', '显式指定产物目录与类型'],
+    ['syt verify --dir ../siyuan-arco-calendar', '校验另一个项目'],
+  ]);
+
+  section('退出码');
+  list([
+    ['0', '校验通过'],
+    ['1', '校验有问题'],
+    ['2', '参数或运行错误'],
+  ]);
+}
 
 /** 处理 `syt verify`。 */
 export async function runVerifyCli(argv: string[] = process.argv.slice(2)): Promise<void> {
   if (wantsHelp(argv)) {
-    console.log(USAGE);
+    usage();
     return;
   }
 
@@ -52,7 +66,7 @@ export async function runVerifyCli(argv: string[] = process.argv.slice(2)): Prom
     if (detected.ok) kind = detected.kind;
   }
   if (!kind) {
-    console.error(`${PREFIX}识别不到被测类型（public/ 下没有 theme.json / plugin.json），请用 --kind 指定`);
+    fail('识别不到被测类型（public/ 下没有 theme.json / plugin.json），请用 --kind 指定');
     process.exitCode = 2;
     return;
   }
@@ -61,7 +75,7 @@ export async function runVerifyCli(argv: string[] = process.argv.slice(2)): Prom
   try {
     target = createTarget(kind, { cwd: root });
   } catch (cause) {
-    console.error(`${PREFIX}${cause instanceof Error ? cause.message : String(cause)}`);
+    fail(cause instanceof Error ? cause.message : String(cause));
     process.exitCode = 2;
     return;
   }
@@ -76,11 +90,12 @@ export async function runVerifyCli(argv: string[] = process.argv.slice(2)): Prom
 
   const result = verifyTarget(target, { root, outDir });
   if (result.ok) {
-    console.log(`${PREFIX}校验通过（${kind} / ${outDir}）`);
+    status('success', '校验通过', `${kind} / ${outDir}`);
     return;
   }
 
-  console.error(`${PREFIX}校验未通过（${kind} / ${outDir}）：`);
-  console.error(formatIssues(result.issues));
+  fail(`校验未通过（${kind} / ${outDir}）`);
+  section('发现的问题');
+  list(result.issues.map((issue) => [issue.message, issue.hint ?? '']));
   process.exitCode = 1;
 }

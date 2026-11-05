@@ -138,13 +138,33 @@ export async function findKernelPort(): Promise<number> {
 /** 前端入口。桌面与移动是两个独立构建，路径不同。 */
 export type Frontend = 'desktop' | 'mobile';
 
-/** 拼前端 URL，带随机参数避免缓存。运行时仍校验一遍，防 JS 调用方传错。 */
-export function frontendUrl(port: number, frontend: Frontend = 'desktop'): string {
+/** 拼前端 URL。默认带随机参数避免缓存；展示给人时可用 `cacheBust: false` 得到稳定地址。 */
+export function frontendUrl(
+  port: number,
+  frontend: Frontend = 'desktop',
+  options: { cacheBust?: boolean } = {}
+): string {
   if (frontend !== 'desktop' && frontend !== 'mobile') {
     throw new Error(`未知前端：${String(frontend)}（可用：desktop / mobile）`);
   }
+  const base = `http://127.0.0.1:${port}/stage/build/${frontend}/`;
+  if (options.cacheBust === false) return base;
   const random = Math.random().toString(36).slice(2, 9);
-  return `http://127.0.0.1:${port}/stage/build/${frontend}/?r=${random}`;
+  return `${base}?r=${random}`;
+}
+
+/** 一个前端的稳定预览入口。 */
+export interface FrontendLink {
+  frontend: Frontend;
+  url: string;
+}
+
+/** 桌面端 + 移动端两个稳定入口，供 CLI / 开发日志同时展示。 */
+export function frontendLinks(port: number): readonly [FrontendLink, FrontendLink] {
+  return [
+    { frontend: 'desktop', url: frontendUrl(port, 'desktop', { cacheBust: false }) },
+    { frontend: 'mobile', url: frontendUrl(port, 'mobile', { cacheBust: false }) },
+  ];
 }
 
 /**

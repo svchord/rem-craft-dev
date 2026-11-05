@@ -7,8 +7,8 @@
  *     import siyuan from 'siyuan-devkit/plugin'
  *     然后 `vite build --watch`，产物变了自动让思源重载。
  *
- *   CLI                        不用改 vite 配置，换任何构建器都能用
- *     syt dev
+ *   CLI                        给 agent / CI 用的审计与检查入口
+ *     syt measure audit
  *
  * 测量原语两者共用：在真实思源前端里读令牌/样式/盒模型、驱动交互。
  *
@@ -42,7 +42,8 @@
  *   cli/     命令行入口与子命令。不实现 vite 插件钩子。
  *            cli.ts            唯一入口，分派到各子命令处理函数
  *            cli-args.ts       裸参数解析（令牌名以 -- 开头，不能用通用解析器）
- *            dev-cli / link-cli / measure-cli / open / watch / audit / targets
+ *            ui.ts             纯文本输出（无颜色/图标/边框；结构化数据走 --json）
+ *            measure-cli / shot / verify-cli / audit / targets
  *            各 runXCli 是纯导出的处理函数，不自动执行，也不各自暴露 bin。
  */
 
@@ -116,8 +117,15 @@ export { listWorkspaces, readWorkspaceManifest, resolveInstallDir } from './core
 export type { Workspace } from './core/workspace.ts';
 export { checkLinkedFiles, detectLinkType, ensureLink, inspectLink, samePath } from './core/link.ts';
 export type { EnsureLinkResult, LinkState } from './core/link.ts';
-export { findChrome, findKernelPort, frontendUrl, findWorkspaceDir, MOBILE_VIEWPORT } from './core/siyuan.ts';
-export type { Frontend } from './core/siyuan.ts';
+export {
+  findChrome,
+  findKernelPort,
+  frontendUrl,
+  frontendLinks,
+  findWorkspaceDir,
+  MOBILE_VIEWPORT,
+} from './core/siyuan.ts';
+export type { Frontend, FrontendLink } from './core/siyuan.ts';
 
 // 开发层
 export { startBuild, resolveViteBin, watchArtifact } from './dev/build.ts';

@@ -25,9 +25,10 @@ import { applyResolvedConfig, createPluginState } from './state.ts';
 import type { PluginState } from './state.ts';
 import { isRecord, messageOf, walkFiles } from './shared.ts';
 import type { WalkedFile } from './shared.ts';
+import type { LogLevel } from '../dev/dev-session.ts';
 
 /** 诊断日志函数；单独使用资产插件时可省略。 */
-export type AssetLog = (message: string) => void;
+export type AssetLog = (message: string, level?: LogLevel) => void;
 
 const defaultLog: AssetLog = (message) => console.log(`[siyuan-devkit:assets] ${message}`);
 
@@ -78,7 +79,7 @@ function manifestFiles(manifestPath: string, log: AssetLog): string[] {
   try {
     text = readFileSync(manifestPath, 'utf8');
   } catch (cause) {
-    log(`读不到清单 ${manifestPath}：${messageOf(cause)}；元数据按 README*.md 兜底`);
+    log(`读不到清单 ${manifestPath}：${messageOf(cause)}；元数据按 README*.md 兜底`, 'warn');
     return [];
   }
 
@@ -86,11 +87,11 @@ function manifestFiles(manifestPath: string, log: AssetLog): string[] {
   try {
     parsed = JSON.parse(text);
   } catch (cause) {
-    log(`清单 ${manifestPath} 不是合法 JSON：${messageOf(cause)}；元数据按 README*.md 兜底`);
+    log(`清单 ${manifestPath} 不是合法 JSON：${messageOf(cause)}；元数据按 README*.md 兜底`, 'warn');
     return [];
   }
   if (!isRecord(parsed)) {
-    log(`清单 ${manifestPath} 顶层不是对象；元数据按 README*.md 兜底`);
+    log(`清单 ${manifestPath} 顶层不是对象；元数据按 README*.md 兜底`, 'warn');
     return [];
   }
 
@@ -137,11 +138,11 @@ function normalizeRule(rule: { src: string; dest?: string }, fromManifest: boole
   const escapes = (value: string): boolean =>
     isAbsolute(value) || value.split('/').includes('..') || value.startsWith('..');
   if (escapes(src) || escapes(dest)) {
-    log(`跳过资产规则 ${rule.src}：src/dest 必须是项目根、产物根内的相对路径，不能是绝对路径或含 ..`);
+    log(`跳过资产规则 ${rule.src}：src/dest 必须是项目根、产物根内的相对路径，不能是绝对路径或含 ..`, 'warn');
     return null;
   }
   if (src.includes('**') || src.includes('?')) {
-    log(`跳过资产规则 ${rule.src}：只支持文件名里的 *，不支持 ** / ?（可写成 docs/*.md 这样的目录前缀）`);
+    log(`跳过资产规则 ${rule.src}：只支持文件名里的 *，不支持 ** / ?（可写成 docs/*.md 这样的目录前缀）`, 'warn');
     return null;
   }
 
@@ -201,11 +202,11 @@ export function siyuanAssets(options: AssetsPluginOptions): Plugin {
       if (!watchPublic) return;
       const publicDir = state.publicDir;
       if (!publicDir) {
-        log('publicDir 未配置，跳过监听');
+        log('publicDir 未配置，跳过监听', 'warn');
         return;
       }
       if (!existsSync(publicDir)) {
-        log(`publicDir 不存在，跳过监听：${publicDir}`);
+        log(`publicDir 不存在，跳过监听：${publicDir}`, 'warn');
         return;
       }
       for (const file of walkFiles(publicDir)) {
@@ -219,7 +220,7 @@ export function siyuanAssets(options: AssetsPluginOptions): Plugin {
       // bundleOptions.dir 若给出也一起 resolve，避免把相对路径当 cwd 相对路径写错地方。
       const rawOutDir = bundleOptions.dir ?? state.outDir;
       if (!rawOutDir) {
-        log('跳过元数据搬运：拿不到产物目录');
+        log('跳过元数据搬运：拿不到产物目录', 'warn');
         return;
       }
       const outDir = resolve(state.root, rawOutDir);
@@ -232,12 +233,12 @@ export function siyuanAssets(options: AssetsPluginOptions): Plugin {
         ruleSpecs = extraFiles.map((rule) => ({ ...rule, fromManifest: false }));
         // extraFiles 整体替换清单推导出的规则；把被跳过的声明列出来，避免静默丢文件。
         if (declared.length) {
-          log(`传了 extraFiles，清单声明的这些文件不再自动搬运：${declared.join('、')}`);
+          log(`传了 extraFiles，清单声明的这些文件不再自动搬运：${declared.join('、')}`, 'warn');
         }
       } else if (declared.length) {
         ruleSpecs = declared.map((src) => ({ src, fromManifest: true }));
       } else {
-        log(`清单 ${manifestAbs} 没声明 readme/icon/preview，按 README*.md 兜底搬运`);
+        log(`清单 ${manifestAbs} 没声明 readme/icon/preview，按 README*.md 兜底搬运`, 'debug');
         ruleSpecs = [{ src: 'README*.md', fromManifest: false }];
       }
 
@@ -258,7 +259,7 @@ export function siyuanAssets(options: AssetsPluginOptions): Plugin {
                 .filter((entry) => entry.isFile())
                 .map((entry) => ({ name: entry.name, path: join(srcRoot, entry.name) }));
         } catch (cause) {
-          log(`资产规则 ${rule.src} 读不到源目录 ${srcRoot}：${messageOf(cause)}`);
+          log(`资产规则 ${rule.src} 读不到源目录 ${srcRoot}：${messageOf(cause)}`, 'warn');
           continue;
         }
 
@@ -273,14 +274,14 @@ export function siyuanAssets(options: AssetsPluginOptions): Plugin {
             mkdirSync(dirname(destination), { recursive: true });
             copyFileSync(file.path, destination);
           } catch (cause) {
-            log(`资产复制失败 ${relative} → ${destination}：${messageOf(cause)}`);
+            log(`资产复制失败 ${relative} → ${destination}：${messageOf(cause)}`, 'error');
           }
         }
         if (matched === 0) {
           // 清单声明的 icon/preview 常在 public/ 下：Vite 会自动复制，devkit 不必再搬，
           // 也不该报「没匹配到」吓人。只有项目根和 public/ 都没有时才提示。
           if (rule.fromManifest && publicHasMatch(state.publicDir, rule)) continue;
-          log(`资产规则 ${rule.src} 没匹配到文件（源目录 ${srcRoot}）`);
+          log(`资产规则 ${rule.src} 没匹配到文件（源目录 ${srcRoot}）`, 'warn');
         }
       }
     },

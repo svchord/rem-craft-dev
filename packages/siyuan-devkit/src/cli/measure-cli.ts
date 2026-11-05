@@ -58,6 +58,7 @@ import type {
   SelectorCount,
 } from '../core/measure.ts';
 import { lastValue, allValues, parseArgs, wantsHelp } from './cli-args.ts';
+import { alignStylesheets } from '../core/align.ts';
 import type { MountState } from '../core/target-types.ts';
 import { DEFAULT_PROPS } from '../core/audit.ts';
 import { resolveTargetFromParsed } from './targets.ts';
@@ -308,6 +309,7 @@ export async function runMeasureCli(argv: string[] = process.argv.slice(2)): Pro
     frontend,
     viewport,
     attach: parsed.flags.has('--attach'),
+    align: (page) => alignStylesheets(page, target),
   });
 
   const output: MeasureOutput = {

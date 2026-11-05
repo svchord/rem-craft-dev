@@ -8,6 +8,7 @@
  * 计划来源与优先级（对齐 pa11y）：命令行参数 > 配置文件 > 内置默认值。
  */
 import { createSession, parseViewport } from '../core/session.ts';
+import { alignStylesheets } from '../core/align.ts';
 import { planIsEmpty, runPlan, validatePlan } from '../core/audit.ts';
 import type { AuditResult } from '../core/audit.ts';
 import { DEFAULT_CONFIG_NAME, loadConfig, mergePlan } from '../core/audit-config.ts';
@@ -98,6 +99,7 @@ export async function runAudit(parsed: ParsedArgs): Promise<void> {
     frontend: frontend === 'mobile' ? 'mobile' : 'desktop',
     viewport,
     attach: Boolean(plan.attach),
+    align: (page) => alignStylesheets(page, target),
   });
 
   try {

@@ -7,6 +7,7 @@ import { describe, expect, it, beforeEach } from 'vitest';
 import type { Page } from 'puppeteer-core';
 import { probeTokens } from '../src/core/probes.ts';
 import { parseViewport, refreshThemeStylesheet, viewportFor } from '../src/core/session.ts';
+import { alignStylesheets } from '../src/core/align.ts';
 import { frontendUrl, MOBILE_VIEWPORT } from '../src/core/siyuan.ts';
 import { findDoubleWrappedColors, findProblemsIn } from '../src/core/lints.ts';
 import { pluginTarget, themeTarget, createTarget } from '../src/core/targets.ts';
@@ -132,6 +133,45 @@ describe('frontend selection', () => {
     await refreshThemeStylesheet(page);
     expect(hrefs.length, '必须真的换一次 href').toBe(1);
     expect(hrefs[0]).toMatch(/\/appearance\/themes\/T\/theme\.css\?v=\d+$/);
+  });
+
+  it('aligns plugin inline CSS with disk when reusing a page', async () => {
+    // 插件 CSS 是内联 <style>，换主题 href 不会动它。复用页面量插件时必须
+    // 从磁盘重读并覆盖 textContent，否则量到的是旧值。
+    const hrefs: string[] = [];
+    const link = {
+      getAttribute: () => '/appearance/themes/T/theme.css?v=old',
+      setAttribute: (_name: string, value: string) => void hrefs.push(value),
+      addEventListener: (_event: string, handler: () => void) => handler(),
+    };
+    const pluginStyle = { textContent: 'OLD CSS' };
+    const documentStub = {
+      getElementById: (id: string) => {
+        if (id === 'themeStyle') return link;
+        if (id === 'pluginsStyleMyPlugin') return pluginStyle;
+        return null;
+      },
+    };
+    const page = {
+      evaluate: async (fn: (...args: never[]) => Promise<void>, ...args: never[]) => {
+        const original = Reflect.get(globalThis, 'document');
+        Reflect.set(globalThis, 'document', documentStub);
+        try {
+          await fn(...args);
+        } finally {
+          if (original === undefined) Reflect.deleteProperty(globalThis, 'document');
+          else Reflect.set(globalThis, 'document', original);
+        }
+      },
+    } as unknown as Page;
+    const target = {
+      name: 'MyPlugin',
+      resolveCss: async () => [{ label: 'index.css', text: 'NEW CSS FROM DISK' }],
+    } as unknown as ReturnType<typeof pluginTarget>;
+
+    await alignStylesheets(page, target);
+    expect(hrefs.length, '主题 href 也要跟着换').toBe(1);
+    expect(pluginStyle.textContent, '插件内联 CSS 必须被磁盘值覆盖').toBe('NEW CSS FROM DISK');
   });
 });
 

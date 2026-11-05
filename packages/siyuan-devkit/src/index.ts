@@ -52,8 +52,9 @@ export type { LogLevel, Logger } from './core/log.ts';
 export { DEFAULT_LOG_LEVEL } from './core/log.ts';
 
 // 会话层
-export { createSession, parseViewport, viewportFor } from './core/session.ts';
+export { createSession, parseViewport, viewportFor, refreshThemeStylesheet } from './core/session.ts';
 export type { Session, CreateSessionOptions, ResolvedViewport } from './core/session.ts';
+export { alignStylesheets } from './core/align.ts';
 
 // 测量层
 export {

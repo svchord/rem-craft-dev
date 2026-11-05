@@ -59,6 +59,11 @@ export interface CreateSessionOptions {
   viewport?: ResolvedViewport | null;
   /** 复用正在跑的 dev 会话（省一次启动，且量的是你眼前那个窗口）。 */
   attach?: boolean;
+  /**
+   * 复用页面时把 CSS 跟磁盘对齐的回调。由调用方提供（它才知道被测对象是谁），
+   * 不传则只对齐主题 CSS。这样 session.ts 不必依赖被测对象层，避免循环依赖。
+   */
+  align?: (page: Page) => Promise<void>;
 }
 
 /** 等思源前端把 config 挂上来（函数体在浏览器里跑，不引用 Node 作用域）。 */
@@ -109,6 +114,7 @@ export async function createSession({
   frontend = 'desktop',
   viewport = null,
   attach = false,
+  align,
 }: CreateSessionOptions = {}): Promise<Session> {
   let browser: Browser;
   let attached = false;
@@ -163,7 +169,10 @@ export async function createSession({
 
   // 复用的活页面可能停留在旧 CSS。量之前先跟磁盘对齐，正确性不依赖热重载。
   // 新开的页面本身就是刚加载的，不必多这一次往返。
-  if (attached) await refreshThemeStylesheet(page);
+  if (attached) {
+    if (align) await align(page);
+    else await refreshThemeStylesheet(page);
+  }
 
   await sleep(TIMING.navSettle);
 

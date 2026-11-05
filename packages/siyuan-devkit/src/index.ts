@@ -16,23 +16,16 @@
  * 工具不知道你的主题/插件有哪些组件、哪些颜色该配在一起、什么值算「对」。
  * 它只负责把页面事实读出来，判断交给调用方。
  *
- * 分层（源码按目录对应，架构测试强制依赖方向）：
+ * 分层（源码按目录对应；`tests/` 用导入方向做架构检查）：
  *
- *   core/    被测对象契约与测量原语。不依赖 vite、不含 bin、不碰 process.exit。
- *            target-types.ts   被测类型的契约与注册表（可扩展）
- *            targets.ts        内置类型（theme / plugin）的描述符 + createTarget
- *            session.ts        测量会话：浏览器生命周期、打开哪个前端、attach 复用
- *            measure.ts        读令牌 / 计算样式 / 命中数 / 盒模型 / 动作前后差异
- *            actions.ts        驱动交互（真实指针才能驱动 :hover）
- *            probes.ts         页面探针
- *            color.ts          对比度计算（纯函数）
- *            lints.ts          CSS 文本静态检查
- *            theme.ts          主题身份与挂载判定
- *            workspace.ts      工作区与安装目录解析
- *            link.ts           产物目录链接到安装目录
- *            kernel.ts         kernel 调用、主题/插件重载原语
- *            siyuan.ts         找 kernel 端口 / Chrome / 拼前端 URL
- *            control-server.ts dev 会话的本地控制服务与端点发现
+ *   core/    被测对象契约、测量原语与运行时胶水。不依赖 vite、不含 bin、不碰 process.exit。
+ *            measure.ts / page-read.ts / actions.ts / probes.ts        页面读取与交互
+ *            color.ts / lints.ts / theme.ts / semver.ts                纯函数与静态检查
+ *            session.ts / viewport.ts / siyuan.ts / kernel.ts / net.ts 会话、端口与 kernel
+ *            workspace.ts / link.ts / paths.ts                         工作区与目录
+ *            target-types.ts / targets.ts / builtin-targets.ts         类型契约、注册表、内置描述符
+ *            verify.ts / audit.ts / audit-config.ts                    校验与审计
+ *            control-server.ts / errors.ts / timing.ts / guards.ts    运行支撑
  *
  *   dev/     两种形态共用的开发链路。会起浏览器，但不依赖 vite 插件 API。
  *            build.ts          CLI 形态的构建看护（默认 vite，可换），监听产物
@@ -42,12 +35,15 @@
  *   plugin/  依赖 vite 的插件形态。
  *            plugin.ts         挂进宿主 vite 的 config / writeBundle
  *            assets.ts         public/ 监听 + 清单声明的元数据搬运
+ *            post.ts           enforce:'post' 收尾：校验产物 + 打 package.zip
+ *            state.ts          共享的 watch 状态与 root/outDir 归一化
+ *            shared.ts         walkFiles / 类型守卫等小工具
  *
  *   cli/     命令行入口与子命令。不实现 vite 插件钩子。
- *            cli.ts            统一入口，分派到各子命令
+ *            cli.ts            唯一入口，分派到各子命令处理函数
  *            cli-args.ts       裸参数解析（令牌名以 -- 开头，不能用通用解析器）
- *            dev-cli / link-cli / measure-cli / open / watch
- *   入口层  cli.ts            统一命令，各 *-cli.ts 为独立命令
+ *            dev-cli / link-cli / measure-cli / open / watch / audit / targets
+ *            各 runXCli 是纯导出的处理函数，不自动执行，也不各自暴露 bin。
  */
 
 // 会话层
@@ -78,8 +74,7 @@ export { parseColor, luminance, contrastRatio } from './core/color.ts';
 export type { Rgb } from './core/color.ts';
 export { findDoubleWrappedColors, findProblemsIn } from './core/lints.ts';
 export type { CssProblem, SourcedCssProblem, Sheet } from './core/lints.ts';
-export { probeTokens, probeLive, probeEnvironment } from './core/probes.ts';
-export type { ProbeLiveResult, ProbeLiveSpec, EnvironmentSnapshot } from './core/probes.ts';
+export { probeTokens } from './core/probes.ts';
 
 // 审计计划：一次会话跑完多项测量（避免每次子命令都要重新起进程连 CDP）
 export { runPlan, validatePlan, planIsEmpty, DEFAULT_PROPS } from './core/audit.ts';
@@ -87,10 +82,20 @@ export type { AuditPlan, AuditResult, DiffQuery, ProbeQuery, StyleQuery } from '
 export { loadConfig, mergePlan, DEFAULT_CONFIG_NAME } from './core/audit-config.ts';
 export type { LoadedConfig, PlanOverrides } from './core/audit-config.ts';
 
+// 产物校验（构建时由收尾插件调用；也可直接调用，或用 `syt verify` 子命令）
+export { verifyTarget, formatIssues } from './core/verify.ts';
+export type { VerifyResult, VerifyOptions } from './core/verify.ts';
+
 // 目标层
 export { createTarget, pluginTarget, themeTarget, readManifestName } from './core/targets.ts';
 export type { Target, TargetBuildConfig, CreateTargetOptions } from './core/targets.ts';
-export { detectTargetType, registerTargetType, targetType, targetTypes } from './core/target-types.ts';
+export {
+  detectTargetType,
+  registerTargetType,
+  targetType,
+  targetTypes,
+  createTargetTypeRegistry,
+} from './core/target-types.ts';
 export type {
   ActivateResult,
   CssSheet,
@@ -99,10 +104,13 @@ export type {
   RegisterOptions,
   ReloadResult,
   TargetDescriptor,
+  TargetTypeEntry,
+  TargetTypeRegistry,
 } from './core/target-types.ts';
+export { BUILTIN_TYPES } from './core/builtin-targets.ts';
 export { judgeMount, readThemeName } from './core/theme.ts';
 export type { MountJudgement } from './core/theme.ts';
-export { callKernel, selectTheme, reloadThemeCss, reloadPluginCss, reloadPlugin, currentTheme } from './core/kernel.ts';
+export { callKernel, selectTheme, reloadThemeCss, reloadPluginCss, reloadPlugin } from './core/kernel.ts';
 export type { KernelResponse, ReloadPluginResult, SelectThemeResult } from './core/kernel.ts';
 export { listWorkspaces, readWorkspaceManifest, resolveInstallDir } from './core/workspace.ts';
 export type { Workspace } from './core/workspace.ts';
@@ -121,8 +129,16 @@ export type { DevHandle, StartDevOptions } from './dev/dev.ts';
 export { discover, endpointFiles, startControlServer, CONTROL_DIR } from './core/control-server.ts';
 export type { ControlServer, DevSessionInfo, DiscoverResult } from './core/control-server.ts';
 
-// 插件形态
+// 插件形态：三个可单独组合的插件（热重载 / 产物资产 / 收尾校验+打包）
+export { default as siyuanPlugin } from './plugin/plugin.ts';
+/** @deprecated 用 `siyuanPlugin`；`siyuan` 与思源官方 SDK 包同名，容易混淆。 */
 export { default as siyuan } from './plugin/plugin.ts';
 export type { SiYuanPluginOptions } from './plugin/plugin.ts';
 export { default as siyuanAssets } from './plugin/assets.ts';
-export type { AssetsPluginOptions } from './plugin/assets.ts';
+export type { AssetsPluginOptions, AssetLog } from './plugin/assets.ts';
+export { siyuanPost, writeZip, PACKAGE_NAME } from './plugin/post.ts';
+export type { PostPluginOptions } from './plugin/post.ts';
+export { createPluginState, applyResolvedConfig, isWatchBuild } from './plugin/state.ts';
+export type { PluginState } from './plugin/state.ts';
+export { walkFiles } from './plugin/shared.ts';
+export type { WalkedFile } from './plugin/shared.ts';

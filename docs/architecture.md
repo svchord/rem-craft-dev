@@ -788,7 +788,7 @@ pnpm build
 
 #### 测量工具是独立包
 
-这三个命令都来自 `packages/siyuan-devkit`（workspace 包，`devDependencies` 里
+这几个命令都来自 `packages/siyuan-devkit`（workspace 包，`devDependencies` 里
 用 `workspace:*` 引用）。它不依赖本主题的任何东西，复制到别的思源主题/插件项目里
 能直接用——包内的 `readThemeName` 从 `public/theme.json` 读，`themeTarget` 的 CSS
 路径可配置，插件目录从 `workspace.json` 推导。
@@ -829,13 +829,13 @@ pnpm measure diff .b3-menu__item --setup contextmenu:.b3-list-item \
 还硬编码了「查哪 5 对颜色、查哪 3 个组件、查哪 2 个交互」。这等于替使用者决定审计范围
 ——新增组件不会自动覆盖，改设计还要改工具。现在工具只给原语，判断交给人/agent。
 
-对比度这类计算仍然需要，所以 `color.mjs` 提供 `contrastRatio()` 纯函数，
+对比度这类计算仍然需要，所以 `color.ts` 提供 `contrastRatio()` 纯函数，
 `measure contrast` 子命令直接暴露它。
 
 #### 主题与插件共用同一套测量
 
 主题和插件在思源里是两套东西，但**测量方法相同**：在真实页面上量计算样式。
-差异只在两处，收敛在 `packages/siyuan-devkit/src/core/targets.ts`：
+差异只在两处，收敛在 `packages/siyuan-devkit/src/core/builtin-targets.ts` 的类型描述符里：
 
 | 维度       | 主题                                   | 插件                                            |
 | ---------- | -------------------------------------- | ----------------------------------------------- |
@@ -855,8 +855,8 @@ pnpm measure diff .b3-menu__item --setup contextmenu:.b3-list-item \
 此时若基线里还有样式断言，探针插入的元素无论如何都有默认计算值——那些断言会「通过」
 但毫无意义。所以 `verify` 直接失败并提示换基线，而不是给一条绿的假结论。
 
-`measure-cli.mjs` 里没有任何「是主题还是插件」的分支——测试强制它必须通过 `targets.mjs` 拿被测
-对象。加第三类被测对象时只改 `targets.mjs`。
+`measure-cli.ts` 里没有任何「是主题还是插件」的分支——测试强制它必须通过 `core/targets.ts` 拿被测
+对象。加第三类被测对象时只改 `core/targets.ts`。
 
 > 插件的可观测面比主题窄：面板 DOM 只在打开后才存在，所以纯 CSS 断言（令牌/选择器/
 > 计算样式）是主力，需要真实 DOM 的断言要先用 `activate()` 打开面板。

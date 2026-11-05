@@ -2,7 +2,8 @@ import { createServer } from 'node:http';
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { inflateRawSync } from 'node:zlib';
+import { describe, expect, it, beforeEach } from 'vitest';
 import type { Page } from 'puppeteer-core';
 import { probeTokens } from '../src/core/probes.ts';
 import { parseViewport, viewportFor } from '../src/core/session.ts';
@@ -11,17 +12,18 @@ import { findDoubleWrappedColors, findProblemsIn } from '../src/core/lints.ts';
 import { pluginTarget, themeTarget, createTarget } from '../src/core/targets.ts';
 import { detectTargetType, registerTargetType, targetType, targetTypes } from '../src/core/target-types.ts';
 import { checkLinkedFiles, ensureLink, inspectLink, samePath } from '../src/core/link.ts';
-import { discover, startControlServer } from '../src/core/control-server.ts';
+import { CONTROL_DIR, discover, startControlServer } from '../src/core/control-server.ts';
 import siyuanVitePlugin from '../src/plugin/plugin.ts';
 import { resolveViteBin, startBuild } from '../src/dev/build.ts';
 import { planIsEmpty, validatePlan } from '../src/core/audit.ts';
 import { DEFAULT_CONFIG_NAME, loadConfig, mergePlan } from '../src/core/audit-config.ts';
 import { verifyTarget } from '../src/core/verify.ts';
 import { writeZip } from '../src/plugin/post.ts';
+import { runVerifyCli } from '../src/cli/verify-cli.ts';
 
 const root = join(import.meta.dirname, '..');
 const cdpDir = join(root, 'src');
-const readCdp = (file: string, preferredLayer?: string) => {
+const readSource = (file: string, preferredLayer?: string) => {
   // 重组后源码按层放。允许指定层——core/targets.ts 与 cli/targets.ts 同名，
   // 不指定时按 core → dev → plugin → cli → 顶层 的顺序找。
   const layers = preferredLayer
@@ -270,7 +272,7 @@ describe('target type registry', () => {
     // 能力完整性由 TargetDescriptor 接口在编译期约束（写描述符时用 satisfies）。
     // 运行时再维护一份 9 项清单是同一份知识的两种写法，改接口容易漏改。
     // 这里验证注册表本身不再挑剔——自定义类型只要满足接口就能注册。
-    const source = stripComments(readCdp('target-types.ts'));
+    const source = stripComments(readSource('target-types.ts'));
     expect(source, '不该再维护运行时能力清单').not.toMatch(/REQUIRED_CAPABILITIES/);
     // 满足接口的自定义类型能注册，并被自动推断。
     const descriptor = {
@@ -415,6 +417,12 @@ describe('link management', () => {
 });
 
 describe('dev session discovery', () => {
+  // 测试隔离：discover 是跨项目设计（不按 cwd 过滤），本机若正跑着 dev watch，
+  // 它的 control 端点会让「没有会话」的断言误判。每个用例前清空端点目录。
+  beforeEach(() => {
+    rmSync(CONTROL_DIR, { recursive: true, force: true });
+  });
+
   it('finds a running dev session by actually probing it', async () => {
     // 端点存活靠真实 HTTP 探测，不靠 process.kill(pid, 0) 猜。
     // 这样进程被 SIGKILL 后残留的文件不会造成「以为有 dev 在跑」。
@@ -649,21 +657,22 @@ describe('vite plugin shape', () => {
   });
 
   it('does not close the session on every rebuild in watch mode', () => {
-    // watch 模式下每次重建都会走 closeBundle；在那里关会话会让热重载失效。
-    const source = stripComments(readCdp('plugin.ts'));
-    expect(source, 'closeBundle 必须判断 watchMode').toMatch(/watchMode/);
+    // watch 模式下每次重建都会触发 writeBundle；清理不能挂在每次重建上，否则热重载失效。
+    // 归一化的 watch 状态在 plugin/state.ts，清理走 closeWatcher（不在 closeBundle 里关会话）。
+    const state = stripComments(readSource('state.ts', 'plugin'));
+    expect(state, 'watch 判定归一化在 state.ts').toMatch(/build\.watch/);
     const plugins = siyuanVitePlugin();
     const dev = plugins.find((plugin) => plugin.name.includes(':dev'));
-    expect(typeof dev?.closeBundle).toBe('function');
+    expect(typeof dev?.closeWatcher, '清理用 closeWatcher，不在每次重建都关会话').toBe('function');
+    expect(typeof (dev as { closeBundle?: unknown })?.closeBundle, '不再用 closeBundle 清理').toBe('undefined');
   });
 
   it('does not need an enabled switch: build.watch decides dev vs production', () => {
-    // 实测五种写法（--watch / -w / config 里 watch:{} / watch:true / 都不写）
-    // 都能在 config() 与 configResolved() 里拿到一致的结果，
-    // 所以项目不需要再传一个 isWatch——多一个输入只多一处可能不一致的地方。
-    const source = stripComments(readCdp('plugin.ts'));
-    expect(source, '不得再有 enabled 参数').not.toMatch(/enabled\?:/);
-    expect(source, '必须用 build.watch 判断开发/生产').toMatch(/Boolean\(resolved\.build\.watch\)/);
+    // 开发/生产只由 resolved.build.watch 决定，项目不需要再传 isWatch。
+    const pluginSource = stripComments(readSource('plugin.ts'));
+    const state = stripComments(readSource('state.ts', 'plugin'));
+    expect(pluginSource, '不得再有 enabled 参数').not.toMatch(/enabled\?:/);
+    expect(state, '必须用 resolved.build.watch 判断开发/生产').toMatch(/resolved\.build\.watch/);
 
     const plugins = siyuanVitePlugin();
     expect(plugins.length).toBe(3); // dev + assets + post
@@ -687,7 +696,7 @@ describe('vite plugin shape', () => {
     const explicit = siyuanVitePlugin({ target: 'plugin' });
     expect(auto.map((plugin) => plugin.name)).toEqual(explicit.map((plugin) => plugin.name));
     // 不再有 kind 别名——一个概念只该有一个入参。
-    const source = stripComments(readCdp('plugin.ts'));
+    const source = stripComments(readSource('plugin.ts'));
     expect(source, '插件选项不该有 deprecated 的 kind 别名').not.toMatch(/@deprecated/);
   });
 
@@ -707,50 +716,50 @@ describe('vite plugin shape', () => {
   });
 
   it('shares mount judgement between theme.ts and the descriptor', () => {
-    // 之前 judgeMount 支持前缀匹配（发布版 X 与本地 X Dev 算同一个），
-    // 但 theme 描述符的 mountState 自己又写了一遍简单解析，行为不一致。
-    const targets = stripComments(readCdp('targets.ts'));
-    expect(targets, 'mountState 必须复用 judgeMount').toMatch(/judgeMount\(href/);
-    expect(targets, '不该再自己正则解析 themeStyle').not.toMatch(/appearance\\\/themes/);
+    // judgeMount 是唯一来源；描述符的 mountState 复用它的前缀匹配，不再自己解析 themeStyle。
+    // 内置描述符现在在 builtin-targets.ts（targets.ts 只做组装）。
+    const builtin = stripComments(readSource('builtin-targets.ts', 'core'));
+    expect(builtin, 'mountState 必须复用 judgeMount').toMatch(/judgeMount\(/);
+    expect(builtin, '不该再自己正则解析 themeStyle').not.toMatch(/appearance\\\/themes/);
   });
 
   it('keeps audit out of measure-cli and shares target resolution', () => {
     // measure-cli 之前 678 行，audit 的 235 行挤在里面；且 resolveTarget
     // 与 audit 的 resolveTargetFrom 各写一份。现在拆开并共用 cli/targets.ts。
-    const measure = stripComments(readCdp('measure-cli.ts'));
+    const measure = stripComments(readSource('measure-cli.ts'));
     expect(measure, '不该再定义 runAudit').not.toMatch(/function runAudit/);
     expect(measure, 'audit 分支只做转发').toMatch(/await runAudit\(parsed\)/);
 
-    const audit = stripComments(readCdp('audit.ts', 'cli'));
+    const audit = stripComments(readSource('audit.ts', 'cli'));
     expect(audit, 'audit 应独立成文件并导出').toMatch(/export async function runAudit/);
     expect(audit, '不该再自己写 resolveTargetFrom').not.toMatch(/function resolveTargetFrom/);
 
-    const shared = stripComments(readCdp('targets.ts', 'cli'));
-    expect(shared, '目标解析应集中一份').toMatch(/export function resolveTargetFromArgs/);
+    const shared = stripComments(readSource('targets.ts', 'cli'));
+    expect(shared, '目标解析应集中一份').toMatch(/export function resolveTargetFromParsed/);
   });
 
   it('lets the post plugin own its config instead of reading a shared getter', () => {
     // 三个插件共享闭包里的 root/dev 可变状态、靠 get outDir() 延迟求值，
     // 是最容易出竞味的结构。post 现在自己从 configResolved 拿配置。
-    const post = stripComments(readCdp('post.ts'));
+    const post = stripComments(readSource('post.ts'));
     expect(post, 'post 要有自己的 configResolved').toMatch(/configResolved\(resolved\)/);
     expect(post, 'PostPluginOptions 不该再要 cwd/outDir').not.toMatch(/PostPluginOptions[\s\S]*cwd: string/);
 
-    const pluginSource = stripComments(readCdp('plugin.ts'));
+    const pluginSource = stripComments(readSource('plugin.ts'));
     expect(pluginSource, 'siyuanPost 调用不该再传 get outDir()').not.toMatch(/get outDir\(\)/);
     expect(pluginSource, 'siyuanPost 调用不该再传 cwd').not.toMatch(/siyuanPost\(\{[\s\S]*cwd: root/);
   });
 
   it('has no deprecated kind alias on the plugin options', () => {
-    const source = stripComments(readCdp('plugin.ts'));
+    const source = stripComments(readSource('plugin.ts'));
     expect(source, '一个概念只该有一个入参名').not.toMatch(/@deprecated/);
   });
 
   it('keeps both dev shapes sharing one session layer', () => {
     // CLI 形态自己起构建，插件形态由宿主 vite 起构建——差别只在这一处。
     // 两者都必须走 dev-session，否则重载逻辑会分叉成两份。
-    const dev = stripComments(readCdp('dev.ts'));
-    const plugin = stripComments(readCdp('plugin.ts'));
+    const dev = stripComments(readSource('dev.ts'));
+    const plugin = stripComments(readSource('plugin.ts'));
     // 只断言「导入的是 dev-session」，不限定路径形状——跨层重构不该触发这条。
     expect(dev, 'CLI 形态必须复用 dev-session').toMatch(/from\s+['"][^'"]*dev-session\.ts['"]/);
     expect(plugin, '插件形态必须复用 dev-session').toMatch(/from\s+['"][^'"]*dev-session\.ts['"]/);
@@ -773,10 +782,14 @@ describe('vite plugin shape', () => {
     expect(theme?.rollupOutput?.entryFileNames, '主题没有 JS 产物').toBeUndefined();
     expect(theme?.rollupOutput?.format, '主题不需要指定模块格式').toBeUndefined();
 
-    const plugin = pluginTarget({ name: 'p' }).buildSpec(context);
-    expect(plugin?.rollupOutput?.assetFileNames?.({ name: 'a.css' })).toBe('index.css');
-    expect(plugin?.rollupOutput?.entryFileNames, '插件必须是 CJS 单文件').toBe('[name].js');
-    expect(plugin?.rollupOutput?.format, '思源用 window.eval 执行 CJS 包装').toBe('cjs');
+    const plugin = pluginTarget({ name: 'p' }).buildSpec(context, { entry: '/x/src/index.tsx' });
+    // 插件必须走 lib：lib+cjs 才把 export default 编成 module.exports（思源 eval 后直接取），
+    // 普通 input 只会得到 exports.default，思源报 "plugin xxx has no export"。
+    expect(plugin?.lib?.fileName).toBe('index');
+    expect(plugin?.lib?.cssFileName).toBe('index');
+    expect(plugin?.lib?.formats, '思源用 window.eval 执行 CJS 包装').toEqual(['cjs']);
+    expect(plugin?.rollupOutput?.entryFileNames, 'lib 默认产 index.cjs，必须覆盖成 index.js').toBe('[name].js');
+    expect(plugin?.rollupOutput?.assetFileNames?.({ name: 'a.css' }), 'CSS 固定名 index.css').toBe('index.css');
     expect(plugin?.external, 'siyuan/process 必须保持外部').toEqual(['siyuan', 'process']);
 
     // 非 watch 时产物进 dist/。
@@ -786,8 +799,7 @@ describe('vite plugin shape', () => {
 
   it('takes one entry option for both kinds', () => {
     // 入口只是「从哪开始构建」，主题是 CSS、插件是 TSX，差别在产物形态不在入口概念。
-    // 实测：lib 模式不能用于 CSS 入口（隐含 cssCodeSplit:false 会报错），
-    // 且 lib 让插件产出 index.cjs 而非 index.js——所以两种都用普通 input。
+    // 主题走 input（lib 对 CSS 入口会报错）；插件走 lib（才能产出 module.exports）。
     const context = { command: 'build' as const, watch: true, root: '/tmp/x' };
 
     const theme = themeTarget({ name: 'T' }).buildSpec(context, { entry: '/x/src/styles/index.css' });
@@ -795,22 +807,24 @@ describe('vite plugin shape', () => {
     expect(theme?.rollupOutput?.format, 'CSS 入口不需要 format').toBeUndefined();
 
     const plugin = pluginTarget({ name: 'p' }).buildSpec(context, { entry: '/x/src/index.tsx' });
-    expect(plugin?.input).toBe('/x/src/index.tsx');
-    expect(plugin?.rollupOutput?.format).toBe('cjs');
+    expect(plugin?.lib?.entry).toBe('/x/src/index.tsx');
+    expect(plugin?.lib?.formats).toEqual(['cjs']);
+    expect(plugin?.input, '插件走 lib，不再用普通 input').toBeUndefined();
 
-    // 不传 entry 时不给 input——让项目自己在 rollupOptions.input 里写。
+    // 不传 entry 时不给 input/lib——让项目自己写。
     const noEntry = themeTarget({ name: 'T' }).buildSpec(context);
     expect(noEntry?.input, '不传 entry 就不该硬塞 input').toBeUndefined();
+    expect(pluginTarget({ name: 'p' }).buildSpec(context)?.lib, '不传 entry 就不该硬塞 lib').toBeUndefined();
   });
 
   it('takes the manifest name from the descriptor, not a hardcoded string', () => {
     // 注册表可扩展是这个包的核心承诺：注册第三种类型后，资产插件也应该
     // 自动去找它的清单。硬编码 theme.json / 三元判断会让承诺失效。
-    const pluginSource = stripComments(readCdp('plugin.ts'));
+    const pluginSource = stripComments(readSource('plugin.ts'));
     expect(pluginSource, 'plugin.ts 不得硬编码清单文件名').not.toMatch(/requestedKind === 'plugin'/);
     expect(pluginSource, '必须从描述符拿清单名').toMatch(/descriptor\.manifestName\(\)/);
 
-    const assetsSource = stripComments(readCdp('assets.ts'));
+    const assetsSource = stripComments(readSource('assets.ts'));
     expect(assetsSource, 'assets.ts 不得把 theme.json 当缺省').not.toMatch(/manifestPath = 'public\/theme\.json'/);
     expect(assetsSource, 'manifestPath 必须由调用方给').toMatch(/manifestPath: string/);
   });
@@ -818,28 +832,30 @@ describe('vite plugin shape', () => {
   it('resolves the target in one place instead of repeating kind detection', () => {
     // 之前 config() / ensureSession() / post 各写了一遍「推断 kind + createTarget」，
     // 加一种类型要改三处。收敛成 resolveTarget() 后应该只有一个入口。
-    const pluginSource = stripComments(readCdp('plugin.ts'));
+    const pluginSource = stripComments(readSource('plugin.ts'));
     const occurrences = (pluginSource.match(/detectTargetType\(/g) ?? []).length;
     expect(occurrences, `kind 检测只该有 2 处（resolveTarget + manifestFile），实际 ${occurrences}`).toBe(2);
     expect(pluginSource).toMatch(/function resolveTarget\(/);
   });
 
-  it('uses the fixed package name instead of exposing it as an option', () => {
+  it('uses the fixed package name and always packs in production', () => {
     // package.zip 是思源集市的产物约定（主题/插件/官方 sample 一致），
-    // 不是项目自己的发布偏好——不该由入参指定。
-    const post = stripComments(readCdp('post.ts'));
+    // 不是项目自己的发布偏好——不该由入参指定。打包是固定行为：
+    // watch 一定不打包、非 watch（生产）一定打包，且失败必须让构建失败。
+    const post = stripComments(readSource('post.ts'));
     expect(post, '应导出固定常量').toMatch(/export const PACKAGE_NAME = 'package\.zip'/);
     expect(post, '不该有 PackOptions 接口').not.toMatch(/interface PackOptions/);
+    expect(post, 'watch 时跳过打包').toMatch(/if \(watch\) return;/);
+    expect(post, '打包失败必须抛错，不能只 log').toMatch(/打包失败/);
 
-    const pluginSource = stripComments(readCdp('plugin.ts'));
-    expect(pluginSource, 'pack 应是 boolean，不是对象配置').toMatch(/pack\?: boolean/);
-    expect(pluginSource, '不该有 resolvePack 归一化').not.toMatch(/function resolvePack/);
+    const pluginSource = stripComments(readSource('plugin.ts'));
+    expect(pluginSource, '不该再有 pack 入参').not.toMatch(/pack\?:/);
   });
 
   it('walks the output directory once for both common and descriptor checks', () => {
     // 之前 expectedFiles 用递归 walk()、VerifyContext.files 用顶层 readdirSync()，
     // 两次遍历、两套语义，描述符看到的和通用校验看到的不是一回事。
-    const source = stripComments(readCdp('verify.ts'));
+    const source = stripComments(readSource('verify.ts'));
     expect(source, '只该调用一次 walk()').toMatch(/const files = walk\(absOutDir\)/);
     expect(source, 'context.files 复用同一次遍历').toMatch(/files,\s*\n\s*readOutput,/);
   });
@@ -855,7 +871,7 @@ describe('vite plugin shape', () => {
   it('fills gaps instead of overwriting user build config', () => {
     // 社区做法（electron-vite、@samrum/vite-plugin-web-extension）都是 `??=`：
     // 用户已写的值优先。写成覆盖的话，项目想换产物目录就只能关掉插件。
-    const source = stripComments(readCdp('plugin.ts'));
+    const source = stripComments(readSource('plugin.ts'));
     expect(source, '注入必须用 ??= 补缺，不能覆盖').toMatch(/\?\?=/);
     expect(source, '不得直接赋值 build.outDir').not.toMatch(/build\.outDir\s*=[^=]/);
     expect(source, '不得直接赋值 rollupOptions').not.toMatch(/build\.rollupOptions\s*=[^=]/);
@@ -966,7 +982,7 @@ describe('cdp layering', () => {
     // CLI 只解析参数、打印结果；浏览器与构建都该在模块层，才能被编程调用。
     // 例外：watch.mjs 的 spawn 是它自己的功能（重跑用户给的 --exec 命令），不是构建。
     for (const file of ['measure-cli.ts', 'dev-cli.ts', 'link-cli.ts']) {
-      const source = stripComments(readCdp(file));
+      const source = stripComments(readSource(file));
       expect(source, file + ' 不得自己碰 puppeteer').not.toMatch(/puppeteer/);
       expect(source, file + ' 不得自己起构建进程').not.toMatch(/child_process/);
     }
@@ -975,7 +991,7 @@ describe('cdp layering', () => {
   it('shares one dev capability set between theme and plugin', () => {
     // dev.mjs 里出现 kind === 'theme' 的重载/构建分支，说明差异没收敛到 targets.mjs，
     // 加第三种被测对象时就要改 dev.mjs。
-    const source = stripComments(readCdp('dev.ts'));
+    const source = stripComments(readSource('dev.ts'));
     expect(source, 'dev.mjs 必须通过 targets.mjs 拿被测对象').toMatch(/from\s+['"][^'"]*core\/targets\.ts['"]/);
     expect(source, 'dev.mjs 不得自己判断产物文件名').not.toMatch(
       /['"]theme\.css['"]|['"]index\.css['"]|['"]index\.js['"]/
@@ -986,12 +1002,12 @@ describe('cdp layering', () => {
   it('keeps pure modules free of console output', () => {
     // 纯函数模块只产出数据，打印交给 CLI 层。
     for (const file of ['probes.ts', 'lints.ts', 'theme.ts', 'targets.ts', 'actions.ts', 'measure.ts', 'color.ts']) {
-      expect(stripComments(readCdp(file)), file + ' 只返回数据，打印交给 CLI 层').not.toMatch(/console\.\w+/);
+      expect(stripComments(readSource(file)), file + ' 只返回数据，打印交给 CLI 层').not.toMatch(/console\.\w+/);
     }
   });
 
   it('has measure-cli reuse session.mjs and the measurement primitives', () => {
-    const source = stripComments(readCdp('measure-cli.ts'));
+    const source = stripComments(readSource('measure-cli.ts'));
     expect(source, 'measure-cli 必须复用 session.mjs 的浏览器生命周期').toMatch(
       /from\s+['"][^'"]*core\/session\.ts['"]/
     );
@@ -1003,7 +1019,7 @@ describe('cdp layering', () => {
     // iframe 隔离的前提（宿主主题干扰）已被「dev 让思源真正选中本主题」解决，
     // 而 iframe 会漏掉 base.css：实测 line-height 在 iframe 里是 normal、
     // 真实页面是 28px。隔离测量已整体删除，不得以任何形式回来。
-    const source = stripComments(readCdp('measure-cli.ts'));
+    const source = stripComments(readSource('measure-cli.ts'));
     expect(source, 'measure-cli 不得再走隔离测量（量不到 base.css 与交互态）').not.toMatch(/measureIsolated|iframe/);
     expect(allFiles.includes('sandbox.ts'), 'sandbox.mjs 已删除；再加回来意味着隔离测量复活').toBe(false);
   });
@@ -1013,7 +1029,7 @@ describe('cdp layering', () => {
     // 这两种机制的知识必须留在 targets.ts 的描述符里；一旦漏进会话层或编排层
     // （比如 if (filename.endsWith('.js')) page.reload()），修插件就会动到主题。
     for (const file of ['dev.ts', 'dev-session.ts', 'plugin.ts']) {
-      const source = stripComments(readCdp(file));
+      const source = stripComments(readSource(file));
       expect(source, file + ' 不得判断产物扩展名').not.toMatch(/endsWith\(['"]\.js['"]\)/);
       expect(source, file + ' 不得整页刷新来重载产物').not.toMatch(/page\.reload/);
       expect(source, file + ' 不得直接调 selectTheme / setPetalEnabled').not.toMatch(
@@ -1021,7 +1037,7 @@ describe('cdp layering', () => {
       );
     }
     // 会话层只把 filename 和 port 交给描述符。
-    expect(stripComments(readCdp('dev-session.ts')), '会话层只把 filename 和 port 交给描述符').toMatch(
+    expect(stripComments(readSource('dev-session.ts')), '会话层只把 filename 和 port 交给描述符').toMatch(
       /target\.reload\(/
     );
   });
@@ -1029,7 +1045,7 @@ describe('cdp layering', () => {
   it('has measure-cli drive interactions through actions.mjs', () => {
     // 交互是主题/插件真正容易坏的地方：选择器还在但 DOM 结构变了，
     // 静态断言照样绿，实际已经烂了。
-    const source = stripComments(readCdp('measure-cli.ts'));
+    const source = stripComments(readSource('measure-cli.ts'));
     expect(source, 'measure-cli 必须复用 actions.mjs 驱动交互').toMatch(/from\s+['"][^'"]*core\/actions\.ts['"]/);
   });
 
@@ -1037,18 +1053,18 @@ describe('cdp layering', () => {
     // 类型差异必须收敛在 target-types.mjs / targets.mjs；CLI 里出现主题/插件的
     // 分支判断，说明抽象漏了，加第三种被测对象时就要改 CLI。
     for (const file of ['measure-cli.ts', 'dev-cli.ts', 'link-cli.ts']) {
-      const source = stripComments(readCdp(file));
+      const source = stripComments(readSource(file));
       expect(source, '不得直接读 theme.json 或 pluginsStyle').not.toMatch(/pluginsStyle|public\/theme\.json/);
       expect(source, '不得自己判断产物文件名').not.toMatch(/['"]theme\.css['"]|['"]index\.js['"]/);
     }
     // 允许出现类型名的唯一地方是「默认值」，不允许用它做分支。
-    const devCli = stripComments(readCdp('dev-cli.ts'));
+    const devCli = stripComments(readSource('dev-cli.ts'));
     expect(devCli, 'dev-cli 必须通过注册表推断类型').toMatch(/detectTargetType/);
   });
 
   it('drives dev through the type registry, not hardcoded kinds', () => {
     // dev.mjs 里出现 kind === 'theme' 之类的分支，泛化就破了。
-    const source = stripComments(readCdp('dev.ts'));
+    const source = stripComments(readSource('dev.ts'));
     expect(source, 'dev.mjs 必须通过 targets.mjs 造目标').toMatch(/from\s+['"][^'"]*core\/targets\.ts['"]/);
     expect(source, 'dev.mjs 不得判断具体类型').not.toMatch(/kind\s*===\s*['"]theme['"]|kind\s*===\s*['"]plugin['"]/);
     expect(source, 'dev.mjs 不得自己读清单').not.toMatch(/public\/theme\.json|public\/plugin\.json/);
@@ -1066,13 +1082,13 @@ describe('cdp layering', () => {
     // 挂载判定错了，测量读数会被张冠李戴。
     // 判定逻辑只许出现在 targets.mjs 的类型描述符里；CLI 与 open 通过 createTarget 拿。
     for (const file of ['measure-cli.ts', 'open.ts', 'link-cli.ts', 'dev-cli.ts']) {
-      const source = stripComments(readCdp(file));
+      const source = stripComments(readSource(file));
       expect(source, file + ' 不得自己实现 normalizeThemeName').not.toMatch(/function\s+normalizeThemeName/);
       expect(source, file + ' 不得自己解析 themeStyle 的路径').not.toMatch(/appearance\/themes/);
     }
-    const targets = stripComments(readCdp('targets.ts'));
+    const targets = stripComments(readSource('targets.ts'));
     expect(targets, '挂载判定必须在 targets.mjs').toMatch(/mountState/);
-    expect(stripComments(readCdp('open.ts')), 'open.mjs 仍需读主题名做展示').toMatch(
+    expect(stripComments(readSource('open.ts')), 'open.mjs 仍需读主题名做展示').toMatch(
       /from\s+['"][^'"]*core\/theme\.ts['"]/
     );
   });
@@ -1080,7 +1096,7 @@ describe('cdp layering', () => {
   it('keeps pure modules independent of session.mjs', () => {
     // 反向依赖会让探针被迫关心浏览器生命周期，分层就失效了。
     for (const file of ['probes.ts', 'lints.ts', 'theme.ts', 'targets.ts']) {
-      expect(stripComments(readCdp(file)), file + ' 不得依赖 session.mjs').not.toMatch(
+      expect(stripComments(readSource(file)), file + ' 不得依赖 session.mjs').not.toMatch(
         /from\s+['"][^'"]*core\/session\.ts['"]/
       );
     }
@@ -1308,27 +1324,87 @@ describe('artifact verification', () => {
 });
 
 describe('zip packing', () => {
-  it('writes a readable zip with the directory contents', () => {
-    // 自己实现 zip 而不是引依赖：思源的包只有几 MB，store/deflate 两种方式够用。
-    // 这里验证生成的文件确实能被标准库读回来。
+  /** 独立解析 ZIP（我们只写不加密、无 data descriptor 的包），校验文件名/内容/CRC。 */
+  const unzip = (buffer: Buffer): Record<string, string> => {
+    const crc32 = (data: Buffer): number => {
+      let c = 0xffffffff;
+      for (const byte of data) {
+        c ^= byte;
+        for (let k = 0; k < 8; k += 1) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+      }
+      return (c ^ 0xffffffff) >>> 0;
+    };
+    const files: Record<string, string> = {};
+    let offset = 0;
+    while (offset + 30 <= buffer.length && buffer.readUInt32LE(offset) === 0x04034b50) {
+      const method = buffer.readUInt16LE(offset + 8);
+      const expectedCrc = buffer.readUInt32LE(offset + 14);
+      const compSize = buffer.readUInt32LE(offset + 18);
+      const nameLen = buffer.readUInt16LE(offset + 26);
+      const extraLen = buffer.readUInt16LE(offset + 28);
+      const nameStart = offset + 30;
+      const name = buffer.subarray(nameStart, nameStart + nameLen).toString('utf8');
+      const dataStart = nameStart + nameLen + extraLen;
+      const body = buffer.subarray(dataStart, dataStart + compSize);
+      const raw = method === 0 ? body : inflateRawSync(body);
+      expect(crc32(raw), `CRC 必须匹配：${name}`).toBe(expectedCrc);
+      files[name] = raw.toString('utf8');
+      offset = dataStart + compSize;
+    }
+    return files;
+  };
+
+  it('writes a zip that a standard reader can decompress', () => {
+    // 自己实现 zip 而不是引依赖：思源的包只有几 MB，store/deflate 够用。
+    // 这里用 node:zlib 真正解压回来，校验文件名（含子目录）、内容、CRC——
+    // 不是只看头尾 magic byte。
     const dir = mkdtempSync(join(tmpdir(), 'zip-'));
     try {
-      mkdirSync(join(dir, 'in'), { recursive: true });
+      mkdirSync(join(dir, 'in', 'nested'), { recursive: true });
       writeFileSync(join(dir, 'in', 'a.css'), '.a{color:red}');
       writeFileSync(join(dir, 'in', 'b.json'), '{"x":1}');
+      writeFileSync(join(dir, 'in', 'nested', 'c.txt'), 'nested-content');
 
       const out = join(dir, 'out.zip');
       const result = writeZip(join(dir, 'in'), out);
-      expect(result.files).toBe(2);
+      expect(result.files).toBe(3);
       expect(result.bytes).toBeGreaterThan(0);
 
-      // zip 必须以 PK\x03\x04 开头，以 central directory 结束。
-      const buffer = readFileSync(out);
-      expect(buffer.subarray(0, 4).toString('hex')).toBe('504b0304');
-      expect(buffer.subarray(buffer.length - 22, buffer.length - 18).toString('hex')).toBe('504b0506');
-      // 文件名应出现在内容里（未加密）。
-      expect(buffer.includes(Buffer.from('a.css'))).toBe(true);
+      const files = unzip(readFileSync(out));
+      expect(Object.keys(files).sort()).toEqual(['a.css', 'b.json', 'nested/c.txt']);
+      expect(files['a.css']).toBe('.a{color:red}');
+      expect(files['b.json']).toBe('{"x":1}');
+      expect(files['nested/c.txt']).toBe('nested-content');
     } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('syt verify cli', () => {
+  it('fails with exit code 1 when the artifact directory is missing', async () => {
+    // 独立校验不依赖构建：产物目录缺失时应非零退出，而不是静默通过。
+    const dir = mkdtempSync(join(tmpdir(), 'verify-cli-'));
+    const logs: string[] = [];
+    const origLog = console.log;
+    const origError = console.error;
+    const prevCode = process.exitCode;
+    try {
+      mkdirSync(join(dir, 'public'), { recursive: true });
+      writeFileSync(join(dir, 'public', 'theme.json'), JSON.stringify({ name: 'T' }));
+      writeFileSync(join(dir, 'package.json'), JSON.stringify({ version: '1.0.0' }));
+      console.log = (...args: unknown[]) => void logs.push(args.map(String).join(' '));
+      console.error = (...args: unknown[]) => void logs.push(args.map(String).join(' '));
+      process.exitCode = 0;
+
+      await runVerifyCli(['--dir', dir, '--out-dir', 'dist']);
+
+      expect(process.exitCode, '产物缺失必须非零退出').toBe(1);
+      expect(logs.join('\n'), '应指出产物/清单问题').toMatch(/校验未通过/);
+    } finally {
+      console.log = origLog;
+      console.error = origError;
+      process.exitCode = prevCode;
       rmSync(dir, { recursive: true, force: true });
     }
   });

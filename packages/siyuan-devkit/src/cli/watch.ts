@@ -23,8 +23,8 @@ import { wantsHelp } from './cli-args.ts';
 const DEBOUNCE_MS = 600;
 const SELF_DIR = fileURLToPath(new URL('.', import.meta.url));
 
-/** 包内自带的 measure CLI，默认命令用它（不依赖调用方的 package.json）。 */
-const MEASURE_ENTRY = join(SELF_DIR, 'measure-cli.js');
+/** 包内统一 CLI 入口（bin/cli.js），默认命令经它分派到 `measure env`，不依赖调用方 package.json。 */
+const CLI_ENTRY = join(SELF_DIR, '..', '..', 'bin', 'cli.js');
 
 const USAGE = [
   '用法：syt watch [选项]',
@@ -91,7 +91,7 @@ export async function runWatchCli(argv: string[] = process.argv.slice(2)): Promi
 
   /** 把 --exec 的命令拼上 --attach（如果用户没自己指定）。 */
   const buildCommand = (): string => {
-    const base = execCommand ?? `node "${MEASURE_ENTRY}" env`;
+    const base = execCommand ?? `node "${CLI_ENTRY}" measure env`;
     if (!attach) return base;
     if (base.includes('--attach')) return base;
     return `${base} --attach`;

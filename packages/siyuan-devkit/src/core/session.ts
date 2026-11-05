@@ -1,43 +1,30 @@
 /**
- * 测量会话：只负责浏览器生命周期与打开哪个前端，读数交给 probes。
+ * 测量会话：只负责浏览器生命周期与打开哪个前端，读数交给 page-read.ts。
  *
  *   const session = await createSession({ frontend: 'mobile' });
- *   // ...probe...
+ *   // ...读数...
  *   await session.dispose();
  *
- * 两个入口：
- *   desktop  /stage/build/desktop/   （默认）
- *   mobile   /stage/build/mobile/    （独立构建，需 theme.json 的 frontends 含 mobile/browser-mobile/all）
+ * 两个入口：desktop /stage/build/desktop/（默认）、mobile /stage/build/mobile/
+ * （独立构建，需 theme.json 的 frontends 含 mobile/browser-mobile/all）。
+ *
+ * 端点通过本地控制服务发现（control-server.ts），不是项目目录下的相对文件——
+ * 在插件项目起的 dev 浏览器，也能被主题项目的 measure 复用。
  */
 import puppeteer from 'puppeteer-core';
 import type { Browser, Page } from 'puppeteer-core';
 import { discover } from './control-server.ts';
-import { findChrome, findKernelPort, frontendUrl, MOBILE_VIEWPORT } from './siyuan.ts';
+import { findChrome, findKernelPort, frontendUrl } from './siyuan.ts';
 import type { Frontend } from './siyuan.ts';
+import { DEFAULT_VIEWPORT, MOBILE_VIEWPORT } from './viewport.ts';
+import type { ResolvedViewport } from './viewport.ts';
+import { isNavigationError, requireRecoverable } from './errors.ts';
+import { sleep, TIMING } from './timing.ts';
 
-const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+// 类型仍从 session.ts 对外导出（index.ts 从这里 import）。
+export type { ResolvedViewport } from './viewport.ts';
 
-/**
- * 本包自己的视口类型。
- *
- * 不用 puppeteer 的 `Viewport`：它的 `deviceScaleFactor` 是可选的，
- * 而我们需要「一定有一个 DPR」来做移动端判定与报告。
- */
-export interface ResolvedViewport {
-  width: number;
-  height: number;
-  deviceScaleFactor: number;
-}
-
-const DEFAULT_VIEWPORT: ResolvedViewport = { width: 1600, height: 1000, deviceScaleFactor: 1 };
-
-/**
- * `宽x高[@DPR]`，缺省给桌面视口。
- *
- * 第二个参数用「有没有传」判断而不是默认参数：调用方显式传 undefined
- * 表示「本前端不要文件级视口，用前端预设」，默认参数会把这种意图静默覆盖掉。
- * TS 里用 `arguments.length` 不划算，改成用哨兵重载：传 `null` 表示显式无回退。
- */
+/** `宽x高[@DPR]`，缺省给桌面视口。 */
 export function parseViewport(value?: string | null, fallback?: ResolvedViewport | null): ResolvedViewport {
   if (!value) return fallback ?? DEFAULT_VIEWPORT;
   const match = value.match(/^(\d+)x(\d+)(?:@([\d.]+))?$/);
@@ -74,14 +61,25 @@ export interface CreateSessionOptions {
   attach?: boolean;
 }
 
-/**
- * 打开会话。
- *
- * `attach` 时复用 `siyuan-devkit` 暴露的浏览器；找不到就新开无头 Chrome。
- *
- * 端点通过本地控制服务发现（见 control-server.ts），不是项目目录下的
- * 相对文件——在插件项目起的 dev 浏览器，也能被主题项目的 measure 复用。
- */
+/** 等思源前端把 config 挂上来（函数体在浏览器里跑，不引用 Node 作用域）。 */
+function waitForSiyuanConfig(page: Page): Promise<unknown> {
+  return page.waitForFunction(
+    () => {
+      const raw: unknown = Reflect.get(globalThis, 'siyuan');
+      if (!raw || typeof raw !== 'object') return false;
+      return Boolean(Reflect.get(raw, 'config'));
+    },
+    { timeout: TIMING.navigationTimeout }
+  );
+}
+
+/** 等待类失败中，只容许导航竞态与超时；其它错误重抛。 */
+function tolerateWaitFailure(cause: unknown): void {
+  if (isNavigationError(cause)) return;
+  requireRecoverable(cause);
+}
+
+/** 打开会话。attach 时复用 dev 浏览器；找不到就新开无头 Chrome。 */
 export async function createSession({
   frontend = 'desktop',
   viewport = null,
@@ -91,10 +89,10 @@ export async function createSession({
   let attached = false;
   const targetViewport = viewportFor(frontend, viewport);
 
-  const session = attach ? await discover() : ({ ok: false } as const);
-  if (session.ok) {
+  const discovered = attach ? await discover() : null;
+  if (discovered?.ok) {
     browser = await puppeteer.connect({
-      browserWSEndpoint: session.ws,
+      browserWSEndpoint: discovered.ws,
       defaultViewport: null,
     });
     attached = true;
@@ -108,27 +106,36 @@ export async function createSession({
     });
     const fresh = await browser.newPage();
     if (frontend === 'mobile') await fresh.setViewport(targetViewport);
-    await fresh.goto(frontendUrl(port, frontend), { waitUntil: 'domcontentloaded', timeout: 30000 });
-    await fresh.waitForFunction('window.siyuan && window.siyuan.config' as never, { timeout: 30000 });
-    await sleep(1500);
+    await fresh.goto(frontendUrl(port, frontend), {
+      waitUntil: 'domcontentloaded',
+      timeout: TIMING.navigationTimeout,
+    });
+    await waitForSiyuanConfig(fresh);
+    await sleep(TIMING.pageReady);
   }
 
   // 按前端挑页面：attach 时浏览器里可能同时开着桌面和移动端，选错就量错地方。
   const pages = await browser.pages();
   const page = pages.find((candidate) => candidate.url().includes(`stage/build/${frontend}`));
   if (!page) {
-    await browser.disconnect().catch(() => {});
+    try {
+      await browser.disconnect();
+    } catch (cause) {
+      tolerateWaitFailure(cause);
+    }
     throw new Error(
       `浏览器里没有 ${frontend} 页面（已有页面：${pages.map((candidate) => candidate.url()).join(' | ')}）`
     );
   }
 
-  await page.waitForFunction('window.siyuan && window.siyuan.config' as never, { timeout: 30000 });
-  // 主题样式在壳子之后异步挂载；不等待会读到尚未生效的令牌值。
+  await waitForSiyuanConfig(page);
+  // 主题样式在壳子之后异步挂载；等不到不报错，由 environment 读数如实反映。
   await page
-    .waitForFunction("document.getElementById('themeStyle')?.getAttribute('href')" as never, { timeout: 5000 })
-    .catch(() => {});
-  await sleep(400);
+    .waitForFunction(() => Boolean(document.getElementById('themeStyle')?.getAttribute('href')), {
+      timeout: TIMING.themeStyleWait,
+    })
+    .catch((cause: unknown) => tolerateWaitFailure(cause));
+  await sleep(TIMING.navSettle);
 
   return {
     browser,

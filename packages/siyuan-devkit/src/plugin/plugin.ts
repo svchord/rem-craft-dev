@@ -15,17 +15,25 @@
  *
  * vite-plugin-electron 挂的是 `apply: 'serve'`，因为 Electron 从 dev server
  * 加载页面，不需要磁盘产物。思源相反：它从磁盘读
- * `<workspace>/data/themes/<name>/theme.css`，而 `vite dev` 只在内存里编译
- * （实测不产生任何磁盘文件）。插件 JS 更严格——思源用
+ * `<workspace>/data/themes/<name>/theme.css`，而 `vite dev` 只在内存里编译、
+ * 不落盘。插件 JS 更严格——思源用
  * `window.eval("(function anonymous(require, module, exports){…})")` 执行，
  * 需要 CJS 单文件，dev server 给的是 ESM 模块图。
  *
  * 所以本插件只挂 `build`，父项目必须跑 `vite build --watch`。
  *
- * ## 为什么用 writeBundle 而不是 closeBundle
+ * ## 为什么用 writeBundle 驱动重载
  *
  * `writeBundle(options, bundle)` 直接给出本次产出的文件名，不用自己 watch
- * 目录猜。实测在 `build --watch` 下每次重建都会触发。
+ * 目录猜；在 `build --watch` 下每次重建都会触发。
+ * 会话的**释放**不在这里：见下。
+ *
+ * ## 会话什么时候释放
+ *
+ * watch 时每次重建都会走 writeBundle / closeBundle，绝不能在那里关会话；
+ * 会话要跨重建存活。释放放在 `closeWatcher`——Vite/Rolldown 关闭 watcher
+ * 时只调用一次，正好对应「进程退出」。非 watch 构建根本不启动会话，
+ * 也没有 watcher，无需清理。另有进程 exit 时的同步兜底。
  *
  * ## 与 CLI 形态的关系
  *
@@ -35,17 +43,17 @@
  */
 import { resolve } from 'node:path';
 import type { Plugin } from 'vite';
-import siyuanAssets from './assets.ts';
+import { siyuanAssets } from './assets.ts';
 import { siyuanPost } from './post.ts';
+import { applyResolvedConfig, createPluginState, isWatchBuild } from './state.ts';
+import type { PluginState } from './state.ts';
+import { messageOf } from './shared.ts';
 import { startDevSession } from '../dev/dev-session.ts';
 import type { DevSession } from '../dev/dev-session.ts';
 import { createTarget } from '../core/targets.ts';
 import type { Target } from '../core/targets.ts';
 import { detectTargetType, targetType } from '../core/target-types.ts';
 import type { Frontend } from '../core/siyuan.ts';
-// 静态 import：内置类型是在 targets.ts 求值时注册进注册表的。
-// 只 import target-types 会拿到空注册表——这个坑踩过一次。
-import '../core/targets.ts';
 
 /** 插件名，用于日志前缀。 */
 const NAME = 'siyuan-devkit';
@@ -77,7 +85,7 @@ export interface SiYuanPluginOptions {
    *
    * 不传则保留项目自己写在 `rollupOptions.input` / `build.lib` 里的配置。
    * 注意**不要用 `build.lib`**：lib 隐含 `cssCodeSplit: false`，与 CSS 入口冲突
-   * （实测 Vite 报错），而且插件会产出 `index.cjs` 而非 `index.js`。
+   * （Vite 会报错），而且插件会产出 `index.cjs` 而非 `index.js`。
    */
   entry?: string | null;
   /** 产物目录；缺省取类型描述符的值（通常是 ./dev）。 */
@@ -86,7 +94,13 @@ export interface SiYuanPluginOptions {
   link?: boolean;
   /** 浏览器是否无头，缺省 false。 */
   headless?: boolean;
-  /** 打开哪个前端，缺省 desktop。 */
+  /**
+   * 是否在开发时自动起 Chrome 看效果，缺省 true。
+   * 默认打开**移动端**页面（desktop 端可直接看你自己思源窗口，JS 热重载会经 kernel 广播过去）。
+   * 不想自动起浏览器就传 `browser: false`。
+   */
+  browser?: boolean;
+  /** 浏览器打开哪个前端，缺省 desktop。 */
   frontend?: Frontend;
   /**
    * 是否校验产物，缺省 true。
@@ -96,29 +110,25 @@ export interface SiYuanPluginOptions {
    */
   verify?: boolean;
   /**
-   * 是否打包为 `package.zip`，缺省 false。
-   *
-   * 名字是思源集市的产物约定（主题/插件/官方 sample 一致），不由项目指定。
-   * 只在非 watch（生产构建）时执行，且在**校验通过之后**——
-   * 不会把一个有问题的包发出去。
-   */
-  pack?: boolean;
-  /**
    * 是否附带产物资产插件（搬运 README/icon 等 + 监听 public/）。
    *
    * 缺省 true。关掉它意味着你自己处理 `public/` 变更监听——
    * 注意 Vite 不监听 publicDir，改清单不会触发重建。
    */
   assets?: boolean;
-  /** 清单路径，缺省按类型取 `public/theme.json` 或 `public/plugin.json`。 */
+  /** 清单路径（相对项目根）；缺省按类型取 `public/theme.json` 或 `public/plugin.json`。 */
   manifestPath?: string | null;
 }
 
 /**
  * 思源开发插件。
  *
- * 返回数组（和 vite-plugin-electron 一致）：一个负责热重载，一个负责产物资产。
- * 将来要加 `:prod` 之类的插件时，不用改调用方的写法。
+ * 返回三个插件（和 vite-plugin-electron 的数组形态一致）：
+ *   :dev     注入构建配置 + 驱动热重载会话
+ *   :assets  监听 public/ + 搬运清单声明的元数据文件
+ *   :post    校验产物 + 打包（enforce: 'post'，必须看到完整产物）
+ * 三者共享同一份 PluginState，见 state.ts。也可以分别 import
+ * siyuanAssets / siyuanPost 自行组合。
  */
 export default function siyuanDev(options: SiYuanPluginOptions = {}): Plugin[] {
   const {
@@ -128,9 +138,9 @@ export default function siyuanDev(options: SiYuanPluginOptions = {}): Plugin[] {
     outDir = null,
     link = true,
     headless = false,
-    frontend = 'desktop',
+    browser = true,
+    frontend = 'mobile',
     verify = true,
-    pack = false,
     assets = true,
     manifestPath = null,
   } = options;
@@ -138,21 +148,57 @@ export default function siyuanDev(options: SiYuanPluginOptions = {}): Plugin[] {
   /** 显式指定的类型；null 表示从清单推断。 */
   const requestedKind = target;
 
+  /** 三个插件共享的只读状态；只有 configResolved 写它。 */
+  const state: PluginState = createPluginState(process.cwd());
+  const log = (message: string): void => console.log(`[${NAME}] ${message}`);
+
   let session: DevSession | null = null;
   let starting: Promise<DevSession> | null = null;
   /** 第一次构建不是「变更」：只启动会话，不触发重载。 */
   let firstBundle = true;
-  let root = process.cwd();
-  /**
-   * 开发还是生产。由 `build.watch` 判断，不额外传参。
-   *
-   * 实测五种写法都能拿到：`--watch`、`-w`、config 里 `watch:{}`、
-   * `watch:true`、都不写。Vite 自己已经把命令行归一化进 build.watch，
-   * 项目再传一个 `isWatch` 只是重复同一件事，还多一个可能不一致的输入。
-   */
-  let dev = false;
+  /** config() 阶段看到的 watch，用来和 Vite 归一化后的值对账。 */
+  let configWatch: boolean | null = null;
+  let exitHandler: (() => void) | null = null;
 
-  const log = (message: string): void => console.log(`[${NAME}] ${message}`);
+  /**
+   * 释放会话（幂等）。closeWatcher 与进程 exit 兜底都走这里。
+   * DevSession.stop() 自己也是幂等的，会关浏览器、控制服务、产物 watcher 与临时 profile。
+   */
+  async function stopSession(): Promise<void> {
+    const current = session;
+    if (!current) return;
+    session = null;
+    if (exitHandler) {
+      process.off('exit', exitHandler);
+      exitHandler = null;
+    }
+    try {
+      await current.stop();
+      log('开发会话已释放');
+    } catch (cause) {
+      log(`开发会话释放失败：${messageOf(cause)}`);
+    }
+  }
+
+  /**
+   * 进程硬退出时的同步兜底。'exit' 回调不能 await，所以这里只做同步能完成的
+   * 部分：关控制服务、kill 浏览器子进程；完整清理由 closeWatcher 完成。
+   */
+  function onProcessExit(): void {
+    if (!session) return;
+    const current = session;
+    try {
+      current.control?.stop();
+    } catch {
+      // 已经关了
+    }
+    try {
+      const child = current.browser?.process();
+      if (child && !child.killed) child.kill();
+    } catch {
+      // 浏览器已经退出
+    }
+  }
 
   /**
    * 解析被测类型与对象。
@@ -161,7 +207,7 @@ export default function siyuanDev(options: SiYuanPluginOptions = {}): Plugin[] {
    * 之前 config()、ensureSession()、post 的 resolveTarget 各写了一遍，
    * 加一种类型时要改三处——注册表可扩展的承诺就毁在这上面。
    *
-   * @param cwd  项目根目录（config() 早于 configResolved，只能用 cwd）
+   * @param cwd  项目根目录
    * @param announce 是否打日志（只有会话启动时需要）
    */
   function resolveTarget(
@@ -181,7 +227,7 @@ export default function siyuanDev(options: SiYuanPluginOptions = {}): Plugin[] {
     try {
       return { kind: resolvedKind, target: createTarget(resolvedKind, { name, cwd }) };
     } catch (cause) {
-      return { ok: false, reason: cause instanceof Error ? cause.message : String(cause) };
+      return { ok: false, reason: messageOf(cause) };
     }
   }
 
@@ -194,18 +240,24 @@ export default function siyuanDev(options: SiYuanPluginOptions = {}): Plugin[] {
    * 从描述符拿清单文件名，不硬编码 theme.json / plugin.json。
    *
    * 注意这里不能用 resolveTarget()：它会 createTarget（要读清单里的 name），
-   * 而 asset 插件在 config() 阶段就得构造好，那时清单可能还没建。
+   * 而资产插件在 Vite 解析出 root 之前就得拿到清单相对路径。
+   * 兜底值不再是静默的：识别不到或拿不到描述符都会打日志。
    */
   function manifestFile(cwd: string): string {
     let kind = requestedKind;
     if (!kind) {
       const detected = detectTargetType(cwd);
-      if (!detected.ok) return 'theme.json';
+      if (!detected.ok) {
+        log(`识别不到清单，资产清单暂按 theme.json：${detected.reason}（可用 target 显式指定）`);
+        return 'theme.json';
+      }
       kind = detected.kind;
     }
     try {
       return targetType(kind).descriptor.manifestName();
-    } catch {
+    } catch (cause) {
+      // 注册了新类型却取不到描述符时必须让人看见，不能悄悄退回内置类型。
+      log(`取清单名失败（target=${kind}），暂按 theme.json：${messageOf(cause)}`);
       return 'theme.json';
     }
   }
@@ -216,22 +268,27 @@ export default function siyuanDev(options: SiYuanPluginOptions = {}): Plugin[] {
     if (starting) return starting;
 
     starting = (async () => {
-      const resolved = resolveTarget(root, true);
+      const resolved = resolveTarget(state.root, true);
       if (!('target' in resolved)) throw new Error(resolved.reason);
 
       const created = await startDevSession({
         kind: resolved.kind,
         name,
-        cwd: root,
+        cwd: state.root,
         outDir,
         link,
         headless,
+        browser,
         frontend,
         log,
         // 变更由宿主的 writeBundle 喂进来，不自己 watch 目录。
         watch: false,
       });
       session = created;
+      if (!exitHandler) {
+        exitHandler = onProcessExit;
+        process.once('exit', exitHandler);
+      }
       return created;
     })();
 
@@ -257,7 +314,13 @@ export default function siyuanDev(options: SiYuanPluginOptions = {}): Plugin[] {
        * 只注入「思源决定的」部分；minify / sourcemap / target 归项目。
        */
       config(userConfig, env) {
-        const watch = Boolean(userConfig.build?.watch);
+        // config() 早于 configResolved，拿不到 ResolvedConfig：root 只能先取
+        // 用户配置里的 root（若有），否则用 state 的初值；configResolved 会覆盖。
+        const root = typeof userConfig.root === 'string' ? resolve(userConfig.root) : state.root;
+        // buildSpec 必须在这个阶段决定 outDir / emptyOutDir，只能用同一个
+        // isWatchBuild() 归一化；归一化后的权威值在 configResolved 写入 state。
+        const watch = isWatchBuild(userConfig.build?.watch);
+        configWatch = watch;
         const context = { command: env.command, watch, root };
         const resolved = resolveTarget(context.root);
         const resolvedTarget = targetOrNull(resolved);
@@ -273,6 +336,14 @@ export default function siyuanDev(options: SiYuanPluginOptions = {}): Plugin[] {
 
         const build = (userConfig.build ??= {});
         build.outDir ??= outDir ?? spec.outDir;
+        if (spec.lib) build.lib ??= spec.lib;
+        // minify 归插件统一管：watch 不压缩（便于直接看落盘产物），生产用默认压缩器；项目写了优先。
+        build.minify ??= watch ? false : true;
+
+        // 插件在思源前端 eval 执行，而思源前端没有 process 对象；React 等依赖会读
+        // process.env.NODE_ENV，默认补一条 define（项目自己写了以项目为准）。
+        const define = (userConfig.define ??= {});
+        define['process.env.NODE_ENV'] ??= JSON.stringify(watch ? 'development' : 'production');
 
         if (spec.emptyOutDir !== undefined) build.emptyOutDir ??= spec.emptyOutDir;
 
@@ -282,12 +353,19 @@ export default function siyuanDev(options: SiYuanPluginOptions = {}): Plugin[] {
           if (spec.external) rollupOptions.external ??= spec.external;
 
           // output 可能是数组（多入口拆分），那种情况不插手——项目自己在管。
-          if (spec.rollupOutput && !Array.isArray(rollupOptions.output)) {
-            const output: Record<string, unknown> = (rollupOptions.output ??= {}) as Record<string, unknown>;
-            const specOutput = spec.rollupOutput;
-            output.format ??= specOutput.format;
-            output.entryFileNames ??= specOutput.entryFileNames;
-            output.assetFileNames ??= specOutput.assetFileNames;
+          // 先取局部引用：直接对联合类型的属性用 ??= 会丢掉 Array.isArray 的收窄，
+          // 局部引用被收窄成 OutputOptions 后就能按字段补缺，不必断言成 Record。
+          if (spec.rollupOutput) {
+            const existingOutput = rollupOptions.output;
+            if (!Array.isArray(existingOutput)) {
+              const output = existingOutput ?? {};
+              const specOutput = spec.rollupOutput;
+              output.format ??= specOutput.format;
+              output.entryFileNames ??= specOutput.entryFileNames;
+              output.assetFileNames ??= specOutput.assetFileNames;
+              // 原来没写 output 时才挂上去；已有对象是原地补缺，不覆盖项目的值。
+              if (existingOutput === undefined) rollupOptions.output = output;
+            }
           }
         }
 
@@ -295,20 +373,24 @@ export default function siyuanDev(options: SiYuanPluginOptions = {}): Plugin[] {
         return undefined;
       },
 
-      configResolved(resolved) {
-        root = resolved.root;
-        // 开发/生产由 `build.watch` 判断，不额外传参——实测五种写法
-        // （--watch / -w / config 里 watch:{} / watch:true / 都不写）都能拿到。
-        dev = Boolean(resolved.build.watch);
-        if (!dev) {
-          log('生产构建：不启动热重载会话，会校验产物。开发请用 `vite build --watch`。');
+      configResolved(resolvedConfig) {
+        // 唯一的写入点：Vite 已把 --watch / -w / config 里的 watch:{} / watch:true
+        // 归一化成 resolved.build.watch（applyResolvedConfig 内部即
+        // Boolean(resolved.build.watch)），三个插件只读 state，不再各自读
+        // this.meta.watchMode 或 userConfig.build.watch。
+        applyResolvedConfig(state, resolvedConfig);
+        if (configWatch !== null && configWatch !== state.watch) {
+          log(`注意：config() 看到 watch=${configWatch}，Vite 归一化后为 ${state.watch}，以归一化值为准`);
+        }
+        if (!state.watch) {
+          log('生产构建：不启动热重载会话；会校验产物并打包。开发请用 `vite build --watch`。');
         }
       },
 
       async writeBundle(_options, bundle) {
         // 生产构建没有浏览器、也不需要热重载——但校验和打包由 :post 插件负责，
-        // 它们不看 dev，所以 CI 里仍然会跑。
-        if (!dev) return;
+        // 它同样只读 state.watch，所以 CI 里仍然会跑。
+        if (!state.watch) return;
         const files = Object.keys(bundle);
 
         // 第一次构建不是「变更」：此时会话可能还没起来，启动它即可，
@@ -319,7 +401,9 @@ export default function siyuanDev(options: SiYuanPluginOptions = {}): Plugin[] {
             await ensureSession();
             log('会话就绪，改源码会自动重载');
           } catch (cause) {
-            log(`启动失败：${cause instanceof Error ? cause.message : String(cause)}`);
+            // watch 形态必须有思源在跑（热重载依赖 kernel + 浏览器）。连不上就明确报错、
+            // 并让构建失败，而不是静默继续——否则会以为改源码在生效，其实热重载没起来。
+            throw new Error(`watch 模式需要思源在运行：${messageOf(cause)}`);
           }
           return;
         }
@@ -328,18 +412,17 @@ export default function siyuanDev(options: SiYuanPluginOptions = {}): Plugin[] {
           const current = await ensureSession();
           current.notifyChange(files);
         } catch (cause) {
-          log(`重载失败：${cause instanceof Error ? cause.message : String(cause)}`);
+          log(`重载失败：${messageOf(cause)}`);
         }
       },
 
-      async closeBundle() {
-        // watch 模式下每次重建后也会走到这里，不能在这里关会话。
-        // 只有非 watch（一次性构建）才清理。
-        if (this.meta?.watchMode) return;
-        if (session) {
-          await session.stop();
-          session = null;
-        }
+      /**
+       * watcher 关闭时只调用一次，这才是「进程退出」的正确清理点。
+       * 每次重建走到的是 writeBundle / closeBundle，那里绝不能关会话；
+       * 非 watch 构建不启动会话、也没有 watcher，因此不需要在这里清理。
+       */
+      async closeWatcher() {
+        await stopSession();
       },
     },
 
@@ -348,19 +431,20 @@ export default function siyuanDev(options: SiYuanPluginOptions = {}): Plugin[] {
     ...(assets
       ? [
           siyuanAssets({
-            cwd: root,
-            // 清单名从描述符取，不硬编码——注册新类型时这里自动跟着变。
-            manifestPath: manifestPath ?? `public/${manifestFile(root)}`,
+            state,
+            // 清单名从描述符取，不硬编码；惰性求值，等 Vite 解析出 root 再定清单路径。
+            manifestPath: (projectRoot: string) => manifestPath ?? `public/${manifestFile(projectRoot)}`,
+            log,
           }),
         ]
       : []),
 
     // 收尾：校验产物 + 打包。用 enforce: 'post' 确保在所有产物写完之后跑，
-    // 且校验失败时不打包。它不看 dev——两个环境都校验，只是失败处理不同。
+    // 且校验失败时不打包。它只读共享 state，两个环境都校验，只是失败处理不同。
     siyuanPost({
+      state,
       verify,
-      pack,
-      resolveTarget: () => targetOrNull(resolveTarget(root)),
+      resolveTarget: () => targetOrNull(resolveTarget(state.root)),
       log,
     }),
   ];

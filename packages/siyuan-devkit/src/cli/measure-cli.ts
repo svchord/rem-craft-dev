@@ -36,7 +36,7 @@
  *
  * 退出码：成功 0，参数/运行错误 2。
  */
-import { createSession, parseViewport } from '../core/session.ts';
+import { createSession, parseViewport, viewportFor } from '../core/session.ts';
 import type { Session } from '../core/session.ts';
 import { runActions, snapshotRoot } from '../core/actions.ts';
 import { contrastRatio } from '../core/color.ts';
@@ -59,32 +59,11 @@ import type {
 } from '../core/measure.ts';
 import { lastValue, allValues, parseArgs, wantsHelp } from './cli-args.ts';
 import type { MountState } from '../core/target-types.ts';
-import { resolveTargetFromArgs } from './targets.ts';
+import { DEFAULT_PROPS } from '../core/audit.ts';
+import { resolveTargetFromParsed } from './targets.ts';
 import { runAudit } from './audit.ts';
 
 const PREFIX = '[measure] ';
-
-const DEFAULT_PROPS = [
-  'color',
-  'background-color',
-  'border-top-color',
-  'border-radius',
-  'font-size',
-  'font-weight',
-  'line-height',
-  'padding-top',
-  'padding-left',
-  'margin-top',
-  'min-width',
-  'min-height',
-  'max-width',
-  'display',
-  'gap',
-  'position',
-  'z-index',
-  'overflow',
-  'opacity',
-];
 
 const VALUE_FLAGS = [
   '--frontend',
@@ -106,11 +85,7 @@ const VALUE_FLAGS = [
 
 const BOOLEAN_FLAGS = ['--attach', '--json', '--help', '-h'] as const;
 
-interface UsageLine {
-  (): void;
-}
-
-const usage: UsageLine = () => {
+const usage = (): void => {
   console.log(
     [
       '用法：syt measure <子命令> [参数] [选项]',
@@ -255,13 +230,14 @@ export async function runMeasureCli(argv: string[] = process.argv.slice(2)): Pro
   // --help 必须只打印用法、不执行动作。否则 `measure env --help` 会真的去开浏览器量一遍。
   if (wantsHelp(argv)) {
     usage();
-    if (!command) process.exit(2);
+    if (!command) process.exitCode = 2;
     return;
   }
 
   if (!command) {
     usage();
-    process.exit(2);
+    process.exitCode = 2;
+    return;
   }
 
   const parsed = parseArgs(argv.slice(1), { valueFlags: VALUE_FLAGS, booleanFlags: BOOLEAN_FLAGS });
@@ -273,10 +249,8 @@ export async function runMeasureCli(argv: string[] = process.argv.slice(2)): Pro
     return;
   }
 
-  const frontend = lastValue(parsed, '--frontend') ?? 'desktop';
-  const viewport =
-    parseViewport(lastValue(parsed, '--viewport'), null) ??
-    parseViewport(frontend === 'mobile' ? '390x844@3' : '1600x1000@1', null);
+  const frontend = (lastValue(parsed, '--frontend') ?? 'desktop') === 'mobile' ? 'mobile' : 'desktop';
+  const viewport = viewportFor(frontend, parseViewport(lastValue(parsed, '--viewport'), null));
   const asJson = parsed.flags.has('--json');
   const props =
     lastValue(parsed, '--props')
@@ -286,10 +260,10 @@ export async function runMeasureCli(argv: string[] = process.argv.slice(2)): Pro
   const actions = allValues(parsed, '--do');
   const setupActions = allValues(parsed, '--setup');
 
-  const target = resolveTargetFromArgs(argv.slice(1));
+  const target = resolveTargetFromParsed(parsed);
 
   const session: Session = await createSession({
-    frontend: frontend === 'mobile' ? 'mobile' : 'desktop',
+    frontend,
     viewport,
     attach: parsed.flags.has('--attach'),
   });
@@ -301,13 +275,13 @@ export async function runMeasureCli(argv: string[] = process.argv.slice(2)): Pro
     target: target ? { kind: target.kind, name: target.name } : null,
   };
 
-  // 挂载状态是审计的前提事实：没挂上却量到值，说明量的是宿主主题/别的插件，
-  // 读数会被张冠李戴。这里只如实输出，不替调用方判断「算不算对」。
-  if (target) {
-    output.mount = await target.mountState(session.page);
-  }
-
   try {
+    // 挂载状态是审计的前提事实：没挂上却量到值，说明量的是宿主主题/别的插件，
+    // 读数会被张冠李戴。这里只如实输出，不替调用方判断「算不算对」。
+    if (target) {
+      output.mount = await target.mountState(session.page);
+    }
+
     // 动作先跑（如果有），让后续测量发生在目标状态下。
     // 例外：diff 自己管动作（要先 setup 建立基线再 do），外层不能预先执行，
     // 否则 --do 会在 setup 之前跑一次，目标元素可能还不存在。

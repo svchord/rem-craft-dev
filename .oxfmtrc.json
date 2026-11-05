@@ -9,6 +9,7 @@
   "ignorePatterns": [
     "node_modules",
     "dist",
+    "**/dist/**",
     "/dev",
     "src-legacy",
     "package.zip",

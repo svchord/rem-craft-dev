@@ -4,27 +4,64 @@
  *  - 拼前端 URL
  *  - 找本机 Chrome
  * 其余浏览器自动化交给 puppeteer-core。
+ *
+ * 端口/工作区文件的候选路径来自 paths.ts，HTTP 探测来自 net.ts，时长来自
+ * timing.ts——之前这些在 siyuan.ts 与 workspace.ts / control-server.ts 各写一份。
  */
 import { spawn } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { fetchOk } from './net.ts';
+import { portMapCandidates, readWorkspacePaths } from './paths.ts';
+import { isRecord, isString } from './guards.ts';
+import { isRecoverable, requireRecoverable } from './errors.ts';
+import { TIMING } from './timing.ts';
 
-const CHROME_CANDIDATES = [
-  'C:/Program Files/Google/Chrome/Application/chrome.exe',
-  'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe',
-  'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
-  'C:/Program Files/Microsoft/Edge/Application/msedge.exe',
-];
+// 兼容既有导入：视口常量统一放在 viewport.ts。
+export { MOBILE_VIEWPORT } from './viewport.ts';
+
+/** 各平台浏览器候选路径；CHROME_PATH 可覆盖。 */
+const CHROME_CANDIDATES: Partial<Record<NodeJS.Platform, readonly string[]>> = {
+  win32: [
+    'C:/Program Files/Google/Chrome/Application/chrome.exe',
+    'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe',
+    'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
+    'C:/Program Files/Microsoft/Edge/Application/msedge.exe',
+  ],
+  darwin: [
+    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+    '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
+    '/Applications/Chromium.app/Contents/MacOS/Chromium',
+  ],
+  linux: [
+    '/usr/bin/google-chrome',
+    '/usr/bin/google-chrome-stable',
+    '/usr/bin/chromium',
+    '/usr/bin/chromium-browser',
+    '/usr/bin/microsoft-edge',
+    '/usr/bin/microsoft-edge-stable',
+  ],
+};
+
+/** 兜底端口：思源默认从 6806 起，多实例时依次递增。 */
+const DEFAULT_KERNEL_PORTS = [6806, 6807, 6808, 6809] as const;
 
 /** 找本机 Chrome/Edge；CHROME_PATH 覆盖。 */
 export function findChrome(): string {
-  const found = CHROME_CANDIDATES.find((candidate) => existsSync(candidate));
+  const override = process.env.CHROME_PATH?.trim();
+  if (override) return override;
+  const candidates = CHROME_CANDIDATES[process.platform] ?? [];
+  const found = candidates.find((candidate) => existsSync(candidate));
   if (!found) throw new Error('未找到 Chrome/Edge，请安装或设置 CHROME_PATH');
-  return process.env.CHROME_PATH || found;
+  return found;
 }
 
+/**
+ * 跑一段 PowerShell 查 kernel 进程 PID。
+ * stderr 设为 ignore：Get-Process 的进度/警告不是错误；spawn 失败只接受 ENOENT
+ * （没装 PowerShell）作为可恢复，其余重抛，不再一律 resolve('')。
+ */
 function runPowerShell(command: string): Promise<string> {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const child = spawn('powershell', ['-NoProfile', '-NonInteractive', '-Command', command], {
       stdio: ['ignore', 'pipe', 'ignore'],
       windowsHide: true,
@@ -34,109 +71,89 @@ function runPowerShell(command: string): Promise<string> {
       out += chunk.toString();
     });
     child.on('close', () => resolve(out.trim()));
+    child.on('error', (cause) => {
+      if (isRecoverable(cause, ['ENOENT'])) {
+        resolve('');
+        return;
+      }
+      reject(cause);
+    });
+  });
+}
+
+/** 找 kernel 进程 PID（Windows 用 PowerShell；macOS/Linux 用 pgrep），找不到返回空串。 */
+async function findKernelPid(): Promise<string> {
+  if (process.platform === 'win32') {
+    return runPowerShell('(Get-Process SiYuan-Kernel -ErrorAction SilentlyContinue | Select-Object -First 1).Id');
+  }
+  return new Promise((resolve) => {
+    const child = spawn('pgrep', ['-f', 'SiYuan-Kernel'], { stdio: ['ignore', 'pipe', 'ignore'] });
+    let out = '';
+    child.stdout.on('data', (chunk: Buffer) => {
+      out += chunk.toString();
+    });
+    child.on('close', () => resolve(out.trim()));
     child.on('error', () => resolve(''));
   });
 }
 
-async function probe(url: string, timeoutMs = 1500): Promise<boolean> {
-  try {
-    const response = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
-    return response.ok;
-  } catch {
-    return false;
-  }
+/** 探一个端口上是不是思源 kernel。 */
+async function probeKernelPort(port: number): Promise<boolean> {
+  if (!Number.isFinite(port)) return false;
+  return (await fetchOk(`http://127.0.0.1:${port}/api/system/status`, TIMING.kernelProbe)) !== null;
 }
 
-/**
- * 找运行中的 kernel 端口。
- *
- * 顺序：SIYUAN_PORT → 按 PID 查 port.json → 端口映射里的最后一个 → 6806~6809 兜底。
- */
+/** 找运行中的 kernel 端口：SIYUAN_PORT → PID 查 port.json → 兜底端口。 */
 export async function findKernelPort(): Promise<number> {
   const explicit = process.env.SIYUAN_PORT?.trim();
   if (explicit) return Number(explicit);
 
-  const pidText = await runPowerShell(
-    '(Get-Process SiYuan-Kernel -ErrorAction SilentlyContinue | Select-Object -First 1).Id'
-  );
+  const pidText = await findKernelPid().catch((cause: unknown) => {
+    requireRecoverable(cause);
+    return '';
+  });
   const pid = pidText.split(/\s+/).filter(Boolean)[0];
 
-  const mapFiles = [
-    join(process.env.USERPROFILE || '', '.config', 'siyuan', 'port.json'),
-    join(process.env.APPDATA || '', 'SiYuan', 'port.json'),
-  ];
-
-  for (const file of mapFiles) {
+  for (const file of portMapCandidates()) {
     if (!existsSync(file)) continue;
     try {
-      const map = JSON.parse(readFileSync(file, 'utf8')) as Record<string, string>;
-      if (pid && map[pid]) {
-        const port = Number(map[pid]);
-        if (await probe(`http://127.0.0.1:${port}/api/system/status`)) return port;
-      }
-      const values = Object.values(map).map(Number);
-      if (values.length) {
-        const candidate = values[values.length - 1];
-        if (candidate !== undefined && (await probe(`http://127.0.0.1:${candidate}/api/system/status`))) {
-          return candidate;
-        }
-      }
-    } catch {
-      // 继续下一个候选
+      const data: unknown = JSON.parse(readFileSync(file, 'utf8'));
+      if (!isRecord(data)) continue;
+      const byPid = pid ? data[pid] : undefined;
+      if (isString(byPid) && (await probeKernelPort(Number(byPid)))) return Number(byPid);
+      const values = Object.values(data).map(Number);
+      const candidate = values[values.length - 1];
+      if (candidate !== undefined && (await probeKernelPort(candidate))) return candidate;
+    } catch (cause) {
+      requireRecoverable(cause);
     }
   }
 
-  for (const port of [6806, 6807, 6808, 6809]) {
-    if (await probe(`http://127.0.0.1:${port}/api/system/status`)) return port;
+  for (const port of DEFAULT_KERNEL_PORTS) {
+    if (await probeKernelPort(port)) return port;
   }
   throw new Error('无法定位 SiYuan kernel 端口：确认思源已启动，或设置 SIYUAN_PORT');
 }
 
 /** 前端入口。桌面与移动是两个独立构建，路径不同。 */
-const FRONTENDS = {
-  desktop: 'desktop',
-  mobile: 'mobile',
-} as const;
+export type Frontend = 'desktop' | 'mobile';
 
-export type Frontend = keyof typeof FRONTENDS;
-
-/** 拼前端 URL，带随机参数避免缓存。 */
+/** 拼前端 URL，带随机参数避免缓存。运行时仍校验一遍，防 JS 调用方传错。 */
 export function frontendUrl(port: number, frontend: Frontend = 'desktop'): string {
-  const entry = FRONTENDS[frontend];
-  if (!entry) throw new Error(`未知前端：${frontend}（可用：${Object.keys(FRONTENDS).join(' / ')}）`);
+  if (frontend !== 'desktop' && frontend !== 'mobile') {
+    throw new Error(`未知前端：${String(frontend)}（可用：desktop / mobile）`);
+  }
   const random = Math.random().toString(36).slice(2, 9);
-  return `http://127.0.0.1:${port}/stage/build/${entry}/?r=${random}`;
+  return `http://127.0.0.1:${port}/stage/build/${frontend}/?r=${random}`;
 }
 
-/** 移动端视口预设：390x844 覆盖主流手机宽度。 */
-export const MOBILE_VIEWPORT = {
-  width: 390,
-  height: 844,
-  deviceScaleFactor: 3,
-  isMobile: true,
-  hasTouch: true,
-} as const;
-
 /**
- * 找思源工作区路径（用于定位 `data/plugins/`、`data/themes/`）。
- *
+ * 找思源工作区路径（用于定位 data/plugins/、data/themes/）。
  * 只读桌面端记录的 workspace.json，不启动内核——审计插件 CSS 时插件可能
- * 根本没运行，不能依赖 kernel 可用。找不到返回 null，调用方自行兜底。
+ * 根本没运行。SIYUAN_WORKSPACE 可直接指定；找不到返回 null 由调用方兜底。
  */
 export function findWorkspaceDir(): string | null {
-  const candidates = [
-    join(process.env.USERPROFILE || '', '.config', 'siyuan', 'workspace.json'),
-    join(process.env.APPDATA || '', 'SiYuan', 'workspace.json'),
-    join(process.env.APPDATA || '', 'SiYuan-Electron', 'workspace.json'),
-  ];
-  for (const file of candidates) {
-    if (!file || !existsSync(file)) continue;
-    try {
-      const data = JSON.parse(readFileSync(file, 'utf8')) as unknown;
-      if (Array.isArray(data) && data.length && typeof data[0] === 'string') return data[0];
-    } catch {
-      // 继续下一个候选
-    }
-  }
-  return null;
+  const explicit = process.env.SIYUAN_WORKSPACE?.trim();
+  if (explicit) return explicit;
+  return readWorkspacePaths()[0] ?? null;
 }

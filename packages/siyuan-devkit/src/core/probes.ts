@@ -1,62 +1,16 @@
 /**
- * 探针：只读事实，返回纯数据，不打印、不改页面。
+ * 令牌探针：在真实页面里读计算样式，返回纯数据，不打印。
  *
- * 测量策略——一律在真实页面上量：
+ * 读数逻辑跑在浏览器里：计算样式里的自定义属性**已展开 var() 链**，未定义的
+ * 令牌返回空串，一个 getPropertyValue 就够。注意 L0 刻度存的是 "R G B" 三通道，
+ * 不是颜色值，这里只取原文、不做任何颜色求值。
  *
- *   曾经用 iframe 隔离，理由是要挡住宿主主题的覆盖。但让思源真正选中本主题之后，
- *   宿主主题根本不参与级联——隔离的前提消失了。而 iframe 只注入被测 CSS，
- *   会漏掉思源 `base.css` 与运行时样式：实测 `line-height` 在 iframe 里是
- *   `normal`、真实页面是 `28px`。
- *
- *   所以探针插进主文档（`position:fixed` 放到视口外），拿到的是与生产完全一致的
- *   级联：base.css + 本主题 + 插件样式 + 运行时样式。
+ * 其余浏览器侧读数（元素可见性、探针注入、样式/盒模型/环境）统一在 page-read.ts；
+ * 曾经 iframe 隔离测量会漏掉 base.css（实测 line-height 在 iframe 里是 normal、
+ * 真实页面是 28px），已整体删除。本文件只保留 probeTokens 这一个最小公开入口。
  */
 import type { Page } from 'puppeteer-core';
 
-/** 一个探针用例。 */
-export interface ProbeSpec {
-  label: string;
-  /** 要插入的 HTML；不给我表示量页面上既有元素。 */
-  html?: string;
-  /** 探针 html 里的选择器。 */
-  target: string;
-  /** 要读的样式属性。 */
-  props: string[];
-}
-
-/** probeLive 的输入。 */
-export interface ProbeLiveSpec {
-  tokens: string[];
-  selectors: string[];
-  /** 选择器命中数是否只数可见的。 */
-  requireVisible?: boolean;
-  probes: ProbeSpec[];
-}
-
-/** 单个探针的读数。 */
-export interface ProbeReading {
-  label: string;
-  found: boolean;
-  styles: Record<string, string>;
-  count?: number;
-  reason?: string;
-}
-
-/** probeLive 的输出。 */
-export interface ProbeLiveResult {
-  tokens: Record<string, string>;
-  hits: Record<string, number>;
-  probes: ProbeReading[];
-}
-
-/**
- * 读取令牌的计算值。
- *
- * 计算样式里的自定义属性**已经展开 var() 链**，未定义的令牌返回空串，
- * 因此一个 getPropertyValue 就够：既能判断「定义了没有」，也能看到最终值。
- * 注意 L0 刻度存的是 "R G B" 三通道（`0 82 217`），不是颜色值，
- * 直接当 color 用会失效——所以这里只取原文，不做任何颜色求值。
- */
 export async function probeTokens(page: Page, names: string[]): Promise<Record<string, string>> {
   return page.evaluate((tokenNames: string[]) => {
     const root = getComputedStyle(document.documentElement);
@@ -66,122 +20,4 @@ export async function probeTokens(page: Page, names: string[]): Promise<Record<s
     }
     return values;
   }, names);
-}
-
-/**
- * 在真实页面上量一组读数。
- *
- * 探针元素插进主文档、放到视口外（`left:-99999px`），因此：
- *   - 拿到完整级联（base.css + 主题 + 插件 + 运行时样式），与生产一致
- *   - 不影响页面外观
- *   - 测完立即移除
- *
- * `requireVisible` 默认 false：探针本身在视口外，按可见性过滤会全部被排除。
- * 只有量页面上既有元素（live 用例）时才开 true——菜单关闭时元素仍在 DOM 但不可见，
- * 读到的是继承值，会让断言假通过。
- */
-export async function probeLive(page: Page, spec: ProbeLiveSpec): Promise<ProbeLiveResult> {
-  return page.evaluate((payload: ProbeLiveSpec) => {
-    // 注意：这个函数在浏览器里执行，不能引用 Node 侧的模块作用域变量，
-    // 所以 isVisible 必须定义在函数内部。
-    const visible = (element: Element): boolean =>
-      (element as HTMLElement).offsetParent !== null || element.getClientRects().length > 0;
-
-    const tokens: Record<string, string> = {};
-    const rootStyle = getComputedStyle(document.documentElement);
-    for (const name of payload.tokens) {
-      tokens[name] = rootStyle.getPropertyValue(name).trim();
-    }
-
-    // 选择器命中数：在真实页面里数（可含探针容器，由调用方决定要不要插）
-    const counts: Record<string, number> = {};
-    for (const selector of payload.selectors) {
-      try {
-        const elements = [...document.querySelectorAll(selector)];
-        counts[selector] = payload.requireVisible ? elements.filter(visible).length : elements.length;
-      } catch {
-        counts[selector] = -1;
-      }
-    }
-
-    // 探针：每个用例独立插一段标记到主文档，量完移除。
-    // 主文档里的探针能吃到 base.css 与运行时样式，这是 iframe 做不到的。
-    const probes: ProbeReading[] = [];
-    for (const probe of payload.probes) {
-      if (!probe.html) {
-        // 没有 html 表示量页面上既有的真实元素（交互后的状态）。
-        let elements: Element[];
-        try {
-          elements = [...document.querySelectorAll(probe.target)];
-        } catch {
-          probes.push({ label: probe.label, found: false, styles: {}, reason: '非法选择器' });
-          continue;
-        }
-        const shown = elements.filter(visible);
-        const first = shown[0];
-        if (!first) {
-          probes.push({ label: probe.label, found: false, styles: {}, reason: '页面上没有可见的匹配元素' });
-          continue;
-        }
-        const style = getComputedStyle(first);
-        const styles: Record<string, string> = {};
-        for (const property of probe.props) styles[property] = style.getPropertyValue(property);
-        probes.push({ label: probe.label, found: true, styles, count: shown.length });
-        continue;
-      }
-
-      const host = document.createElement('div');
-      host.setAttribute('style', 'position:fixed;left:-99999px;top:0;width:1200px;');
-      host.innerHTML = probe.html;
-      document.body.appendChild(host);
-      try {
-        const element = host.querySelector(probe.target);
-        if (!element) {
-          probes.push({ label: probe.label, found: false, styles: {}, reason: '探针 html 里没有匹配元素' });
-          continue;
-        }
-        const style = getComputedStyle(element);
-        const styles: Record<string, string> = {};
-        for (const property of probe.props) styles[property] = style.getPropertyValue(property);
-        probes.push({ label: probe.label, found: true, styles });
-      } finally {
-        host.remove();
-      }
-    }
-
-    return { tokens, hits: counts, probes };
-  }, spec);
-}
-
-/** 环境快照。 */
-export interface EnvironmentSnapshot {
-  frontend: string | null;
-  backend: string | null;
-  themeMode: string | null;
-  density: string | null;
-  themeStyle: string | null;
-  domNodes: number;
-  /** attached 表示复用 dev 浏览器，launched 表示新开的。 */
-  opened: 'attached' | 'launched';
-}
-
-/**
- * 页面环境快照：确认打开的是桌面还是移动端、被测对象挂没挂上。
- *
- * 移动端和桌面端是两个独立构建入口，量错地方结论就没有意义。
- */
-export async function probeEnvironment(page: Page, session: { attached: boolean }): Promise<EnvironmentSnapshot> {
-  const head = await page.evaluate(() => {
-    const root = document.documentElement;
-    return {
-      frontend: root.getAttribute('data-frontend'),
-      backend: root.getAttribute('data-backend'),
-      themeMode: root.getAttribute('data-theme-mode'),
-      density: root.getAttribute('data-ui-density'),
-      themeStyle: document.getElementById('themeStyle')?.getAttribute('href') || null,
-      domNodes: document.querySelectorAll('*').length,
-    };
-  });
-
-  return { ...head, opened: session.attached ? 'attached' : 'launched' };
 }

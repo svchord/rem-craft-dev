@@ -25,6 +25,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Build devkit (dist used by syt and the Vite plugin)
+        run: pnpm --filter siyuan-devkit build
+
       - name: Lint
         run: pnpm run lint
 
@@ -33,3 +36,6 @@ jobs:
 
       - name: Build
         run: pnpm run build
+
+      - name: Verify artifacts (syt verify)
+        run: pnpm exec syt verify --dir . --out-dir dist

@@ -1,25 +1,27 @@
 /**
  * 审计计划的加载：配置文件自动发现 + 命令行参数覆盖。
  *
- * 约定照搬 pa11y（它能跑通这么多年说明这套够用）：
- *
  *   1. 默认找 `./.siyuan-audit.json`
  *   2. `-c/--config <path>` 指定别的文件
- *   3. 文件可以是 JSON 也可以是 JS（走 require，方便写表达式）
- *   4. **优先级：命令行参数 > 配置文件 > 内置默认值**
+ *   3. 文件可以是 JSON，也可以是 ES 模块（`.ts` / `.js`，**走动态 import**，
+ *      方便写表达式与注释；不是 CommonJS require）
+ *   4. 优先级：命令行参数 > 配置文件 > 内置默认值
  *
- * 为什么不用 cosmiconfig 之类：我们只要一个固定文件名，多一层依赖不划算。
+ * 不用 cosmiconfig 之类：只要一个固定文件名，多一层依赖不划算。
+ * 配置读进来立刻用 validatePlan 逐字段校验并构造 AuditPlan，不做类型断言。
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { isAbsolute, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { validatePlan } from './audit.ts';
 import type { AuditPlan } from './audit.ts';
+import { isRecord } from './guards.ts';
 
 /** 默认的配置文件名。 */
 export const DEFAULT_CONFIG_NAME = '.siyuan-audit.json';
 
-/** 自动发现时依次尝试的文件名（JSON 优先，JS 次之）。 */
-const CONFIG_CANDIDATES = [DEFAULT_CONFIG_NAME, '.siyuan-audit.js', '.siyuan-audit.mjs'];
+/** 自动发现时依次尝试的文件名（JSON 优先，之后是源码形态的模块）。 */
+const CONFIG_CANDIDATES = [DEFAULT_CONFIG_NAME, '.siyuan-audit.ts', '.siyuan-audit.js'];
 
 /** 加载结果。 */
 export interface LoadedConfig {
@@ -31,16 +33,23 @@ export interface LoadedConfig {
   discovered: boolean;
 }
 
-/** 读一个配置文件：JSON 直接 parse，JS 走动态 import。 */
+/** 与 validatePlan 共用同一份形状校验，避免断言 unknown → AuditPlan。 */
+function asPlan(value: unknown, path: string): AuditPlan {
+  const validated = validatePlan(value);
+  if (!validated.ok) throw new Error(`配置文件 ${path} 无效：${validated.errors.join('；')}`);
+  return validated.plan;
+}
+
+/** 读一个配置文件：JSON 直接 parse，其余当 ES 模块动态 import。 */
 async function readConfigFile(path: string): Promise<AuditPlan> {
   const text = readFileSync(path, 'utf8');
-  // .json 走 JSON.parse（比 require 快，且不受 ESM/CJS 影响）；
-  // 其余当模块加载，允许写表达式与注释。
   if (path.endsWith('.json')) {
-    return JSON.parse(text) as AuditPlan;
+    const parsed: unknown = JSON.parse(text);
+    return asPlan(parsed, path);
   }
-  const loaded = (await import(pathToFileURL(path).href)) as { default?: AuditPlan };
-  return loaded.default ?? (loaded as unknown as AuditPlan);
+  const module: unknown = await import(pathToFileURL(path).href);
+  const plan: unknown = isRecord(module) && 'default' in module ? module['default'] : module;
+  return asPlan(plan, path);
 }
 
 /**
@@ -86,9 +95,9 @@ export interface PlanOverrides {
 /**
  * 合并配置与命令行覆盖。
  *
- * 规则：**显式传了的命令行参数整体替换配置文件里的同名字段**（不是逐项合并）。
- * 这样语义可预测——`--tokens a,b` 就是「只查 a 和 b」，而不是「在文件基础上追加」。
- * 需要追加时把要查的写全。
+ * 规则：**显式传了的命令行参数整体替换配置文件里的同名字段**（不是逐项合并），
+ * 这样语义可预测——`--tokens a,b` 就是「只查 a 和 b」，需要追加就把要查的写全。
+ * 例外是 `target`：它是嵌套对象，命令行只覆盖传了的那个子字段，其余保留文件里的值。
  */
 export function mergePlan(config: AuditPlan, overrides: PlanOverrides): AuditPlan {
   const merged: AuditPlan = { ...config };

@@ -1,36 +1,21 @@
 /**
  * 交互驱动：把页面从「初始状态」推到「要审计的状态」，然后就地测量。
  *
- * 为什么必须有这一层：
- *   只量初始页面只能回答「静态级联算出来是什么」，它永远测不到：
- *     - :hover / :focus / :active 等伪类（需要真实指针）
- *     - 菜单项（菜单打开前 DOM 里根本没有，实测 0 个）
- *     - 插件面板（激活前不存在）
- *     - 点击后的展开/选中态
- *   这些是主题和插件真正容易坏的地方——思源升级后 CSS 选择器还在，但 DOM 结构
- *   变了，静态断言照样绿，实际交互已经烂了。
+ * 只量初始页面测不到 :hover / :focus / :active（需要真实指针）、菜单项（打开前
+ * DOM 里没有）、插件面板（激活前不存在）、点击后的展开态——这些恰是主题/插件
+ * 容易坏的地方：CSS 选择器还在但 DOM 结构变了，静态断言照样绿。
  *
- * 设计：动作是可组合的小字符串，场景因此能直接写在命令行参数里：
- *   click:<selector>     真实点击
- *   hover:<selector>     真实指针悬停（唯一能驱动 :hover 的方式）
- *   move:<x>,<y>         指针移动
- *   press:<selector>     按下（配合 :active）
- *   focus:<selector>     聚焦
- *   type:<selector>:<text>  输入
- *   wait:<ms>            等过渡/异步
- *   menu:<id>            用思源菜单 API 打开菜单
- *   contextmenu:<selector>  真实右键（JS 派发不触发思源菜单）
- *   dock:<type>          点击停靠栏按钮（file/outline/graph/...）
- *   attr:<name>=<value>  设 <html> 属性（暗色/密度变体）
- *   reset                还原 <html> 属性到会话初始快照
+ * 动作是可组合的小字符串，场景因此能直接写在命令行参数里。每个动作后等一小段，
+ * 时长统一来自 timing.ts（按触发原因命名，不是散落的裸数字）。
  *
- * 每个动作后都等一小段，让过渡与异步渲染落定。
+ * 任何一步失败都抛错：静默跳过一个没找到的选择器，会让后面的断言在错误
+ * 状态下运行，得到「通过」的假结论。
  */
 import type { Page } from 'puppeteer-core';
+import { readPoint } from './page-read.ts';
+import { sleep, TIMING } from './timing.ts';
 
-const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
-
-/** 动作动词 → 说明，报错时列出来，避免拼错动词静默跳过。 */
+/** 动作动词 → 用法说明；报错时列出来，避免拼错动词静默跳过。 */
 export const ACTIONS = {
   click: 'click:<selector>',
   hover: 'hover:<selector>',
@@ -46,7 +31,7 @@ export const ACTIONS = {
   reset: 'reset',
 } as const;
 
-/** 动作动词。 */
+/** 动作动词。switch 的 default 用 never 校验：加了动词却漏了分支会编译不过。 */
 export type ActionVerb = keyof typeof ACTIONS;
 
 /** 执行动作用的会话形状（只需要 page）。 */
@@ -67,17 +52,7 @@ export async function snapshotRoot(page: Page): Promise<Record<string, string>> 
   });
 }
 
-/** 思源在页面上挂的全局对象（只声明用到的部分）。 */
-interface SiyuanMenuGlobal {
-  siyuan?: { menus?: { menu?: Record<string, { element?: HTMLElement }> } };
-}
-
-/**
- * 执行一串动作。返回执行日志（用于报告里说明「测的是哪个状态」）。
- *
- * 任何一步失败都抛错：静默跳过一个没找到的选择器，会让后面的断言在错误
- * 状态下运行，得到「通过」的假结论。
- */
+/** 执行一串动作，返回执行日志（用于报告里说明「测的是哪个状态」）。 */
 export async function runActions(session: ActionSession, actions: string[] = []): Promise<string[]> {
   const { page } = session;
   const log: string[] = [];
@@ -91,26 +66,16 @@ export async function runActions(session: ActionSession, actions: string[] = [])
     switch (verb) {
       case 'click':
         await page.click(argument);
-        await sleep(500);
+        await sleep(TIMING.clickSettle);
         log.push(`click ${argument}`);
         break;
 
       case 'hover': {
-        // 真实移动指针才能驱动 :hover，CSS 注入或 JS 派发都做不到。
-        const point = await page.evaluate((selector: string) => {
-          const element = document.querySelector(selector);
-          if (!element) return null;
-          const box = element.getBoundingClientRect();
-          // 不用 offsetParent 判可见：position:fixed 的元素 offsetParent 恒为 null，
-          // 思源菜单就是这种（实测可见，offsetParent=null）。
-          if (!box.width && !box.height) return null;
-          const cs = getComputedStyle(element);
-          if (cs.display === 'none' || cs.visibility === 'hidden') return null;
-          return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
-        }, argument);
+        // 真实移动指针才能驱动 :hover；中心点与可见性判定由 page-read.ts 统一提供。
+        const point = await readPoint(page, argument);
         if (!point) throw new Error(`hover 找不到可悬停的元素：${argument}`);
         await page.mouse.move(point.x, point.y);
-        await sleep(350);
+        await sleep(TIMING.hoverSettle);
         log.push(`hover ${argument}`);
         break;
       }
@@ -121,29 +86,24 @@ export async function runActions(session: ActionSession, actions: string[] = [])
           throw new Error('move 需要 坐标:例如 move:100,200');
         }
         await page.mouse.move(x, y);
-        await sleep(250);
+        await sleep(TIMING.actionSettle);
         log.push(`move ${x},${y}`);
         break;
       }
 
       case 'press': {
-        const box = await page.evaluate((selector: string) => {
-          const element = document.querySelector(selector);
-          if (!element) return null;
-          const rect = element.getBoundingClientRect();
-          return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
-        }, argument);
-        if (!box) throw new Error(`press 找不到元素：${argument}`);
-        await page.mouse.move(box.x, box.y);
+        const point = await readPoint(page, argument);
+        if (!point) throw new Error(`press 找不到元素：${argument}`);
+        await page.mouse.move(point.x, point.y);
         await page.mouse.down();
-        await sleep(250);
+        await sleep(TIMING.actionSettle);
         log.push(`press ${argument}`);
         break;
       }
 
       case 'focus':
         await page.focus(argument);
-        await sleep(250);
+        await sleep(TIMING.actionSettle);
         log.push(`focus ${argument}`);
         break;
 
@@ -154,7 +114,7 @@ export async function runActions(session: ActionSession, actions: string[] = [])
         const text = argument.slice(index + 1);
         await page.click(selector);
         await page.type(selector, text);
-        await sleep(250);
+        await sleep(TIMING.actionSettle);
         log.push(`type ${selector}`);
         break;
       }
@@ -165,33 +125,35 @@ export async function runActions(session: ActionSession, actions: string[] = [])
         break;
 
       case 'menu': {
-        // 思源菜单是异步渲染的，打开后要等 DOM 出现。
+        // 思源菜单是异步渲染的；用 Reflect.get 逐层取全局对象，避免类型断言。
         const opened = await page.evaluate((id: string) => {
-          const menu = (globalThis as SiyuanMenuGlobal).siyuan?.menus?.menu?.[id];
-          const element = menu?.element;
-          if (!element) return false;
+          const get = (obj: object, key: string): unknown => Reflect.get(obj, key);
+          const siyuan = get(globalThis, 'siyuan');
+          if (!siyuan || typeof siyuan !== 'object') return false;
+          const menus = get(siyuan, 'menus');
+          if (!menus || typeof menus !== 'object') return false;
+          const menu = get(menus, 'menu');
+          if (!menu || typeof menu !== 'object') return false;
+          const entry = get(menu, id);
+          if (!entry || typeof entry !== 'object') return false;
+          const element = get(entry, 'element');
+          if (!(element instanceof HTMLElement)) return false;
           element.dispatchEvent(new MouseEvent('click', { bubbles: true }));
           return true;
         }, argument);
         if (!opened) throw new Error(`menu 找不到可打开的菜单：${argument}`);
-        await sleep(600);
+        await sleep(TIMING.menuSettle);
         log.push(`menu ${argument}`);
         break;
       }
 
       case 'contextmenu': {
-        // 真实右键才能弹出思源的上下文菜单：JS 派发 contextmenu 事件不触发
-        // （实测派发后 .b3-menu__item 仍是 0 个，真实鼠标右键才有 14 个）。
-        const point = await page.evaluate((selector: string) => {
-          const element = document.querySelector(selector);
-          if (!element) return null;
-          const box = element.getBoundingClientRect();
-          return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
-        }, argument);
+        // 真实右键才能弹出思源上下文菜单：JS 派发 contextmenu 不触发。
+        const point = await readPoint(page, argument);
         if (!point) throw new Error(`contextmenu 找不到元素：${argument}`);
         await page.mouse.move(point.x, point.y);
         await page.mouse.click(point.x, point.y, { button: 'right' });
-        await sleep(900);
+        await sleep(TIMING.contextMenuSettle);
         log.push(`contextmenu ${argument}`);
         break;
       }
@@ -206,7 +168,7 @@ export async function runActions(session: ActionSession, actions: string[] = [])
           return true;
         }, argument);
         if (!clicked) throw new Error(`dock 找不到停靠栏按钮：${argument}`);
-        await sleep(800);
+        await sleep(TIMING.dockSettle);
         log.push(`dock ${argument}`);
         break;
       }
@@ -219,7 +181,7 @@ export async function runActions(session: ActionSession, actions: string[] = [])
           argument.slice(0, index),
           argument.slice(index + 1)
         );
-        await sleep(300);
+        await sleep(TIMING.attrSettle);
         log.push(`attr ${argument}`);
         break;
       }
@@ -234,12 +196,15 @@ export async function runActions(session: ActionSession, actions: string[] = [])
             if (root.getAttribute(name) !== value) root.setAttribute(name, value);
           }
         }, rootSnapshot);
-        await sleep(300);
+        await sleep(TIMING.attrSettle);
         log.push('reset');
         break;
 
-      default:
-        throw new Error(`未知动作：${String(verb)}（可用：${Object.keys(ACTIONS).join(' / ')}）`);
+      default: {
+        // 编译期穷尽检查：ACTIONS 里新增动词却没在这里加 case 时，verb 不是 never。
+        const exhaustive: never = verb;
+        throw new Error(`未知动作：${String(exhaustive)}（可用：${Object.keys(ACTIONS).join(' / ')}）`);
+      }
     }
   }
 

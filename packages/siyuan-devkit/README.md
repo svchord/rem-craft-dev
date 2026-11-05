@@ -12,11 +12,11 @@
 父项目 `vite.config.ts` 加一行：
 
 ```ts
-import siyuan from 'siyuan-devkit/plugin';
+import siyuanPlugin from 'siyuan-devkit/plugin';
 
 export default defineConfig({
   plugins: [
-    siyuan(), // 类型从 public/ 清单自动推断
+    siyuanPlugin(), // 类型从 public/ 清单自动推断
   ],
 });
 ```
@@ -24,7 +24,7 @@ export default defineConfig({
 ### 选项
 
 ```ts
-siyuan({
+siyuanPlugin({
   target: 'theme', // 'theme' | 'plugin'，缺省从 public/ 清单推断
   entry: 'src/styles/index.css', // 入口；主题给 CSS，插件给 TSX/TS
   name: 'My Theme', // 缺省从清单读
@@ -33,14 +33,17 @@ siyuan({
   headless: false, // 浏览器是否无头
   frontend: 'desktop', // 'desktop' | 'mobile'
   verify: true, // 是否校验产物（缺省 true）
-  pack: false, // 是否打包为 package.zip（思源集市约定的固定名称）
   assets: true, // 是否带产物资产插件（见下）
+  manifestPath: null, // 清单路径；缺省按类型取 public/theme.json 或 public/plugin.json
 });
 ```
 
-**没有 `enabled` / `isWatch` 这类开关。** 开发还是生产由 `build.watch` 判断——
-实测 `--watch`、`-w`、config 里 `watch:{}`、`watch:true`、都不写五种情况都能拿到。
-项目再传一个 `isWatch` 只是重复同一件事，还多一处可能不一致的输入。
+**没有 `enabled` / `isWatch` / `pack` 这类开关。** 开发还是生产由 `build.watch`
+判断，打包跟着走：watch 一定不打包、生产一定打包。项目再传一个开关只是重复
+同一件事，还多一处可能不一致的输入。
+
+> 文中标注「实测」的结论是 2026-11 在 Vite 8 + 思源桌面端上的一次性观察，
+> 随版本升级可能变化；可复跑的验证在 `tests/`，性能数字不进单测。
 
 **`target` 与自动推断**：缺省看 `public/` 下有 `theme.json` 还是 `plugin.json`。
 清单还没创建、或两者并存时，显式传 `target` 更可靠。
@@ -50,8 +53,8 @@ siyuan({
 入口只是「从哪开始构建」，两种类型都传同一个 `entry`：
 
 ```ts
-siyuan({ target: 'theme', entry: 'src/styles/index.css' }); // → theme.css
-siyuan({ target: 'plugin', entry: 'src/index.tsx' }); // → index.js (CJS) + index.css
+siyuanPlugin({ target: 'theme', entry: 'src/styles/index.css' }); // → theme.css
+siyuanPlugin({ target: 'plugin', entry: 'src/index.tsx' }); // → index.js (CJS) + index.css
 ```
 
 差别在产物形态，由类型描述符决定，项目不用管。父项目**不用写**
@@ -77,8 +80,9 @@ siyuan({ target: 'plugin', entry: 'src/index.tsx' }); // → index.js (CJS) + in
 `index.css` 并 `window.eval` 执行。**名字写错思源不报错，只是静默加载不到**，
 所以不该让每个项目自己写。
 
-仍然归项目的：`rollupOptions.input`、`lib`、`minify`、`sourcemap`、`target`，
-以及要不要打 `package.zip`。
+仍然归项目的：`rollupOptions.input`、`lib`、`sourcemap`、`target`。
+`minify` 默认由插件按 watch 决定（watch 不压缩、生产用默认压缩器），项目自己写了就以项目为准。
+`package.zip` 不由项目决定：生产构建固定产出（见「打包」）。
 
 然后照常跑：
 
@@ -88,6 +92,9 @@ vite build --watch
 
 产物一变，插件就让思源重载——不用改你的构建配置，也不用学新命令。
 
+> **watch 需要本地思源在运行**：热重载靠连 kernel + 起浏览器。连不上会**明确报错并让构建失败**，
+> 不会静默假成功。纯生产构建（`vite build`）、`syt verify`、`syt link` 都不需要思源。
+
 > **为什么必须是 `build --watch` 而不是 `vite dev`？**
 > 思源从磁盘读 `<workspace>/data/themes/<name>/theme.css`，而 `vite dev` 只在内存里
 > 编译（实测不产生任何磁盘文件）。插件 JS 更严格：思源用
@@ -96,7 +103,7 @@ vite build --watch
 
 ### 产物资产（自动带上）
 
-`siyuan()` 返回三个插件：热重载 + 产物资产 + 收尾（校验与打包）。
+`siyuanPlugin()` 返回三个插件：热重载 + 产物资产 + 收尾（校验与打包）。
 
 **产物资产**解决两件项目里容易漏的事：
 
@@ -137,7 +144,7 @@ vite build --watch
 
 ```
 $ pnpm build
-[siyuan-devkit] 生产构建：不启动热重载会话，会校验产物。
+[siyuan-devkit] 生产构建：不启动热重载会话；会校验产物并打包。开发请用 `vite build --watch`。
 [siyuan-devkit] 产物校验通过
 [siyuan-devkit] 已打包：package.zip（4 个文件，6098 字节）
 ```
@@ -146,23 +153,21 @@ $ pnpm build
 > （`pre` → 普通 → `post`）。收尾插件是 `post`，所以能看到完整产物，
 > 且校验抛错时不会往下走到打包。
 
-### 打包
+### 打包（固定行为，无开关）
 
-`pack` 缺省 `false`。开启后只在**非 watch** 执行，且在校验通过之后：
+打包只由 `build.watch` 决定，且在**校验通过之后**执行：
 
-```ts
-siyuan({
-  entry: 'src/styles/index.css',
-  pack: true,
-});
-```
+| 构建                 | 是否打 `package.zip`                           |
+| -------------------- | ---------------------------------------------- |
+| `vite build --watch` | 否（开发时产物目录正被思源读取，不生成发布包） |
+| `vite build`         | **是**（生产构建一定产出包）                   |
 
 产物名固定为 `package.zip`——主题项目、插件项目、思源官方 sample 一致，
 是集市的产物约定，所以不像 `theme.css` / `index.js` 那样随类型变化，
 也不由项目指定。`.releaserc.json` 只是引用它。
 
-zip 由包自己写（`node:zlib`，零依赖），实测生成的文件能被标准解压工具读出、
-内容哈希与产物一致。
+zip 由包自己写（`node:zlib`，零运行时依赖）；`tests/` 里用标准解压读回并
+校验每个文件的内容与 CRC。打包失败会让构建失败，不会静默丢掉发布包。
 
 ### 2. CLI
 
@@ -215,10 +220,12 @@ syt link --check
 
 ### `audit`：一次会话跑完，而不是跑 N 次
 
-每个子命令都要起进程、加载 puppeteer、连 CDP、等页面——**每次约 1.2 秒与测量无关的开销**。
+每个子命令都要起进程、加载 puppeteer、连 CDP、等页面。一次 `audit` 把这些测量
+合并进同一个会话，省掉重复的连接与加载开销。下面这组数字是 2026-11 在本机的
+一次性观察（不是性能保证，也不进单测）：
 
-实测：查令牌 + 样式 + 命中数 + 盒模型 + 对比度，分成 5 次调用要 **5.9 秒**，
-一次 `audit` 只要 **1.16 秒**（5.1 倍）。
+查令牌 + 样式 + 命中数 + 盒模型 + 对比度，分成 5 次调用约 **5.9 秒**，
+一次 `audit` 约 **1.16 秒**。
 
 计划写在配置文件里（格式对齐 pa11y）：
 
@@ -339,25 +346,21 @@ registerTargetType(
 
 ## 分层
 
+源码按目录分四层，依赖方向 `core → dev → plugin / cli`；`tests/` 用导入方向做
+架构检查，不再另手写一份分层清单：
+
 ```
-会话层  session.ts        测量会话：浏览器生命周期、打开哪个前端、attach 复用
-测量层  measure.ts        令牌 / 计算样式 / 命中数 / 盒模型 / 动作前后差异
-        actions.ts        交互驱动
-        color.ts          对比度计算（纯函数）
-        lints.ts          CSS 文本静态检查
-        probes.ts         页面探针
-目标层  target-types.ts   被测类型的契约与注册表（可扩展）
-        targets.ts        内置类型描述符 + createTarget
-        workspace.ts      工作区与安装目录解析
-        link.ts           产物目录链接到安装目录
-        theme.ts          主题身份与挂载判定
-        kernel.ts         kernel 调用、主题/插件重载原语
-开发层  build.ts          起构建进程（默认 vite，可换），监听产物
-        dev-session.ts    链接→激活→浏览器→重载（两种形态共用）
-        dev.ts            CLI 形态：自己起构建 + 会话
-        plugin.ts         插件形态：挂进宿主 vite 的 writeBundle
-        control-server.ts dev 会话的本地控制服务与端点发现
-入口层  cli.ts            统一命令，各 *-cli.ts 为独立命令
+core/    被测对象契约、测量原语与运行时胶水。不依赖 vite、不含 bin、不碰 process.exit。
+         measure.ts / page-read.ts / actions.ts / probes.ts        页面读取与交互
+         color.ts / lints.ts / theme.ts / semver.ts                纯函数与静态检查
+         session.ts / viewport.ts / siyuan.ts / kernel.ts / net.ts 会话、端口与 kernel
+         workspace.ts / link.ts / paths.ts                         工作区与目录
+         target-types.ts / targets.ts / builtin-targets.ts         类型契约、注册表、内置描述符
+         verify.ts / audit.ts / audit-config.ts                    校验与审计
+         control-server.ts / errors.ts / timing.ts / guards.ts    运行支撑
+dev/     两种形态共用的开发链路：build.ts / dev-session.ts / dev.ts
+plugin/  Vite 插件形态：plugin.ts / assets.ts / post.ts / state.ts / shared.ts
+cli/     唯一入口 cli.ts + 纯导出的子命令处理函数（不自动执行）
 ```
 
 `puppeteer-core` 的**运行时**导入只出现在 `session.ts`、`open.ts`、`dev-session.ts`

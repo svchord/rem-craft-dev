@@ -1,37 +1,47 @@
 /**
  * 主题身份与挂载判定：只读文件 + 纯字符串处理，不碰浏览器。
  *
- * 这里是**纯逻辑**，具体实现见 targets.ts 的 theme 描述符：
- *   mountState() 用 judgeMount() 判断页面挂的是不是本主题
+ * 挂载判定只有本文件一份：theme 描述符的 mountState() 直接调 judgeMount()。
+ * 之前描述符另写一份简单解析，行为不一致（judgeMount 支持前缀匹配，那份不支持）。
  *
- * 之前这里另写了一份挂载解析、描述符又另写一份，行为不一致
- * （judgeMount 支持前缀匹配，mountState 不支持）。现在单一来源。
- *
- * 不 import targets.ts，避免循环依赖（那边要 import 本文件）。
+ * 清单读名字也只有一份：targets.ts / open 的 readThemeName / readManifestName
+ * 都走同一个 readNameFromCandidates，不再各自复制读文件 + JSON.parse。
  */
 import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { requireRecoverable } from './errors.ts';
 
 /**
- * 读主题名：从清单的 name 字段取。
- *
- * 缺省按「当前工作目录下 public/theme.json → dist/theme.json」找。
- * 与 targets.ts 的 readManifestName 是同一件事，但那边要造 Target、
- * 这里只想显示个名字；为避免循环依赖，各自保留一小段读文件的代码。
- *
- * @param manifestPaths 候选清单路径，按顺序试
- * @param fallback      都读不到时的兜底值（缺省 null，表示「不知道」）
+ * 前缀匹配允许的最短名字。
+ * 发布版 `X` 与本地目录 `X Dev` 要算同一个主题；但短名（如 `a`、`ab`）之间
+ * 前缀相同纯属巧合，至少 4 个字符才允许前缀匹配，避免张冠李戴。
  */
-export function readThemeName(manifestPaths?: string[], fallback: string | null = null): string | null {
-  const candidates = manifestPaths ?? ['./public/theme.json', './dist/theme.json'];
-  for (const file of candidates) {
+const MOUNT_PREFIX_MIN_LENGTH = 4;
+
+/** 从若干候选清单里读 name；文件不存在/无权限/JSON 坏了就试下一个，其余错误重抛。 */
+function readNameFromCandidates(paths: readonly string[], fallback: string | null): string | null {
+  for (const file of paths) {
     try {
-      const name = (JSON.parse(readFileSync(file, 'utf8')) as { name?: string }).name;
-      if (name) return String(name).trim();
-    } catch {
-      // 继续下一个候选
+      const data: unknown = JSON.parse(readFileSync(file, 'utf8'));
+      if (data && typeof data === 'object' && 'name' in data) {
+        const name: unknown = data.name;
+        if (typeof name === 'string' && name.trim()) return name.trim();
+      }
+    } catch (cause) {
+      requireRecoverable(cause);
     }
   }
   return fallback;
+}
+
+/** 读被测对象清单里的 name（public/ 优先，回退 dist/）；缺了返回 null 不猜默认值。 */
+export function readManifestName(cwd: string, manifest: string): string | null {
+  return readNameFromCandidates([join(cwd, 'public', manifest), join(cwd, 'dist', manifest)], null);
+}
+
+/** open 命令只想显示个主题名：同一份实现，允许自定义候选路径与兜底值。 */
+export function readThemeName(manifestPaths?: string[], fallback: string | null = null): string | null {
+  return readNameFromCandidates(manifestPaths ?? ['./public/theme.json', './dist/theme.json'], fallback);
 }
 
 /** 目录名与 manifest 的 name 一致；比较时忽略大小写与空格/连字符的写法差异。 */
@@ -50,10 +60,7 @@ export interface MountJudgement {
 
 /**
  * 判断页面挂的是不是指定主题。
- *
- * 允许前缀匹配：装了发布版 `X` 而本地目录叫 `X Dev` 时仍是同一个主题，
- * 但要把「测的不是 dev 目录」讲清楚，否则结论会被张冠李戴。
- *
+ * 允许前缀匹配（发布版 X 与本地 X Dev 算同一个），但要如实报出 loaded。
  * themeName 为空时只判断「有没有挂自定义主题」，不比对具体名字。
  */
 export function judgeMount(href: string | null, themeName?: string | null): MountJudgement {
@@ -73,7 +80,6 @@ export function judgeMount(href: string | null, themeName?: string | null): Moun
 
   const loaded = decodeURIComponent(segment);
 
-  // 没给期望名时只报「加载了谁」，不判对错。
   if (!themeName) {
     return { ok: true, exact: false, loaded, reason: null };
   }
@@ -83,8 +89,8 @@ export function judgeMount(href: string | null, themeName?: string | null): Moun
   const exact = actual === expected;
   const ok =
     exact ||
-    (actual.length >= 4 && expected.startsWith(actual)) ||
-    (expected.length >= 4 && actual.startsWith(expected));
+    (actual.length >= MOUNT_PREFIX_MIN_LENGTH && expected.startsWith(actual)) ||
+    (expected.length >= MOUNT_PREFIX_MIN_LENGTH && actual.startsWith(expected));
 
   return { ok, exact, loaded, reason: ok ? null : `宿主加载的是 ${loaded}，不是 ${themeName}` };
 }

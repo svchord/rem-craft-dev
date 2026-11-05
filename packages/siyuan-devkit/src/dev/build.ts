@@ -27,9 +27,9 @@ export interface BuildCommand {
 /**
  * 内置驱动：vite build --watch。
  *
- * 用子进程而不是 `import('vite')` 调 API：项目的 `vite.config.ts` 靠
- * `minimist(process.argv)` 判断 `--watch` 来决定输出目录、要不要打 zip。
- * 用 API 调用拿不到这个 argv 语义，等于要改每个项目的配置——那就不通用了。
+ * 用子进程而不是 `import('vite')` 调 API：vite 的 CLI 语义（`--watch`、`--outDir`、
+ * `--emptyOutDir`）都在 argv 上，项目自己的 `vite.config.ts` 也可能按 argv 做判断。
+ * 走 API 调用拿不到这些语义，等于要改每个项目的配置——那就不通用了。
  *
  * vite 可执行文件从**调用方项目**解析，不从包内解析：vite 是被测项目自己的
  * 依赖（版本要对得上），本包只是替它起进程。

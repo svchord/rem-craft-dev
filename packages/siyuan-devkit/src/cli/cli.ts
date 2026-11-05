@@ -17,6 +17,7 @@ import { runDevCli } from './dev-cli.ts';
 import { runLinkCli } from './link-cli.ts';
 import { runMeasureCli } from './measure-cli.ts';
 import { runOpenCli } from './open.ts';
+import { runVerifyCli } from './verify-cli.ts';
 import { runWatchCli } from './watch.ts';
 import { targetTypes } from '../core/target-types.ts';
 
@@ -29,6 +30,7 @@ const COMMANDS: Record<string, Handler> = {
   link: runLinkCli,
   measure: runMeasureCli,
   open: runOpenCli,
+  verify: runVerifyCli,
   watch: runWatchCli,
 };
 
@@ -42,6 +44,7 @@ function usage(): void {
       '  link      把构建产物目录链接到思源安装目录',
       '  measure   在真实思源前端里量渲染事实、驱动交互',
       '  open      开可见浏览器人工复审（可截图）',
+      '  verify    独立校验清单与产物（不跑构建，可用于 CI / 发布前 / 解包后检查）',
       '  watch     盯着源码目录，改动后重跑你给的命令',
       '',
       '常用选项：',
@@ -69,15 +72,26 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
 
   if (!command || command === '--help' || command === 'help' || command === '-h') {
     usage();
-    process.exit(command ? 0 : 2);
+    if (!command) process.exitCode = 2;
+    return;
   }
 
   const handler = COMMANDS[command];
   if (!handler) {
     console.error(`${PREFIX}未知命令：${command}`);
     console.error(`${PREFIX}可用命令：${Object.keys(COMMANDS).join(' / ')}`);
-    process.exit(2);
+    process.exitCode = 2;
+    return;
   }
 
-  await handler(argv.slice(1));
+  try {
+    await handler(argv.slice(1));
+  } catch (cause) {
+    // 统一兜底：子命令抛错不再变成 unhandled rejection。退出码固定 2（参数/运行错误），
+    // 打印一句可读错误，并保留堆栈便于排查。
+    const message = cause instanceof Error ? cause.message : String(cause);
+    console.error(`${PREFIX}${message}`);
+    if (cause instanceof Error && cause.stack) console.error(cause.stack);
+    process.exitCode = 2;
+  }
 }

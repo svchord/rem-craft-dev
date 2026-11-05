@@ -7,19 +7,10 @@
 import { createTarget } from '../core/targets.ts';
 import type { Target } from '../core/targets.ts';
 import { detectTargetType } from '../core/target-types.ts';
-import { lastValue, parseArgs } from './cli-args.ts';
+import { lastValue } from './cli-args.ts';
 import type { ParsedArgs } from './cli-args.ts';
 
-/** 这些选项用于从命令行推断被测目标。 */
-export const TARGET_VALUE_FLAGS = ['--kind', '--css', '--plugin'] as const;
-
-/** 按当前目录 / 显式参数决定被测目标。 */
-export function resolveTargetFromArgs(argv: string[]): Target | null {
-  const parsed: ParsedArgs = parseArgs(argv, { valueFlags: TARGET_VALUE_FLAGS });
-  return resolveTargetFromParsed(parsed);
-}
-
-/** 已解析过参数时用这个（audit 里已经有 parsed）。 */
+/** 已解析过参数时用这个（measure 与 audit 都先 parseArgs 再调）。 */
 export function resolveTargetFromParsed(parsed: ParsedArgs): Target | null {
   const kindFlag = lastValue(parsed, '--kind');
   const pluginName = lastValue(parsed, '--plugin');

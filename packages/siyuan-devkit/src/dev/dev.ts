@@ -110,7 +110,7 @@ export async function startDev({
       watch: true,
     });
 
-    log(`改源码自动重建 + 整页刷新（F5 后仍是这个${session.target.name}）`, 'info');
+    log('改源码自动重建并刷新页面', 'info');
 
     return {
       ...session,

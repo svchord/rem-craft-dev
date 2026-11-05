@@ -667,7 +667,7 @@ describe('target adapters drive the dev loop', () => {
     const devSession = stripComments(readSource('dev-session.ts', 'dev'));
     expect(devSession, '必须受 auditBrowser 控制').toMatch(/if \(auditBrowser\)/);
     expect(devSession, '默认关闭').toMatch(/auditBrowser = false/);
-    expect(devSession, '关闭时仍刷新本体').toMatch(/auditBrowser: false/);
+    expect(devSession, '刷新逻辑不依赖常驻页').toMatch(/callKernel\(kernelPort, '\/api\/ui\/reloadUI'/);
     // 浏览器/控制服务只在开启分支里创建，不能无条件起
     expect(devSession, '浏览器启动在开启分支内').toMatch(/if \(auditBrowser\) \{[\s\S]*launchChromeBrowser/);
     expect(devSession, '控制服务登记在开启分支内').toMatch(/if \(auditBrowser\) \{[\s\S]*startControlServer/);
@@ -682,6 +682,31 @@ describe('target adapters drive the dev loop', () => {
     for (const option of ['browser', 'frontend', 'headless']) {
       expect(plugin, `不该再有 ${option} 开关`).not.toMatch(new RegExp(`${option}\\?:`));
     }
+  });
+
+  it('gives both targets an activate so first install can enable the host', () => {
+    // 以前只有主题有 activate，插件首次链接后思源配置里没有「启用」记录，
+    // 刷新多少次都不会加载插件。两种类型都要通过同一个 activate 钩子启用。
+    for (const target of [themeTarget({ name: 'T' }), pluginTarget({ name: 'p' })]) {
+      expect(typeof target.activate, `${target.kind} 缺少 activate`).toBe('function');
+    }
+    const theme = themeTarget({ name: 'T' });
+    const plugin = pluginTarget({ name: 'p' });
+    const themeSource = readSource('builtin-targets.ts');
+    expect(themeSource, '主题 activate 要切主题').toMatch(/selectTheme/);
+    expect(themeSource, '插件 activate 要启用插件').toMatch(/enablePlugin/);
+    expect(theme.activate).not.toBeNull();
+    expect(plugin.activate).not.toBeNull();
+  });
+
+  it('reports hostChanged so first install / theme switch broadcasts a refresh', () => {
+    // 首次建链接或切换主题后，宿主前端还不知道新对象；必须广播一次 reloadUI
+    // 才能自动启用。firstBundle 分支只建会话不通知，所以这一步放在会话层。
+    const devSession = readSource('dev-session.ts', 'dev');
+    expect(devSession, '要收集宿主状态变化').toMatch(/hostChanged/);
+    expect(devSession, '新建链接算变化').toMatch(/result\.changed[\s\S]*hostChanged = true/);
+    expect(devSession, '切换主题算变化').toMatch(/activation\.changed[\s\S]*hostChanged = true/);
+    expect(devSession, '变化后广播刷新').toMatch(/if \(hostChanged\)[\s\S]*reloadUI/);
   });
 
   it('names the right build artifact per target kind', () => {

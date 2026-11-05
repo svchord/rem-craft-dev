@@ -36,6 +36,8 @@ export interface MountState {
 export interface ActivateResult {
   ok: boolean;
   message: string;
+  /** 是否真的改变了宿主状态（如切换主题）。变了才需要广播一次刷新让页面生效。 */
+  changed: boolean;
 }
 
 /**

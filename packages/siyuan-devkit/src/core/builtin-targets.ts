@@ -15,7 +15,7 @@ import type { Page } from 'puppeteer-core';
 import { isSemver } from './semver.ts';
 import { judgeMount } from './theme.ts';
 import { stripCssComments } from './lints.ts';
-import { selectTheme } from './kernel.ts';
+import { enablePlugin, selectTheme } from './kernel.ts';
 import { findWorkspaceDir } from './siyuan.ts';
 import { requireRecoverable } from './errors.ts';
 import { isString } from './guards.ts';
@@ -115,7 +115,7 @@ const themeDescriptor = {
     }
     for (const mode of modes) {
       if (mode !== 'light' && mode !== 'dark') {
-        issues.push({ message: `theme.json 的 modes 含无效值：${String(mode)}（只接受 light / dark）` });
+        issues.push({ message: `theme.json 的 modes 含无效值：${String(mode)}，只接受 light / dark` });
       }
     }
     return issues;
@@ -134,7 +134,7 @@ const themeDescriptor = {
     // 只看规则不看注释：watch 产物没压缩，注释里常写着「base.css 未使用 @layer」。
     if (stripCssComments(readOutput('theme.css') ?? '').includes('@layer')) {
       issues.push({
-        message: 'theme.css 含 @layer，会被 base.css（未分层）压制',
+        message: 'theme.css 含 @layer，会被未分层的 base.css 压制',
         hint: '移除 @layer 包装，让主题规则保持 unlayered。',
       });
     }
@@ -143,10 +143,14 @@ const themeDescriptor = {
 
   /** 开发前让思源真正选中本主题，否则量到的是宿主主题的级联。 */
   async activate(_page: Page | null, { name, port }): Promise<ActivateResult> {
-    if (port === null) return { ok: false, message: '切换主题需要 kernel 端口' };
+    if (port === null) return { ok: false, changed: false, message: '切换主题需要 kernel 端口' };
     const selected = await selectTheme(port, name);
-    if (!selected.ok) return { ok: false, message: selected.reason ?? '切换主题失败' };
-    return { ok: true, message: selected.changed ? `已切换到：${name}` : `思源已选中：${name}` };
+    if (!selected.ok) return { ok: false, changed: false, message: selected.reason ?? '切换主题失败' };
+    return {
+      ok: true,
+      changed: selected.changed,
+      message: selected.changed ? `已切换到：${name}` : `思源已选中：${name}`,
+    };
   },
 
   /** 读磁盘产物：它就是思源真正加载的那份，也是生产交付的那份。 */
@@ -288,6 +292,17 @@ const pluginDescriptor = {
       loaded: state.hasStyle ? `插件 ${name} 已注入样式表（${state.styleLength} 字符）` : null,
       reason: state.hasStyle ? null : '插件没有注入样式表，只做 DOM 断言',
     };
+  },
+
+  /**
+   * 首次链接插件目录后，思源配置里还没有「启用」记录，页面刷新多少次都不会加载它。
+   * 所以插件也要有 activate，跟主题切主题对称；编排层只需问「有没有 activate」。
+   */
+  async activate(_page: Page | null, { name, port }): Promise<ActivateResult> {
+    if (port === null) return { ok: false, changed: false, message: '启用插件需要 kernel 端口' };
+    const enabled = await enablePlugin(port, name);
+    if (!enabled.ok) return { ok: false, changed: false, message: enabled.reason ?? '启用插件失败' };
+    return { ok: true, changed: false, message: `插件已启用：${name}` };
   },
 } satisfies TargetDescriptor;
 

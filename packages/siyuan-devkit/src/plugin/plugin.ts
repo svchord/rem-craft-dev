@@ -159,7 +159,7 @@ export default function siyuanDev(options: SiYuanPluginOptions = {}): Plugin[] {
     const [desktop, mobile] = frontendLinks(port);
     rootLogger.log(
       boxen([`桌面端  ${desktop.url}`, `移动端  ${mobile.url}`].join('\n'), {
-        title: '开发预览（F5 后仍是当前主题）',
+        title: '开发预览',
         titleAlignment: 'left',
         borderStyle: 'round',
         borderColor: 'cyan',
@@ -236,9 +236,9 @@ export default function siyuanDev(options: SiYuanPluginOptions = {}): Plugin[] {
       const detected = detectTargetType(cwd);
       if (!detected.ok) return { ok: false, reason: detected.reason };
       resolvedKind = detected.kind;
-      if (announce) log(`类型：${resolvedKind}（从清单推断；可用 target 显式指定）`);
+      if (announce) log(`类型：${resolvedKind}`);
     } else if (announce) {
-      log(`类型：${resolvedKind}（入参指定）`);
+      log(`类型：${resolvedKind}`);
     }
 
     try {
@@ -265,7 +265,7 @@ export default function siyuanDev(options: SiYuanPluginOptions = {}): Plugin[] {
     if (!kind) {
       const detected = detectTargetType(cwd);
       if (!detected.ok) {
-        log(`识别不到清单，资产清单暂按 theme.json：${detected.reason}（可用 target 显式指定）`, 'warn');
+        log(`识别不到清单，按 theme.json 处理：${detected.reason}`, 'warn');
         return 'theme.json';
       }
       kind = detected.kind;
@@ -274,7 +274,7 @@ export default function siyuanDev(options: SiYuanPluginOptions = {}): Plugin[] {
       return targetType(kind).descriptor.manifestName();
     } catch (cause) {
       // 注册了新类型却取不到描述符时必须让人看见，不能悄悄退回内置类型。
-      log(`取清单名失败（target=${kind}），暂按 theme.json：${messageOf(cause)}`, 'warn');
+      log(`取清单名失败，按 theme.json 处理：${messageOf(cause)}`, 'warn');
       return 'theme.json';
     }
   }
@@ -301,8 +301,7 @@ export default function siyuanDev(options: SiYuanPluginOptions = {}): Plugin[] {
       // 就绪日志放在这里，而不是 writeBundle 的 firstBundle 分支：
       // 首次启动失败（思源没开）后，用户后来启动思源、下一次重建才建成功，
       // 那时也必须能看到就绪提示和预览链接。
-      const scope = auditBrowser ? '思源本体 + 两个常驻测量页' : '思源本体窗口';
-      log(`会话就绪，改源码会刷新页面（${scope}）`, 'success');
+      log('会话就绪，改源码会自动刷新页面', 'success');
       logPreviewLinks(created.kernelPort);
       if (!exitHandler) {
         exitHandler = onProcessExit;
@@ -399,10 +398,10 @@ export default function siyuanDev(options: SiYuanPluginOptions = {}): Plugin[] {
         // this.meta.watchMode 或 userConfig.build.watch。
         applyResolvedConfig(state, resolvedConfig);
         if (configWatch !== null && configWatch !== state.watch) {
-          log(`注意：config() 看到 watch=${configWatch}，Vite 归一化后为 ${state.watch}，以归一化值为准`, 'warn');
+          log(`watch 配置与 Vite 归一化值不一致，以 Vite 为准`, 'warn');
         }
         if (!state.watch) {
-          log('生产构建：不启动热重载会话；会校验产物并打包。开发请用 `vite build --watch`。');
+          log('生产构建：不启动热重载会话，只校验产物并打包');
         }
       },
 
@@ -419,16 +418,15 @@ export default function siyuanDev(options: SiYuanPluginOptions = {}): Plugin[] {
           try {
             await ensureSession();
           } catch (cause) {
-            // watch 形态必须有思源在跑（刷新靠 kernel 广播）。连不上就明确报错、
-            // 并让构建失败，而不是静默继续——否则会以为改源码在生效，其实刷新没起来。
+            // Vite/Rolldown 的 build --watch 在 hook 抛错后只把本轮构建打红，
+            // watcher 继续监听等下次变更重试——这是社区标准做法，不主动杀进程。
             throw new Error(`watch 模式需要思源在运行：${messageOf(cause)}`);
           }
           return;
         }
 
         // 会话没建起来（首次失败、思源当时没开）时，每次重建都重试启动；
-        // 仍然失败就继续让本轮构建打红，并保留「需要思源在运行」的可操作前缀。
-        // 不能只 log 一句「重载失败」还让构建显示绿色 built——那是假成功。
+        // 保留「需要思源在运行」的可操作前缀，不能只 log 一句「重载失败」。
         if (!session) {
           try {
             await ensureSession();

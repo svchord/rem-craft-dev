@@ -7,6 +7,7 @@
  */
 import { isRecord } from './guards.ts';
 import { requireRecoverable } from './errors.ts';
+import { TIMING } from './timing.ts';
 
 /** kernel API 的统一响应形状。 */
 export interface KernelResponse<T = unknown> {
@@ -72,7 +73,9 @@ export interface SelectThemeResult {
   reason: string | null;
 }
 
-/** 让思源选中指定主题（明暗都设成它）；已经是它时不动，避免无谓重载。 */
+/**
+ * 让思源选中指定主题（明暗都设成它）；已经是它时不动，避免无谓重载。
+ */
 export async function selectTheme(port: number, themeName: string): Promise<SelectThemeResult> {
   const conf = await callKernel<SystemConf>(port, '/api/system/getConf');
   const appearance = conf.data?.conf?.appearance;
@@ -92,4 +95,20 @@ export async function selectTheme(port: number, themeName: string): Promise<Sele
     return { ok: false, changed: false, reason: `切换主题失败：${result.msg || '未知错误'}` };
   }
   return { ok: true, changed: true, reason: null };
+}
+
+/**
+ * 让思源启用指定插件。首次链接插件目录后，思源配置里还没有「启用」这条记录，
+ * 不调这一步页面刷新多少次都不会加载它。已启用时重复调用是幂等的。
+ */
+export async function enablePlugin(port: number, pluginName: string): Promise<{ ok: boolean; reason: string | null }> {
+  const result = await callKernel(
+    port,
+    '/api/petal/setPetalEnabled',
+    { packageName: pluginName, enabled: true },
+    TIMING.kernelReloadTimeout
+  );
+  return result.code === 0
+    ? { ok: true, reason: null }
+    : { ok: false, reason: `启用插件失败：${result.msg || '未知错误'}` };
 }

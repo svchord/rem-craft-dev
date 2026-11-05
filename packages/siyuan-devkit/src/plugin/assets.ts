@@ -142,7 +142,7 @@ function normalizeRule(rule: { src: string; dest?: string }, fromManifest: boole
     return null;
   }
   if (src.includes('**') || src.includes('?')) {
-    log(`跳过资产规则 ${rule.src}：只支持文件名里的 *，不支持 ** / ?（可写成 docs/*.md 这样的目录前缀）`, 'warn');
+    log(`跳过资产规则 ${rule.src}：只支持文件名里的 *，不支持 ** / ?；目录前缀可写成 docs/*.md`, 'warn');
     return null;
   }
 
@@ -281,7 +281,7 @@ export function siyuanAssets(options: AssetsPluginOptions): Plugin {
           // 清单声明的 icon/preview 常在 public/ 下：Vite 会自动复制，devkit 不必再搬，
           // 也不该报「没匹配到」吓人。只有项目根和 public/ 都没有时才提示。
           if (rule.fromManifest && publicHasMatch(state.publicDir, rule)) continue;
-          log(`资产规则 ${rule.src} 没匹配到文件（源目录 ${srcRoot}）`, 'warn');
+          log(`资产规则 ${rule.src} 没匹配到文件，源目录 ${srcRoot}`, 'warn');
         }
       }
     },

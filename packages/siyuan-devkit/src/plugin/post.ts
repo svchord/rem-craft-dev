@@ -249,7 +249,7 @@ export function siyuanPost(options: PostPluginOptions = {}): Plugin {
             const text = formatIssues(result.issues);
             if (watch) {
               // 开发中中断会让 vite build --watch 退出，得手动重开，代价太大。
-              log(`产物校验未通过（开发模式，仅警告）：\n${text}`, 'warn');
+              log(`产物校验未通过，开发模式仅提示：\n${text}`, 'warn');
             } else {
               // 生产构建：产物要发布，坏包代价远大于构建失败。
               throw new Error(`产物校验未通过：\n${text}`);
@@ -273,7 +273,7 @@ export function siyuanPost(options: PostPluginOptions = {}): Plugin {
         if (result.files === 0) {
           throw new Error(`产物目录 ${outDir} 里没有文件`);
         }
-        log(`已打包：${PACKAGE_NAME}（${result.files} 个文件，${result.bytes} 字节）`, 'success');
+        log(`已打包：${PACKAGE_NAME}，${result.files} 个文件，${result.bytes} 字节`, 'success');
       } catch (cause) {
         // 生产构建里打包失败必须让构建失败；同时清掉可能写了一半的坏包。
         rmSync(outFile, { force: true });

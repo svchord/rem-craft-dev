@@ -169,7 +169,7 @@ async function waitForApp(page: Page, log: Logger): Promise<boolean> {
       .catch(() => undefined);
     return true;
   } catch {
-    log('页面刷新后没能恢复（可能仍在导航），下一次改动会再试', 'warn');
+    log('页面刷新后未恢复，下次改动会重试', 'warn');
     return false;
   }
 }
@@ -222,7 +222,9 @@ export async function startDevSession({
   };
 
   try {
-    // 1) 链接
+    // 1) 链接。hostChanged 记下「宿主状态真的变了」——首次建链接或切换主题，
+    // 这时必须广播一次刷新，否则思源还停留在旧主题/未加载新插件。
+    let hostChanged = false;
     const kernelPort = await findKernelPort();
     if (link) {
       const installDir = await target.installDir({ port: kernelPort });
@@ -230,12 +232,12 @@ export async function startDevSession({
       const result = ensureLink(join(cwd, resolvedOutDir), targetPath, { kind });
       if (!result.ok) throw new Error(result.reason ?? '建立链接失败');
       installPath = targetPath;
-      if (result.changed) log(`已链接：${targetPath}（${result.linkType}）`, 'success');
-      else log(`链接已存在：${targetPath}`, 'info');
+      if (result.changed) hostChanged = true;
+      log(`已链接到思源 ${targetPath}`, 'success');
 
       const check = checkLinkedFiles(targetPath, buildConfig.expectedFiles);
       if (!check.ok) {
-        log(`提示：链接目录里还缺 ${check.missing.join('、')}（构建可能还没写完）`, 'warn');
+        log(`链接目录缺少 ${check.missing.join('、')}，构建完成后会补齐`, 'warn');
       }
     }
 
@@ -244,9 +246,21 @@ export async function startDevSession({
       const activation = await target.activate(null, { port: kernelPort });
       log(activation.message, activation.ok ? 'success' : 'error');
       if (!activation.ok) throw new Error(activation.message);
+      if (activation.changed) hostChanged = true;
     }
 
-    // 3) 常驻无头浏览器：仅 auditBrowser 打开时启动。默认关闭，省一个 Chrome 的内存。
+    // 3) 首次建链接 / 切换主题 / 启用插件后，宿主前端还不知道新对象，
+    // 广播一次 reloadUI 让它自动加载。这一步必须发生在开常驻页之前，
+    // 否则常驻页会先加载旧主题再被 mount 检查判成失败。
+    if (hostChanged) {
+      const result = await callKernel(kernelPort, '/api/ui/reloadUI', {}, TIMING.kernelReloadTimeout);
+      log(
+        result.code === 0 ? '首次安装完成，已刷新页面' : `首次刷新失败：${result.msg || '未知错误'}`,
+        result.code === 0 ? 'success' : 'warn'
+      );
+    }
+
+    // 4) 常驻无头浏览器：仅 auditBrowser 打开时启动。默认关闭，省一个 Chrome 的内存。
     let page: Page | null = null;
     let mobilePage: Page | null = null;
     if (auditBrowser) {
@@ -273,7 +287,6 @@ export async function startDevSession({
       page = await openFrontend('desktop');
       mobilePage = await openFrontend('mobile');
       mount = await waitForMount(target, page, 10000);
-      log(`挂载：${mount.loaded ?? mount.reason ?? '(无样式表)'}`, mount.ok ? 'success' : 'warn');
       if (!mount.ok) {
         // 页面没挂上目标，--attach 会连到一个量到宿主值的页面，还报 attached:true。
         // 宁可让会话起不来，也不要给 agent 一个看似可用的常驻页。
@@ -282,13 +295,12 @@ export async function startDevSession({
             '  确认思源已启用该主题/插件，且 theme.json 的 frontends 含当前前端；修好后重新运行 pnpm dev。'
         );
       }
-      log('常驻测量页：桌面端 + 移动端（无头）', 'info');
+      log('常驻测量页已就绪，可用 syt measure --attach', 'success');
     } else {
-      log('常驻测量页未开启（auditBrowser: false）；产物变化仍会刷新思源本体窗口', 'info');
+      log('未开启常驻测量页，--attach 不可用', 'info');
     }
 
-    // 4) 产物变化 → 统一整页刷新。刷新前关屏障，页面都回来后开屏障。
-    let reloads = 0;
+    // 5) 产物变化 → 统一整页刷新。刷新前关屏障，页面都回来后开屏障。
     let pending = new Set<string>();
     let batchTimer: NodeJS.Timeout | null = null;
     let refreshing = false;
@@ -302,7 +314,7 @@ export async function startDevSession({
         // 等已经在读数的人释放租约。只检查 ready 有竞态——有人检查完才开始刷新。
         // 超时说明有崩溃的测量进程没释放，照常刷新但如实警告。
         const idle = control ? await control.waitForIdle(TIMING.readLeaseDrainTimeout) : true;
-        if (!idle) log('有测量会话未释放读租约（进程可能崩溃），仍继续刷新', 'warn');
+        if (!idle) log('测量会话读租约未释放，继续刷新', 'warn');
         // 显式超时：回环 fetch 默认不限时，内核挂起会让 refreshing 长期为 true、
         // 屏障一直关着，后续变更被消费后丢弃。
         const result = await callKernel(kernelPort, '/api/ui/reloadUI', {}, TIMING.kernelReloadTimeout);
@@ -337,15 +349,10 @@ export async function startDevSession({
         return;
       }
       const primary = buildConfig.primary(files);
-      const suffix = files.length > 1 ? `（+ ${files.length - 1}）` : '';
-      const label = `刷新 #${reloads + 1}：${primary}${suffix}`;
-      reloads += 1;
       try {
         const ok = await applyReload();
-        const scope = auditBrowser ? '（本体 + 桌面端 + 移动端）' : '（仅思源本体窗口）';
-        // 「已广播」而非「已刷新」：auditBrowser:false 时只代表 kernel 收了请求，
-        // 没有可观测页面能证明前端真的重载了。
-        log(ok ? `已广播 reloadUI ${label}${scope}` : `${label}（未生效）`, ok ? 'success' : 'warn');
+        // 成功只说「页面已刷新」；范围、编号、suffix 都是内部信息，不进日志。
+        log(ok ? `页面已刷新：${primary}` : `刷新未生效：${primary}`, ok ? 'success' : 'warn');
       } catch (cause) {
         log(`刷新出错：${cause instanceof Error ? cause.message : String(cause)}`, 'error');
       }
@@ -367,8 +374,6 @@ export async function startDevSession({
       });
     }
 
-    log(`kernel: http://127.0.0.1:${kernelPort}`, 'info');
-
     return {
       target,
       buildConfig,
@@ -387,7 +392,7 @@ export async function startDevSession({
     if (installPath) {
       // 链接持久化是 dev 安装的预期行为，但启动失败时用户拿到红字、磁盘上却
       // 多了个指向 dev/ 的链接，下次排查会误以为已经装好了。如实说明。
-      log(`会话未启动；链接仍留在 ${installPath}（构建产物目录的软链接）`, 'warn');
+      log(`会话未启动；链接仍留在 ${installPath}`, 'warn');
     }
     throw cause;
   }

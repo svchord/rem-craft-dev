@@ -79,6 +79,31 @@ function tolerateWaitFailure(cause: unknown): void {
   requireRecoverable(cause);
 }
 
+/**
+ * 让页面重新拉一次磁盘上的 theme.css。
+ *
+ * 复用活页面时（--attach），那个页面的 `#themeStyle` 可能还停在旧 CSS——
+ * 热重载没跑、跑失败、或根本没开浏览器。只换 href、等 load/error，
+ * 不整页刷新、不动用户自己的本体窗口。
+ *
+ * 有了它，测量读数的正确性就不再依赖热重载是否成功：不管页面活了多久，
+ * 量之前都先跟磁盘对齐一次。
+ */
+export async function refreshThemeStylesheet(page: Page): Promise<void> {
+  await page.evaluate(async (timeout: number) => {
+    const link = document.getElementById('themeStyle');
+    if (!link) return;
+    const base = (link.getAttribute('href') || '').split('?')[0];
+    link.setAttribute('href', `${base}?v=${Date.now()}`);
+    await new Promise<void>((resolve) => {
+      const done = (): void => resolve();
+      link.addEventListener('load', done, { once: true });
+      link.addEventListener('error', done, { once: true });
+      setTimeout(done, timeout);
+    });
+  }, TIMING.stylesheetLoad);
+}
+
 /** 打开会话。attach 时复用 dev 浏览器；找不到就新开无头 Chrome。 */
 export async function createSession({
   frontend = 'desktop',
@@ -135,6 +160,11 @@ export async function createSession({
       timeout: TIMING.themeStyleWait,
     })
     .catch((cause: unknown) => tolerateWaitFailure(cause));
+
+  // 复用的活页面可能停留在旧 CSS。量之前先跟磁盘对齐，正确性不依赖热重载。
+  // 新开的页面本身就是刚加载的，不必多这一次往返。
+  if (attached) await refreshThemeStylesheet(page);
+
   await sleep(TIMING.navSettle);
 
   return {

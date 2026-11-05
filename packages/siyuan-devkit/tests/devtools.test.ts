@@ -6,7 +6,7 @@ import { inflateRawSync } from 'node:zlib';
 import { describe, expect, it, beforeEach } from 'vitest';
 import type { Page } from 'puppeteer-core';
 import { probeTokens } from '../src/core/probes.ts';
-import { parseViewport, viewportFor } from '../src/core/session.ts';
+import { parseViewport, refreshThemeStylesheet, viewportFor } from '../src/core/session.ts';
 import { frontendUrl, MOBILE_VIEWPORT } from '../src/core/siyuan.ts';
 import { findDoubleWrappedColors, findProblemsIn } from '../src/core/lints.ts';
 import { pluginTarget, themeTarget, createTarget } from '../src/core/targets.ts';
@@ -104,6 +104,34 @@ describe('frontend selection', () => {
     expect(viewportFor('desktop', undefined).width, '桌面缺省保持 1600').toBe(1600);
     const explicit = { width: 800, height: 600, deviceScaleFactor: 1 };
     expect(viewportFor('mobile', explicit), '显式视口优先').toEqual(explicit);
+  });
+
+  it('re-aligns a reused page with disk CSS before measuring', async () => {
+    // attach 复用的是活页面，它的 themeStyle 可能还停在旧 CSS。
+    // 测量前必须换一次 href 逼浏览器重拉，否则读到的是过期样式。
+    const hrefs: string[] = [];
+    const link = {
+      getAttribute: () => '/appearance/themes/T/theme.css?v=old',
+      setAttribute: (_name: string, value: string) => void hrefs.push(value),
+      addEventListener: (_event: string, handler: () => void) => handler(),
+    };
+    const page = asPage({
+      evaluate: async (fn: (timeout: number) => Promise<void>, timeout: number) => {
+        // 在假 document 上跑真实实现，确认它换的是 #themeStyle 的 href
+        const original = Reflect.get(globalThis, 'document');
+        Reflect.set(globalThis, 'document', { getElementById: () => link });
+        try {
+          await fn(timeout);
+        } finally {
+          if (original === undefined) Reflect.deleteProperty(globalThis, 'document');
+          else Reflect.set(globalThis, 'document', original);
+        }
+      },
+    });
+
+    await refreshThemeStylesheet(page);
+    expect(hrefs.length, '必须真的换一次 href').toBe(1);
+    expect(hrefs[0]).toMatch(/\/appearance\/themes\/T\/theme\.css\?v=\d+$/);
   });
 });
 

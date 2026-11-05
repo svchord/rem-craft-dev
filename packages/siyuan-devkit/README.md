@@ -268,6 +268,17 @@ syt verify
 通用选项：`--frontend desktop|mobile`、`--viewport 390x844@3`、`--props a,b,c`、
 `--do <action>`、`--setup <action>`、`--kind theme|plugin`、`--attach`、`--json`。
 
+### 读数出处与正确性
+
+`measure` 不带 `--attach` 时每次新开无头页面，从磁盘重新加载 CSS，读到的永远是当前产物。
+带 `--attach` 时复用正在跑的 dev 会话页面（实测约 0.65s，新开约 4s）；复用前会换一次
+`#themeStyle` 的 href 把该页面跟磁盘对齐，**所以读数不依赖热重载是否成功** —— 哪怕
+dev 会话没开窗口、或热重载失败，量到的仍是最新 CSS。
+
+`--attach` 连不上会静默新开无头浏览器。输出里的 `attached` 字段（人读输出为「读数来源」）
+必须先看：`true` 是 dev 会话浏览器，`false` 是新开页面。不说明出处的话，无法判断读数来自
+哪个页面，agent 的审计结论就可能建立在错误前提上。
+
 ### `audit`：一次会话跑完，而不是跑 N 次
 
 每个子命令都要起进程、加载 puppeteer、连 CDP、等页面。一次 `audit` 把这些测量

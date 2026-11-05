@@ -296,7 +296,15 @@ export async function startDevSession({
       if (!files.length) return;
       const primary = buildConfig.primary(files);
       reloads += 1;
-      const label = `已重载 #${reloads}：${primary}${files.length > 1 ? `（+ ${files.length - 1}）` : ''}`;
+      const suffix = files.length > 1 ? `（+ ${files.length - 1}）` : '';
+      // 主题 CSS 的重载只能靠「我们控制的那个页面」换 #themeStyle href：
+      // 思源没有外科式的内核接口（/api/ui/reloadUI 会整页刷新，丢掉编辑状态）。
+      // 没起浏览器时如实说明，而不是打一条误导的「重载失败」。
+      if (!page) {
+        log(`已重建 #${reloads}：${primary}${suffix}（未启动浏览器，未热重载）`, 'info');
+        return;
+      }
+      const label = `已重载 #${reloads}：${primary}${suffix}`;
       try {
         const ok = await applyReload(primary);
         log(label + (ok ? '' : '（失败）'), ok ? 'success' : 'warn');

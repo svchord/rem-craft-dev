@@ -103,7 +103,8 @@ export async function selectTheme(port: number, themeName: string): Promise<Sele
  * 之前把任何 page.evaluate 异常都吞成 false，连选择器写错/代码 bug 都被伪装成
  * 「导航中」；现在只接受导航竞态，其余重抛。
  */
-export async function reloadThemeCss(page: Page): Promise<boolean> {
+export async function reloadThemeCss(page: Page | null): Promise<boolean> {
+  if (!page) return false;
   try {
     return await page.evaluate(async (loadTimeout: number) => {
       const link = document.getElementById('themeStyle');

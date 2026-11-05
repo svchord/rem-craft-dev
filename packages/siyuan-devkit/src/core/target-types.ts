@@ -200,8 +200,13 @@ export interface TargetDescriptor {
   /** 产物校验（可选）。通用部分（expectedFiles 齐不齐）在 core/verify.ts 里。 */
   verifyArtifact?(context: VerifyContext): VerifyIssue[];
 
-  /** 让页面用上新产物。主题换 link href；插件 CSS 换 style、JS 走 kernel。 */
-  reload(page: Page, context: ReloadContext): Promise<ReloadResult>;
+  /**
+   * 让页面用上新产物。主题换 link href；插件 CSS 换 style、JS 走 kernel。
+   *
+   * `page` 为 null 表示当前没有受控页面（开发时未打开预览窗口）；
+   * 这时应返回 ok=false 并说明「未热重载」，不要伪装成重载失败。
+   */
+  reload(page: Page | null, context: ReloadContext): Promise<ReloadResult>;
 
   /** 要审计的 CSS 文本。 */
   resolveCss(context: TargetContext): Promise<CssSheet[]>;

@@ -143,7 +143,10 @@ const themeDescriptor = {
   },
 
   /** 换 #themeStyle 的 href 即可，纯前端动作，不需要 kernel、也不整页刷新。 */
-  async reload(page: Page): Promise<ReloadResult> {
+  async reload(page: Page | null): Promise<ReloadResult> {
+    // 没有受控页面就没有受控的重载手段：思源的 /api/ui/reloadUI 会整页刷新，
+    // 与「不打断编辑」的承诺冲突，所以这里如实说明而不是硬走内核。
+    if (!page) return { ok: false, message: '没有受控页面，主题 CSS 未热重载（传 browser: true 可启用）' };
     const ok = await reloadThemeCss(page);
     return { ok, message: ok ? '主题 CSS 已更新' : '主题 CSS 重载失败' };
   },
@@ -269,12 +272,14 @@ const pluginDescriptor = {
    * 让思源重跑 unload → eval → onload，也不能整页刷新（会丢用户文档与面板）。
    * 分流留在描述符里，编排层不需要知道插件是怎么加载的。
    */
-  async reload(page: Page, { name, resolveCss, filename, port }): Promise<ReloadResult> {
+  async reload(page: Page | null, { name, resolveCss, filename, port }): Promise<ReloadResult> {
+    // 插件 JS 走内核广播（不依赖我们自己的页面）；CSS 只能改受控页面里的 <style>。
     if (filename.endsWith('.js')) {
       if (port === null) return { ok: false, message: '插件 JS 重载需要 kernel 端口' };
       const result = await reloadPlugin(port, name);
       return result.ok ? { ok: true, message: '插件已重新加载' } : { ok: false, message: result.reason ?? '' };
     }
+    if (!page) return { ok: false, message: '没有受控页面，插件 CSS 未热重载（传 browser: true 可启用）' };
 
     const sheets = await resolveCss();
     const first = sheets[0];

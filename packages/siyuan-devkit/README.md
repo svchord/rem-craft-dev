@@ -28,6 +28,9 @@ siyuanPlugin({
   target: 'theme', // 'theme' | 'plugin'，缺省从 public/ 清单推断
   entry: 'src/styles/index.css', // 入口；主题给 CSS，插件给 TSX/TS
   outDir: './dev', // 覆盖产物目录；缺省由类型决定（watch→dev，否则→dist）
+  browser: false, // 是否打开受控预览窗口（热重载依赖它，见下）
+  frontend: 'desktop', // browser:true 时打开 desktop 还是 mobile
+  headless: false, // browser:true 时是否无头
   manifestPath: 'config/theme.json', // 清单不在 public/ 时指定；缺省 public/theme.json / plugin.json
 });
 ```
@@ -44,6 +47,12 @@ siyuanPlugin({
 - 校验：两个环境都跑，watch 失败只警告，生产失败中断构建
 - 资产：监听 `public/` 并把清单声明的 readme/icon/preview 搬进产物
 - 清单路径：缺省 `public/theme.json` / `public/plugin.json`，可用 `manifestPath` 覆盖
+
+**`browser` 是唯一保留的行为开关，因为热重载依赖它。** 主题 CSS 的重载方式是在
+受浏览器控制的页面里换 `#themeStyle` 的 href；思源没有等价的外科式内核接口
+（`/api/ui/reloadUI` 会整页刷新、丢掉正在编辑的文档与面板）。所以 `browser: false`
+时只重建产物、不热重载，日志会明确写「未启动浏览器，未热重载」而不是谎报成功。
+不打开窗口时仍打印桌面端/移动端预览链接，需要视觉复核可用 `syt shot`。
 
 > 文中标注「实测」的结论是 2026-11 在 Vite 8 + 思源桌面端上的一次性观察，
 > 随版本升级可能变化；可复跑的验证在 `tests/`，性能数字不进单测。
@@ -213,11 +222,17 @@ syt verify
 
 | 产物             | 怎么重载                          | 依据                                 |
 | ---------------- | --------------------------------- | ------------------------------------ |
-| 主题 `theme.css` | 换 `#themeStyle` 的 href          | `<link>` 加载，换地址即可            |
-| 插件 `index.css` | 换 `<style>` 的文本               | 磁盘 CSS 与注入内容逐字节相同        |
+| 主题 `theme.css` | 换受控页面 `#themeStyle` 的 href  | `<link>` 加载，换地址即可            |
+| 插件 `index.css` | 换受控页面 `<style>` 的文本       | 磁盘 CSS 与注入内容逐字节相同        |
 | 插件 `index.js`  | kernel 禁用→启用，让思源重新 eval | `window.eval` 带副作用，必须重建实例 |
 
-**不要同时开 `rollup-plugin-livereload`**：它对任何改动整页刷新，会和上面冲突。
+前两条需要受控页面，因此依赖 `browser: true`；插件 JS 走内核广播，不需要。
+三条都不整页刷新。**不要同时开 `rollup-plugin-livereload`**：它对任何改动整页刷新，
+会和上面冲突。
+
+> **实测（2026-11，思源桌面端）**：思源的 `/api/ui/reloadTheme` 对已打开页面没有任何
+> 效果；`/api/ui/reloadUI` 能让页面拿到新 CSS，但它是**整页刷新**，会丢掉编辑状态。
+> 所以主题热重载只能靠受控页面自己换 href，不能走内核。
 
 ## measure 子命令
 

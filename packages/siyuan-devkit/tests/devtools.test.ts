@@ -585,6 +585,16 @@ describe('target adapters drive the dev loop', () => {
     expect(swapped, '主题仍走原来的换 href 路径').toBe(true);
   });
 
+  it('treats a missing page as "no hot reload" instead of a reload failure', async () => {
+    // 不打开预览窗口时没有 page。主题 CSS 没有外科式的内核重载接口
+    // （/api/ui/reloadUI 会整页刷新、丢掉编辑状态），所以这时只能不热重载；
+    // 必须报「未热重载」，不能伪装成「重载失败」。
+    const target = themeTarget({ name: 'T' });
+    const result = await target.reload(null, { filename: 'theme.css', port: 6806 });
+    expect(result.ok, '没有页面时不该谎报成功').toBe(false);
+    expect(result.message, '要说明为什么没重载').toMatch(/未热重载|没有受控页面/);
+  });
+
   it('names the right build artifact per target kind', () => {
     // 主题产物只有 theme.css；插件有 index.js + index.css，两者都要触发重载。
     const theme = themeTarget({ name: 'T' }).buildConfig();
@@ -694,12 +704,14 @@ describe('vite plugin shape', () => {
   });
 
   it('keeps fixed dev behaviors out of the plugin options', () => {
-    // 链接、校验、资产监听、浏览器都是固定行为；做成开关只会多一条静默失效路径。
+    // 链接、校验、资产监听是固定行为；做成开关只会多一条静默失效路径。
+    // browser 是唯一保留的开关：主题热重载依赖受控页面换 themeStyle 的 href。
     const source = stripComments(readSource('plugin.ts'));
-    for (const option of ['link', 'verify', 'assets', 'browser', 'frontend', 'headless', 'name']) {
+    for (const option of ['link', 'verify', 'assets', 'name']) {
       expect(source, `不该再有 ${option} 开关`).not.toMatch(new RegExp(`${option}\\?:`));
     }
-    expect(source, '插件形态固定不自动打开浏览器').toMatch(/browser: false/);
+    expect(source, '浏览器默认不自动打开').toMatch(/browser = false/);
+    expect(source, 'browser 开关必须保留（热重载依赖它）').toMatch(/browser\?:/);
     expect(source, '清单路径仍是可配置入参').toMatch(/manifestPath\?:/);
   });
 

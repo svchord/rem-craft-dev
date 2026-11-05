@@ -268,9 +268,8 @@ export async function startDevSession({
     let batchTimer: NodeJS.Timeout | null = null;
 
     const applyReload = async (filename: string): Promise<boolean> => {
-      // page 允许为 null：两条热重载通路都不依赖它必然存在——
-      // 插件 JS 走内核「禁用→启用」，主题 CSS 走内核广播（切走再切回）。
-      // 只有插件 CSS 确实需要受控页面，由描述符返回「未热重载」说明。
+      // page 允许为 null：插件 JS 走内核「禁用→启用」，本来就不需要受控页面。
+      // 主题 CSS 与插件 CSS 需要页面，由描述符如实返回「未热重载」说明。
       try {
         const result = await target.reload(page, { filename, port: kernelPort });
         if (result.message) log(result.message, result.ok ? 'success' : 'warn');

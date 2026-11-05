@@ -97,45 +97,6 @@ export async function selectTheme(port: number, themeName: string): Promise<Sele
 }
 
 /**
- * 让**所有已打开的前端**（含用户自己的思源本体窗口）重新加载主题 CSS。
- *
- * 不靠 `page`，而是复用它已有的「主题切换」通路：客户端在 appearance 变化时会
- * 重新设置 `#themeStyle` 的 href，于是拿到磁盘上的新 theme.css。
- * 实测（2026-11 桌面端）这条路径**不整页刷新**，编辑状态与面板都保留。
- *
- * 步骤：先切到内置主题、再切回目标主题。中间必须真的离开一次，
- * 否则内核判定「没变化」而不广播。
- *
- * 对比其它候选（都不满足）：
- *   /api/ui/reloadTheme   对已打开页面无任何效果
- *   /api/ui/reloadUI      有效，但整页刷新
- *   代码片段(snippet)     只在页面初始化时注入，对已打开页面同样无效果
- */
-export async function broadcastThemeCss(port: number, themeName: string): Promise<boolean> {
-  const conf = await callKernel<SystemConf>(port, '/api/system/getConf');
-  const appearance = conf.data?.conf?.appearance;
-  if (!appearance) return false;
-
-  // 明暗都切到内置主题，确保真的离开当前主题一次（已经是内置主题则不必）。
-  const builtinLight = 'daylight';
-  const builtinDark = 'midnight';
-  const left = await callKernel(port, '/api/setting/setAppearance', {
-    themeLight: builtinLight,
-    themeDark: builtinDark,
-  });
-  if (left.code !== 0) return false;
-
-  // 等客户端完成一次换向，再切回来；否则两次请求会被合并成一步。
-  await new Promise((resolve) => setTimeout(resolve, TIMING.themeSwitchGap));
-
-  const back = await callKernel(port, '/api/setting/setAppearance', {
-    themeLight: themeName,
-    themeDark: themeName,
-  });
-  return back.code === 0;
-}
-
-/**
  * 让页面重新加载主题 CSS：换 #themeStyle 的 href 并加时间戳，只动那一个 link，
  * 级联位置不变。返回是否成功（页面里没有 themeStyle 时返回 false）。
  *

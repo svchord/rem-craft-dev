@@ -1,4 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { frontendLinks, frontendUrl } from '../src/core/siyuan.ts';
 import { box, fail, info, linkRow, list, section, status, table } from '../src/cli/ui.ts';
 import { runCli } from '../src/cli/cli.ts';
@@ -109,5 +112,23 @@ describe('cli error styling', () => {
   it('writes errors with a readable message', () => {
     const output = capture(() => fail('启动失败'));
     expect(output).toContain('启动失败');
+  });
+});
+
+describe('measurement provenance', () => {
+  const cliDir = join(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'cli');
+  const read = (name: string) => readFileSync(join(cliDir, name), 'utf8');
+
+  it('exposes whether the reading came from the attached dev browser', () => {
+    // `--attach` 连不上会静默新开无头浏览器，量到的是另一个页面。
+    // agent 必须能从输出判断读数出处，否则会把"新页面读磁盘"误当成"量了 dev 窗口"。
+    const measure = read('measure-cli.ts');
+    expect(measure, 'MeasureOutput 必须带 attached 字段').toMatch(/attached: boolean/);
+    expect(measure, 'JSON 输出要带上实际值').toMatch(/attached: session\.attached/);
+    expect(measure, '人读输出也要说明来源').toMatch(/读数来源/);
+
+    const audit = read('audit.ts');
+    expect(audit, 'audit 的 JSON 同样要带 attached').toMatch(/attached: session\.attached/);
+    expect(audit, 'audit 的人读输出同样要说明来源').toMatch(/读数来源/);
   });
 });

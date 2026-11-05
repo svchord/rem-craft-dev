@@ -127,6 +127,12 @@ interface MeasureOutput {
   frontend: string;
   viewport: { width: number; height: number; deviceScaleFactor: number };
   target: { kind: string; name: string } | null;
+  /**
+   * 读数来源：true=复用了 dev 会话的浏览器（你眼前那个窗口），
+   * false=新开的无头浏览器。`--attach` 连不上时会静默新开，
+   * 没有这个字段就无法判断读的是不是同一个页面。
+   */
+  attached: boolean;
   mount?: MountState;
   actions?: string[];
   setup?: string[];
@@ -161,6 +167,9 @@ function printHuman(output: MeasureOutput, frontend: string): void {
       ['后端', env.backend ?? '?'],
       ['模式', env.themeMode ?? '?'],
       ['视口', `${env.viewport.width}x${env.viewport.height}@${env.viewport.dpr}`],
+      // 读数出处必须显式给出：--attach 连不上会静默新开无头浏览器，
+      // 不说明的话无法判断这些值来自哪个页面。
+      ['读数来源', output.attached ? 'dev 会话浏览器（--attach 生效）' : '新开无头浏览器'],
       ['DOM 节点', String(env.domNodes)],
       ['themeStyle', env.themeStyle ?? '(无)'],
     ]);
@@ -306,6 +315,7 @@ export async function runMeasureCli(argv: string[] = process.argv.slice(2)): Pro
     frontend,
     viewport: session.viewport,
     target: target ? { kind: target.kind, name: target.name } : null,
+    attached: session.attached,
   };
 
   try {

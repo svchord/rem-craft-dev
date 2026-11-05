@@ -35,8 +35,6 @@ export const TIMING = {
   stylesheetLoad: 1500,
   /** 禁用→启用插件之间留一次 WebSocket 往返。 */
   pluginReloadGap: 500,
-  /** 主题切换广播：离开主题与切回之间留一次客户端换向，避免两次请求被合并。 */
-  themeSwitchGap: 700,
   /** 打开新页面/等待 siyuan.config 的超时。 */
   navigationTimeout: 30000,
   /** 控制服务端点探测超时（本机回环）。 */

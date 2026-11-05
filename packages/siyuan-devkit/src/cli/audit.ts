@@ -115,6 +115,7 @@ export async function runAudit(parsed: ParsedArgs): Promise<void> {
             command: 'audit',
             frontend,
             viewport: session.viewport,
+            attached: session.attached,
             target: target ? { kind: target.kind, name: target.name } : null,
             mount,
             ...result,
@@ -126,7 +127,7 @@ export async function runAudit(parsed: ParsedArgs): Promise<void> {
       return;
     }
 
-    printAuditHuman(result, target, mount);
+    printAuditHuman(result, target, mount, session.attached);
   } finally {
     await session.dispose();
   }
@@ -140,7 +141,12 @@ function styleRows(styles: Record<string, string>): Array<[string, string]> {
 }
 
 /** 人读格式的审计结果。 */
-function printAuditHuman(result: AuditResult, target: Target | null, mount: MountState | null): void {
+function printAuditHuman(
+  result: AuditResult,
+  target: Target | null,
+  mount: MountState | null,
+  attached: boolean
+): void {
   if (result.environment) {
     const env = result.environment;
     section('环境');
@@ -149,6 +155,7 @@ function printAuditHuman(result: AuditResult, target: Target | null, mount: Moun
       ['后端', env.backend ?? '?'],
       ['模式', env.themeMode ?? '?'],
       ['视口', `${env.viewport.width}x${env.viewport.height}@${env.viewport.dpr}`],
+      ['读数来源', attached ? 'dev 会话浏览器（--attach 生效）' : '新开无头浏览器'],
       ['DOM 节点', String(env.domNodes)],
       ['themeStyle', env.themeStyle ?? '(无)'],
     ]);

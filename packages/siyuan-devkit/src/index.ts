@@ -115,7 +115,14 @@ export type {
 export { BUILTIN_TYPES } from './core/builtin-targets.ts';
 export { judgeMount, readThemeName } from './core/theme.ts';
 export type { MountJudgement } from './core/theme.ts';
-export { callKernel, selectTheme, reloadThemeCss, reloadPluginCss, reloadPlugin } from './core/kernel.ts';
+export {
+  callKernel,
+  selectTheme,
+  broadcastThemeCss,
+  reloadThemeCss,
+  reloadPluginCss,
+  reloadPlugin,
+} from './core/kernel.ts';
 export type { KernelResponse, ReloadPluginResult, SelectThemeResult } from './core/kernel.ts';
 export { listWorkspaces, readWorkspaceManifest, resolveInstallDir } from './core/workspace.ts';
 export type { Workspace } from './core/workspace.ts';

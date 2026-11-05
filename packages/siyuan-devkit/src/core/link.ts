@@ -11,7 +11,7 @@
  * 实测主题用 junction 能正常加载，所以主题允许 junction 兜底；插件目录必须
  * 是真 symlink，建不出来时如实报错，不擅自换成 junction 假装成功。
  */
-import { cpSync, existsSync, lstatSync, mkdirSync, readlinkSync, rmSync, symlinkSync } from 'node:fs';
+import { existsSync, lstatSync, mkdirSync, readlinkSync, symlinkSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { dirname, isAbsolute, resolve } from 'node:path';
 import { samePath } from './paths.ts';
@@ -22,17 +22,6 @@ export { samePath } from './paths.ts';
 
 /** 链接类型。 */
 export type LinkType = 'symlink' | 'junction';
-
-/**
- * 把产物目录**复制**到插件安装目录（覆盖），不需要任何符号链接权限。
- *
- * 用于 Windows 未开开发者模式 / 非管理员、symlink 报 EPERM 时兜底：思源认真实
- * 目录（junction 不行，真实目录可以），只是每次构建后要重新同步一次。
- */
-export function syncCopy(srcDir: string, targetDir: string): void {
-  rmSync(targetDir, { recursive: true, force: true });
-  cpSync(srcDir, targetDir, { recursive: true });
-}
 
 /** 链接现状。 */
 export interface LinkState {

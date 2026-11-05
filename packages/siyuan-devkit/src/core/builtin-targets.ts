@@ -15,7 +15,7 @@ import type { Page } from 'puppeteer-core';
 import { isSemver } from './semver.ts';
 import { judgeMount } from './theme.ts';
 import { stripCssComments } from './lints.ts';
-import { reloadPlugin, reloadPluginCss, reloadThemeCss, selectTheme } from './kernel.ts';
+import { broadcastThemeCss, reloadPlugin, reloadPluginCss, reloadThemeCss, selectTheme } from './kernel.ts';
 import { findWorkspaceDir } from './siyuan.ts';
 import { requireRecoverable } from './errors.ts';
 import { isString } from './guards.ts';
@@ -142,13 +142,25 @@ const themeDescriptor = {
     return issues;
   },
 
-  /** 换 #themeStyle 的 href 即可，纯前端动作，不需要 kernel、也不整页刷新。 */
-  async reload(page: Page | null): Promise<ReloadResult> {
-    // 没有受控页面就没有受控的重载手段：思源的 /api/ui/reloadUI 会整页刷新，
-    // 与「不打断编辑」的承诺冲突，所以这里如实说明而不是硬走内核。
-    if (!page) return { ok: false, message: '没有受控页面，主题 CSS 未热重载（传 browser: true 可启用）' };
-    const ok = await reloadThemeCss(page);
-    return { ok, message: ok ? '主题 CSS 已更新' : '主题 CSS 重载失败' };
+  /**
+   * 换 #themeStyle 的 href 即可，纯前端动作，不需要 kernel、也不整页刷新。
+   *
+   * 有受控页面时走 href（最外科，只动一个 link）；没有页面时退到内核广播
+   * （切走再切回本主题），让**用户自己的思源本体窗口**也拿到新 CSS——
+   * 实测这条路径同样不整页刷新。两者都不需要整页刷新。
+   */
+  async reload(page: Page | null, { name, port }): Promise<ReloadResult> {
+    if (page) {
+      const ok = await reloadThemeCss(page);
+      if (ok) return { ok: true, message: '主题 CSS 已更新' };
+    }
+    if (port === null) {
+      return { ok: false, message: '主题 CSS 未热重载：既没有受控页面，也拿不到 kernel 端口' };
+    }
+    const broadcast = await broadcastThemeCss(port, name);
+    return broadcast
+      ? { ok: true, message: '主题 CSS 已更新（经内核广播到各前端）' }
+      : { ok: false, message: '主题 CSS 未热重载：内核广播失败' };
   },
 
   /** 开发前让思源真正选中本主题，否则量到的是宿主主题的级联。 */

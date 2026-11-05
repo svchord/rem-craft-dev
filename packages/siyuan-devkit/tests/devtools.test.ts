@@ -617,14 +617,50 @@ describe('target adapters drive the dev loop', () => {
     expect(swapped, '主题仍走原来的换 href 路径').toBe(true);
   });
 
-  it('treats a missing page as "no hot reload" instead of a reload failure', async () => {
-    // 不打开预览窗口时没有 page。主题 CSS 没有外科式的内核重载接口
-    // （/api/ui/reloadUI 会整页刷新、丢掉编辑状态），所以这时只能不热重载；
-    // 必须报「未热重载」，不能伪装成「重载失败」。
-    const target = themeTarget({ name: 'T' });
-    const result = await target.reload(null, { filename: 'theme.css', port: 6806 });
-    expect(result.ok, '没有页面时不该谎报成功').toBe(false);
-    expect(result.message, '要说明为什么没重载').toMatch(/未热重载|没有受控页面/);
+  it('broadcasts theme CSS to every frontend when there is no controlled page', async () => {
+    // 没有受控页面（用户自己开着思源本体、devkit 不开预览窗口）时，
+    // 主题 CSS 仍有热更新通路：切走再切回本主题，让客户端自己换 #themeStyle。
+    // 这条路径实测不整页刷新，所以要真的发出两次 setAppearance。
+    const calls: string[][] = [];
+    const server = createServer((req, res) => {
+      let body = '';
+      req.on('data', (chunk) => {
+        body += chunk;
+      });
+      req.on('end', () => {
+        const parsed = JSON.parse(body || '{}');
+        if (req.url === '/api/system/getConf') {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ code: 0, data: { conf: { appearance: { themeLight: 'T', themeDark: 'T' } } } }));
+          return;
+        }
+        calls.push([parsed.themeLight, parsed.themeDark]);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end('{"code":0,"msg":"","data":null}');
+      });
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const address = server.address();
+    const port = typeof address === 'object' && address ? address.port : 0;
+
+    try {
+      const result = await themeTarget({ name: 'T' }).reload(null, { filename: 'theme.css', port });
+      expect(result.ok, '没有受控页面时仍应经内核广播完成热重载').toBe(true);
+      expect(result.message, '要说明走的是广播路径').toMatch(/广播/);
+      expect(calls, '必须先切到内置主题、再切回目标主题，否则内核判定无变化不广播').toEqual([
+        ['daylight', 'midnight'],
+        ['T', 'T'],
+      ]);
+    } finally {
+      server.close();
+    }
+  });
+
+  it('does not claim success when neither page nor kernel port is available', async () => {
+    // 既没有受控页面、又拿不到 kernel 端口时，必须如实报未热重载。
+    const result = await themeTarget({ name: 'T' }).reload(null, { filename: 'theme.css', port: null });
+    expect(result.ok, '无任何通路时不该谎报成功').toBe(false);
+    expect(result.message).toMatch(/未热重载/);
   });
 
   it('names the right build artifact per target kind', () => {

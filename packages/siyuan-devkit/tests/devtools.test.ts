@@ -568,14 +568,24 @@ describe('target adapters drive the dev loop', () => {
     expect(targets, '不再走插件禁用启用分支').not.toMatch(/setPetalEnabled|reloadPlugin/);
   });
 
-  it('opens two resident headless pages, one per frontend', () => {
+  it('gates resident pages behind auditBrowser, default off', () => {
     const devSession = stripComments(readSource('dev-session.ts', 'dev'));
-    expect(devSession, '桌面端常驻页').toMatch(/openFrontend\('desktop'\)/);
-    expect(devSession, '移动端常驻页').toMatch(/openFrontend\('mobile'\)/);
-    expect(devSession, '固定在无头模式').toMatch(/--headless=new/);
-    // 三个开关已删：不再有「开不开浏览器 / 开哪个前端 / 要不要窗口」
+    expect(devSession, '必须受 auditBrowser 控制').toMatch(/if \(auditBrowser\)/);
+    expect(devSession, '默认关闭').toMatch(/auditBrowser = false/);
+    expect(devSession, '关闭时仍刷新本体').toMatch(/auditBrowser: false/);
+    // 浏览器/控制服务只在开启分支里创建，不能无条件起
+    expect(devSession, '浏览器启动在开启分支内').toMatch(/if \(auditBrowser\) \{[\s\S]*launchChromeBrowser/);
+    expect(devSession, '控制服务登记在开启分支内').toMatch(/if \(auditBrowser\) \{[\s\S]*startControlServer/);
+    // 刷新本身不依赖常驻页：页面等待是可选的
+    expect(devSession, '无常驻页时不等待页面').toMatch(/if \(page\) waiting\.push/);
+  });
+
+  it('exposes auditBrowser as a plugin option and keeps the other switches deleted', () => {
+    const plugin = stripComments(readSource('plugin.ts'));
+    expect(plugin, 'auditBrowser 是可配置入参').toMatch(/auditBrowser\?:/);
+    expect(plugin, '默认关闭').toMatch(/auditBrowser = false/);
     for (const option of ['browser', 'frontend', 'headless']) {
-      expect(devSession, `dev 会话不该再有 ${option} 开关`).not.toMatch(new RegExp(`${option}\\?:`));
+      expect(plugin, `不该再有 ${option} 开关`).not.toMatch(new RegExp(`${option}\\?:`));
     }
   });
 
@@ -689,12 +699,13 @@ describe('vite plugin shape', () => {
 
   it('keeps fixed dev behaviors out of the plugin options', () => {
     // 链接、校验、资产监听是固定行为；做成开关只会多一条静默失效路径。
-    // 常驻页固定无头、两个前端各一页，所以 browser/frontend/headless 也都不是入参。
+    // browser/frontend/headless 已删；唯一的开关是 auditBrowser（是否起常驻页）。
     const source = stripComments(readSource('plugin.ts'));
     for (const option of ['link', 'verify', 'assets', 'name', 'browser', 'frontend', 'headless']) {
       expect(source, `不该再有 ${option} 开关`).not.toMatch(new RegExp(`${option}\\?:`));
     }
     expect(source, '清单路径仍是可配置入参').toMatch(/manifestPath\?:/);
+    expect(source, 'auditBrowser 是唯一保留的浏览器开关').toMatch(/auditBrowser\?:/);
   });
 
   it('ships a post plugin so verify sees the complete output', () => {

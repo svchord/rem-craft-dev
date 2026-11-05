@@ -15,6 +15,7 @@ import { runMeasureCli } from './measure-cli.ts';
 import { runShotCli } from './shot.ts';
 import { runVerifyCli } from './verify-cli.ts';
 import { targetTypes } from '../core/target-types.ts';
+import { UserFacingError } from '../core/errors.ts';
 import { box, fail, info, list, section } from './ui.ts';
 
 type Handler = (argv: string[]) => Promise<void>;
@@ -88,11 +89,13 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
   try {
     await handler(argv.slice(1));
   } catch (cause) {
-    // 统一兜底：子命令抛错不再变成 unhandled rejection。退出码固定 2（参数/运行错误），
-    // 打印一句可读错误，并保留堆栈便于排查。
+    // 统一兜底：子命令抛错不再变成 unhandled rejection。退出码固定 2（参数/运行错误）。
+    // 预期内错误只打原因；堆栈对 agent 是纯 token 开销，留给真正的编程错误。
     const message = cause instanceof Error ? cause.message : String(cause);
     fail(message);
-    if (cause instanceof Error && cause.stack) console.error(cause.stack);
+    if (cause instanceof Error && !(cause instanceof UserFacingError) && cause.stack) {
+      console.error(cause.stack);
+    }
     process.exitCode = 2;
   }
 }

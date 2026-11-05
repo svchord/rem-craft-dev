@@ -21,7 +21,7 @@ import { findChrome, findKernelPort, frontendUrl } from './siyuan.ts';
 import type { Frontend } from './siyuan.ts';
 import { DEFAULT_VIEWPORT, MOBILE_VIEWPORT } from './viewport.ts';
 import type { ResolvedViewport } from './viewport.ts';
-import { isNavigationError, requireRecoverable } from './errors.ts';
+import { isNavigationError, requireRecoverable, UserFacingError } from './errors.ts';
 import { sleep, TIMING } from './timing.ts';
 
 // 类型仍从 session.ts 对外导出（index.ts 从这里 import）。
@@ -84,7 +84,7 @@ function tolerateWaitFailure(cause: unknown): void {
   requireRecoverable(cause);
 }
 
-/** 打开会话。attach 时复用 dev 浏览器的常驻页；找不到就新开无头 Chrome。 */
+/** 打开会话。attach 时复用 dev 浏览器的常驻页；没指定 attach 才新开无头 Chrome。 */
 export async function createSession({
   frontend = 'desktop',
   viewport = null,
@@ -96,11 +96,24 @@ export async function createSession({
   const targetViewport = viewportFor(frontend, viewport);
 
   const discovered = attach ? await discover() : null;
+  // --attach 是明确要求复用常驻页。连不上就报错，不静默退化成新开浏览器——
+  // 否则 agent 会以为自己量的是 dev 会话那个页面，其实是另一个新页面，结论全建立在错前提上。
+  if (attach && !discovered?.ok) {
+    const reason = discovered ? discovered.reason : '无可用端点';
+    throw new UserFacingError(
+      `--attach 连不上 dev 会话的常驻测量页：${reason}\n` +
+        '常见原因是该会话未开启 auditBrowser（默认关闭），或 pnpm dev 没在跑。\n' +
+        '两条出路：去掉 --attach，会新开无头页面读数（每次约 4s）；\n' +
+        '或在 siyuanPlugin({ auditBrowser: true }) 下运行 pnpm dev，再带 --attach 复用常驻页。'
+    );
+  }
   if (discovered?.ok) {
     // 常驻页的视口在建页时就定死了，--viewport 覆盖不了它。
     // 静默忽略会让 agent 以为自己量的是 390 宽，实际是 1600——必须报错。
     if (viewport) {
-      throw new Error('复用 dev 常驻页时不能用 --viewport：该页视口已固定。去掉 --attach 会新开一个指定视口的页面。');
+      throw new UserFacingError(
+        '复用 dev 常驻页时不能用 --viewport：该页视口已固定。去掉 --attach 会新开一个指定视口的页面。'
+      );
     }
     // 读租约：刷新期间会等待，拿到后 dev 会等我们释放才广播下一次刷新。
     // 只检查 ready 有竞态——检查完、读数前刷新才开始的那种挡不住。

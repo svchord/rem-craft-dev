@@ -28,6 +28,7 @@ siyuanPlugin({
   target: 'theme', // 'theme' | 'plugin'，缺省从 public/ 清单推断
   entry: 'src/styles/index.css', // 入口；主题给 CSS，插件给 TSX/TS
   outDir: './dev', // 覆盖产物目录；缺省由类型决定（watch→dev，否则→dist）
+  auditBrowser: false, // 是否起常驻无头浏览器供 agent 审计复用，缺省关闭
   manifestPath: 'config/theme.json', // 清单不在 public/ 时指定；缺省 public/theme.json / plugin.json
 });
 ```
@@ -36,7 +37,7 @@ siyuanPlugin({
 判断，打包跟着走：watch 一定不打包、生产一定打包。项目再传一个开关只是重复
 同一件事，还多一处可能不一致的输入。
 
-**链接、产物校验、`public/` 资产监听、常驻测量页都是固定行为，不做成入参**：
+**链接、产物校验、`public/` 资产监听都是固定行为，不做成入参**：
 它们不是偏好，关掉只会让热重载或发布静默失效。需要单独组合时可以直接
 `import { siyuanAssets, siyuanPost } from 'siyuan-devkit'` 自行拼装。
 
@@ -44,11 +45,24 @@ siyuanPlugin({
 - 校验：两个环境都跑，watch 失败只警告，生产失败中断构建
 - 资产：监听 `public/` 并把清单声明的 readme/icon/preview 搬进产物
 - 清单路径：缺省 `public/theme.json` / `public/plugin.json`，可用 `manifestPath` 覆盖
-- 常驻测量页：固定起一个无头浏览器，桌面端 / 移动端各开一页；`--attach` 就是从这两页里选
 
-**没有 `browser` / `frontend` / `headless` 入参**：常驻页是测量基础设施，不是偏好。
-`browser: false` 会让 `--attach` 失去复用目标；`frontend`/`headless` 又和「两个前端各一页、固定无头」冲突。
-`--frontend` 仍在 CLI 侧保留，含义是「从两个常驻页里选哪个」。
+### `auditBrowser`：是否给 agent 开一个常驻测量页
+
+**默认 `false`（关闭）**。开一个常驻无头 Chrome（桌面端 / 移动端各一页）内存开销
+不小，而且有的项目不希望给大模型留审计入口，所以默认不付这个成本。
+
+- **开着**：dev 会话起两个常驻页 + 本地控制服务 + 读租约屏障；`syt measure --attach`
+  复用其中一个，约 0.65s 一次，比每次新开页面（约 4s）快得多。
+- **关着**：产物变化仍会广播 `/api/ui/reloadUI` 刷新思源本体窗口（改样式看得到效果），
+  只是没有常驻页、也没有 `--attach` 可复用的目标。
+
+`--attach` 连不上时**直接报错给 agent**（非零退出、不带堆栈、说明两条出路：
+去掉 `--attach` 新开页面读数，或开 `auditBrowser: true` 后跑 `pnpm dev`）。
+不静默降级，否则 agent 会以为量的是常驻页，结论建立在错前提上。
+
+**没有 `browser` / `frontend` / `headless` 入参**：这些和「两个前端各一页、固定
+无头、由 `auditBrowser` 统一控制」冲突。CLI 侧 `--frontend` 保留，含义是
+「从两个常驻页里选哪个」。
 
 > 文中标注「实测」的结论是 2026-11 在 Vite 8 + 思源桌面端上的一次性观察，
 > 随版本升级可能变化；可复跑的验证在 `tests/`，性能数字不进单测。
@@ -103,8 +117,9 @@ vite build --watch
 插件开发日志用 `consola` 做级别/颜色/图标，预览入口用 `boxen` 排版；
 CLI 命令的输出则保持纯文本。首次会话就绪后会给出桌面端与移动端两个稳定预览链接。
 
-> **watch 需要本地思源在运行**：热重载靠连 kernel + 起浏览器。连不上会**明确报错并让构建失败**，
-> 不会静默假成功。纯生产构建（`vite build`）与 `syt verify` 都不需要思源。
+> **watch 需要本地思源在运行**：热重载靠连 kernel 广播整页刷新。连不上会**明确报错并让构建失败**，
+> 不会静默假成功。常驻测量页由可选的 `auditBrowser` 控制，默认不起浏览器。
+> 纯生产构建（`vite build`）与 `syt verify` 都不需要思源。
 
 > **为什么必须是 `build --watch` 而不是 `vite dev`？**
 > 思源从磁盘读 `<workspace>/data/themes/<name>/theme.css`，而 `vite dev` 只在内存里
@@ -211,13 +226,12 @@ syt verify
 移动端  http://127.0.0.1:6806/stage/build/mobile/
 ```
 
-## 热重载的粒度
-
 ## 热重载：统一整页刷新
 
-产物一变，dev 会话广播 `/api/ui/reloadUI`，**所有前端一起刷新**（用户本体 +
-两个常驻测量页）。思源重走启动流程，主题 CSS、插件 CSS、插件 JS 一并拿到磁盘
-真值，交互态也天然清空。不再按类型写外科式分支，测量侧也不做任何 DOM 补丁。
+产物一变，dev 会话广播 `/api/ui/reloadUI`，**所有前端一起刷新**（思源本体 +
+开启 `auditBrowser` 时的两个常驻测量页）。思源重走启动流程，主题 CSS、插件 CSS、
+插件 JS 一并拿到磁盘真值，交互态也天然清空。不再按类型写外科式分支，测量侧也不做
+任何 DOM 补丁。`auditBrowser: false`（默认）时仍刷新本体窗口，只是没有常驻页要等。
 
 | 产物             | 刷新后谁负责更新           |
 | ---------------- | -------------------------- |
@@ -231,10 +245,10 @@ syt verify
 会被冲掉。测量侧靠「每次 `--setup` 重建场景」应对；这正是工具既有的工作方式。
 刷新是全局广播、无法定向（实测 `{app:...}` 无效），所以本体窗口也会一起刷。
 
-**读租约**：dev 刷新前把控制服务 `ready` 置 false，等所有在读数的人释放租约才广播
-刷新；两个常驻页重新挂载后再置 true。`measure --attach` 必须先拿到读租约才读数，
-读完释放。只检查一个 `ready` 标志有竞态——检查完、读数前才开始的刷新挡不住，租约才行。
-租约超时（崩溃进程没释放）会照常刷新并日志警告，不会死等。
+**读租约**（仅 `auditBrowser: true` 时存在）：dev 刷新前把控制服务 `ready` 置 false，
+等所有在读数的人释放租约才广播刷新；常驻页重新挂载后再置 true。`measure --attach`
+必须先拿到读租约才读数，读完释放。只检查一个 `ready` 标志有竞态——检查完、读数前
+才开始的刷新挡不住，租约才行。租约超时（崩溃进程没释放）会照常刷新并日志警告，不会死等。
 
 ### 为什么不用其它路径（2026-11 实测）
 
@@ -277,12 +291,12 @@ syt verify
 ### 读数出处与正确性
 
 `measure` 不带 `--attach` 时新开无头页面，从磁盘重新加载 CSS，读到的永远是当前产物。
-带 `--attach` 时复用 dev 会话的常驻页（实测约 0.65s，新开约 4s），先等刷新屏障解除
-再读数。常驻页由 dev 会话统一整页刷新保持最新，测量侧不改页面 DOM，所以读数不依赖
-「热重载是否恰好跑成功」这类隐藏状态。
+带 `--attach` 时**必须**有 dev 会话的常驻页（需 `auditBrowser: true`），连不上就直接报错，
+不会静默降级。复用时约 0.65s，新开约 4s；先拿读租约再读数。常驻页由 dev 会话统一整页
+刷新保持最新，测量侧不改页面 DOM，所以读数不依赖「热重载是否恰好跑成功」这类隐藏状态。
 
-`--attach` 连不上会静默新开无头浏览器。输出里的 `attached` 字段（人读输出为「读数来源」）
-必须先看：`true` 是 dev 常驻页，`false` 是新开页面。不说明出处的话，无法判断读数来自
+输出里的 `attached` 字段（人读输出为「读数来源」）说明量了哪个页面：`true` 是 dev
+常驻页，`false` 是不带 `--attach` 时新开的页面。不说明出处的话，无法判断读数来自
 哪个页面，agent 的审计结论就可能建立在错误前提上。
 
 ### `audit`：一次会话跑完，而不是跑 N 次
@@ -325,16 +339,17 @@ syt measure audit --tokens a,b --counts .x   # 命令行覆盖
 `setup` 在全部测量前执行（先 `reset`），用来把页面推到目标场景——
 菜单项、插件面板在打开前根本不在 DOM 里，不先 setup 就量不到。
 
-### `--attach`：量你眼前那个窗口
+### `--attach`：复用 dev 会话的常驻页
 
 ```bash
-vite build --watch                       # 终端 A：起开发会话
-syt measure tokens --attach  # 终端 B：量同一个页面
+pnpm dev   # 需 siyuanPlugin({ auditBrowser: true })，起两个常驻无头页
+syt measure tokens --attach  # 复用其中一个
 ```
 
 `--attach` 通过本地控制服务找到正在跑的 dev 会话（跨项目也能连）。
-**连不上时会静默新开一个无头浏览器**，量到的是另一个页面。读数可疑时，
-先跑 `measure env` 看 `mount` 和 `themeStyle`。
+**连不上就报错**，说明原因和两条出路（去掉 `--attach` 新开页面，或开
+`auditBrowser: true` 后跑 `pnpm dev`），不静默降级。默认 `auditBrowser: false`
+时没有常驻页，`--attach` 会明确失败。
 
 ### 挂载事实
 

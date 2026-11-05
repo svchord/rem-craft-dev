@@ -34,6 +34,11 @@ export interface StartDevOptions {
   buildCommand?: string | BuildCommand | null;
   /** 产物目录覆盖。 */
   outDir?: string | null;
+  /**
+   * 是否起常驻无头浏览器供 agent 审计复用（`--attach`），缺省 false。
+   * 开启会多起一个 Chrome（桌面 + 移动两页）；关闭时仍刷新思源本体窗口。
+   */
+  auditBrowser?: boolean;
   /** 日志回调；level 缺省按 info 处理。 */
   log?: Logger;
 }
@@ -53,6 +58,7 @@ export async function startDev({
   link = true,
   buildCommand = null,
   outDir = null,
+  auditBrowser = false,
   log = (message) => console.log(message),
 }: StartDevOptions): Promise<DevHandle> {
   let session: DevSession | null = null;
@@ -99,6 +105,7 @@ export async function startDev({
       cwd,
       outDir: resolvedOutDir,
       link,
+      auditBrowser,
       log,
       watch: true,
     });

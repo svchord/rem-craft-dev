@@ -8,8 +8,11 @@
  * 一次会话做四件事：
  *   1. 把产物目录链接到 <workspace>/data/<subdir>/<name>
  *   2. 让思源用上它（主题切 themeLight/themeDark；插件由思源自己管）
- *   3. 起一个常驻无头浏览器，桌面端和移动端各开一页，并登记控制服务
- *   4. 产物一变就广播整页刷新，页面回来后解除测量屏障
+ *   3. 可选：auditBrowser 打开时起常驻无头浏览器（桌面 + 移动各一页）并登记控制服务
+ *   4. 产物一变就广播整页刷新；有常驻页时等它们回来再解除读租约屏障
+ *
+ * auditBrowser 默认关闭：常驻 Chrome 内存开销不小，不需要 agent 审计就不付这个成本。
+ * 关闭时刷新照常发给思源本体窗口，只是没有 --attach 可复用的目标。
  *
  * 为什么统一整页刷新：主题 CSS、插件 CSS、插件 JS 三种产物的加载机制不同，
  * 各写一条外科式分支既脆弱又会互相污染测量。整页刷新让思源自己重新走一遍
@@ -57,6 +60,11 @@ export interface StartDevSessionOptions {
   outDir?: string | null;
   /** 是否建立链接，缺省 true。 */
   link?: boolean;
+  /**
+   * 是否起常驻无头浏览器供 agent 审计复用（--attach），缺省 false。
+   * 关闭时不启动 Chrome、不登记控制服务，省内存；但产物变化仍会刷新思源本体窗口。
+   */
+  auditBrowser?: boolean;
   /** 日志回调。 */
   log?: Logger;
   /**
@@ -106,15 +114,16 @@ export interface DevSession {
   target: Target;
   buildConfig: TargetBuildConfig;
   browser: Browser | null;
-  /** 桌面端常驻页。 */
+  /** 桌面端常驻页；auditBrowser:false 时为 null。 */
   page: Page | null;
-  /** 移动端常驻页。 */
+  /** 移动端常驻页；auditBrowser:false 时为 null。 */
   mobilePage: Page | null;
   kernelPort: number;
   /** 链接目标（`<workspace>/data/<subdir>/<name>`）；未建立链接（link:false）时为 null。 */
   installPath: string | null;
-  /** 启动时的挂载检查结果；未启动浏览器（browser:false）时为 null。 */
+  /** 启动时的挂载检查结果；未起常驻页（auditBrowser:false）时为 null。 */
   mount: MountState | null;
+  /** 控制服务；未起常驻页时为 null，此时 --attach 无可复用目标。 */
   control: ControlServer | null;
   /** 外部（插件形态的 writeBundle）直接把变更文件喂进来。 */
   notifyChange(filenames: string | string[]): void;
@@ -177,6 +186,7 @@ export async function startDevSession({
   cwd = process.cwd(),
   outDir = null,
   link = true,
+  auditBrowser = false,
   log = (message) => console.log(message),
   watch = true,
 }: StartDevSessionOptions): Promise<DevSession> {
@@ -239,34 +249,40 @@ export async function startDevSession({
       if (!activation.ok) throw new Error(activation.message);
     }
 
-    // 3) 常驻无头浏览器：桌面端与移动端各一页，控制服务对外登记
-    profile = mkdtempSync(join(tmpdir(), 'vps-dev-'));
-    browser = await launchChromeBrowser(profile);
-    control = await startControlServer({
-      ws: browser.wsEndpoint(),
-      cwd,
-      kind: target.kind,
-      name: target.name,
-    });
+    // 3) 常驻无头浏览器：仅 auditBrowser 打开时启动。默认关闭，省一个 Chrome 的内存。
+    let page: Page | null = null;
+    let mobilePage: Page | null = null;
+    if (auditBrowser) {
+      profile = mkdtempSync(join(tmpdir(), 'vps-dev-'));
+      browser = await launchChromeBrowser(profile);
+      control = await startControlServer({
+        ws: browser.wsEndpoint(),
+        cwd,
+        kind: target.kind,
+        name: target.name,
+      });
 
-    /** 打开一个前端的常驻页，视口与 shot.ts 保持一致。 */
-    const openFrontend = async (frontend: 'desktop' | 'mobile'): Promise<Page> => {
-      const page = await browser!.newPage();
-      await page.setViewport(
-        frontend === 'mobile' ? { ...MOBILE_VIEWPORT } : { width: 1600, height: 1000, deviceScaleFactor: 1 }
-      );
-      await page.goto(frontendUrl(kernelPort, frontend), { waitUntil: 'domcontentloaded', timeout: 30000 });
-      await page.waitForFunction('window.siyuan && window.siyuan.config' as never, { timeout: 30000 });
-      return page;
-    };
+      /** 打开一个前端的常驻页，视口与 shot.ts 保持一致。 */
+      const openFrontend = async (frontend: 'desktop' | 'mobile'): Promise<Page> => {
+        const opened = await browser!.newPage();
+        await opened.setViewport(
+          frontend === 'mobile' ? { ...MOBILE_VIEWPORT } : { width: 1600, height: 1000, deviceScaleFactor: 1 }
+        );
+        await opened.goto(frontendUrl(kernelPort, frontend), { waitUntil: 'domcontentloaded', timeout: 30000 });
+        await opened.waitForFunction('window.siyuan && window.siyuan.config' as never, { timeout: 30000 });
+        return opened;
+      };
 
-    const page = await openFrontend('desktop');
-    const mobilePage = await openFrontend('mobile');
-    mount = await waitForMount(target, page, 10000);
-    log(`挂载：${mount.loaded ?? mount.reason ?? '(无样式表)'}`, mount.ok ? 'success' : 'warn');
-    log('常驻测量页：桌面端 + 移动端（无头）', 'info');
+      page = await openFrontend('desktop');
+      mobilePage = await openFrontend('mobile');
+      mount = await waitForMount(target, page, 10000);
+      log(`挂载：${mount.loaded ?? mount.reason ?? '(无样式表)'}`, mount.ok ? 'success' : 'warn');
+      log('常驻测量页：桌面端 + 移动端（无头）', 'info');
+    } else {
+      log('常驻测量页未开启（auditBrowser: false）；产物变化仍会刷新思源本体窗口', 'info');
+    }
 
-    // 4) 产物变化 → 统一整页刷新。刷新前关屏障，两页都回来后开屏障。
+    // 4) 产物变化 → 统一整页刷新。刷新前关屏障，页面都回来后开屏障。
     let reloads = 0;
     let pending = new Set<string>();
     let batchTimer: NodeJS.Timeout | null = null;
@@ -287,10 +303,13 @@ export async function startDevSession({
           log(`刷新失败：${result.msg || '未知错误'}`, 'warn');
           return false;
         }
-        // 广播是全局的（本体 + 两个常驻页）。等两页重新挂载完再放行测量，
-        // 否则 agent 会撞进 themeStyle 还没挂上的空窗。
-        const [desktopOk, mobileOk] = await Promise.all([waitForApp(page, log), waitForApp(mobilePage, log)]);
-        if (!desktopOk || !mobileOk) return false;
+        // 广播是全局的（本体 + 有时的两个常驻页）。有常驻页时等它们重新挂载完
+        // 再放行测量，否则 agent 会撞进 themeStyle 还没挂上的空窗。
+        const waiting: Array<Promise<boolean>> = [];
+        if (page) waiting.push(waitForApp(page, log));
+        if (mobilePage) waiting.push(waitForApp(mobilePage, log));
+        const settled = await Promise.all(waiting);
+        if (settled.some((ok) => !ok)) return false;
         return true;
       } finally {
         control?.setReady(true);
@@ -309,7 +328,8 @@ export async function startDevSession({
       const label = `已刷新 #${reloads}：${primary}${suffix}`;
       try {
         const ok = await applyReload();
-        log(ok ? `${label}（桌面端 + 移动端）` : `${label}（未生效）`, ok ? 'success' : 'warn');
+        const scope = auditBrowser ? '（本体 + 桌面端 + 移动端）' : '（仅思源本体窗口）';
+        log(ok ? `${label}${scope}` : `${label}（未生效）`, ok ? 'success' : 'warn');
       } catch (cause) {
         log(`刷新出错：${cause instanceof Error ? cause.message : String(cause)}`, 'error');
       }

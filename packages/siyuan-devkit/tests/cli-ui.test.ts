@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, rmSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { frontendLinks, frontendUrl } from '../src/core/siyuan.ts';
+import { CONTROL_DIR } from '../src/core/control-server.ts';
 import { box, fail, info, linkRow, list, section, status, table } from '../src/cli/ui.ts';
 import { runCli } from '../src/cli/cli.ts';
 import { runMeasureCli } from '../src/cli/measure-cli.ts';
@@ -130,5 +131,21 @@ describe('measurement provenance', () => {
     const audit = read('audit.ts');
     expect(audit, 'audit 的 JSON 同样要带 attached').toMatch(/attached: session\.attached/);
     expect(audit, 'audit 的人读输出同样要说明来源').toMatch(/读数来源/);
+  });
+});
+
+describe('--attach when no resident page is available', () => {
+  it('reports the reason to the agent instead of silently opening a browser', async () => {
+    // 清掉端点，模拟 auditBrowser:false（默认）或 dev 没跑。
+    // 以前会静默新开无头浏览器，agent 会以为量的是常驻页。
+    rmSync(CONTROL_DIR, { recursive: true, force: true });
+    await expect(runMeasureCli(['env', '--attach'])).rejects.toThrow(/--attach 连不上/);
+
+    const source = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'core', 'session.ts'),
+      'utf8'
+    );
+    expect(source, '错误信息要给出两条出路').toMatch(/去掉 --attach/);
+    expect(source, '错误信息要说明怎么开启').toMatch(/auditBrowser: true/);
   });
 });

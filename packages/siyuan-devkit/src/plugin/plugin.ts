@@ -99,6 +99,16 @@ export interface SiYuanPluginOptions {
   /** 产物目录；缺省取类型描述符的值（通常是 ./dev）。 */
   outDir?: string | null;
   /**
+   * 是否起一个常驻无头浏览器供大模型审计复用（`syt measure --attach`），缺省 false。
+   *
+   * 开启后 dev 会话会多起一个 Chrome，桌面端/移动端各开一页，并登记本地控制服务
+   * 与读租约屏障。内存开销不小，所以默认关闭；不需要 agent 审计的项目不必付这个成本。
+   *
+   * 关闭时热重载照常：产物变化仍会广播 `/api/ui/reloadUI` 刷新思源本体窗口，
+   * 只是没有常驻测量页，也没有 `--attach` 可复用的目标。
+   */
+  auditBrowser?: boolean;
+  /**
    * 清单路径（相对项目根）。缺省按类型取 `public/theme.json` 或 `public/plugin.json`；
    * 清单不放在 `public/` 时显式传这个值。
    */
@@ -116,7 +126,7 @@ export interface SiYuanPluginOptions {
  * siyuanAssets / siyuanPost 自行组合。
  */
 export default function siyuanDev(options: SiYuanPluginOptions = {}): Plugin[] {
-  const { target = null, entry = null, outDir = null, manifestPath = null } = options;
+  const { target = null, entry = null, outDir = null, auditBrowser = false, manifestPath = null } = options;
 
   /** 显式指定的类型；null 表示从清单推断。 */
   const requestedKind = target;
@@ -282,6 +292,7 @@ export default function siyuanDev(options: SiYuanPluginOptions = {}): Plugin[] {
         kind: resolved.kind,
         cwd: state.root,
         outDir,
+        auditBrowser,
         log,
         // 变更由宿主的 writeBundle 喂进来，不自己 watch 目录。
         watch: false,
@@ -401,11 +412,12 @@ export default function siyuanDev(options: SiYuanPluginOptions = {}): Plugin[] {
           firstBundle = false;
           try {
             const created = await ensureSession();
-            log('会话就绪，改源码会刷新页面（本体 + 两个常驻测量页）', 'success');
+            const scope = auditBrowser ? '思源本体 + 两个常驻测量页' : '思源本体窗口';
+            log(`会话就绪，改源码会刷新页面（${scope}）`, 'success');
             logPreviewLinks(created.kernelPort);
           } catch (cause) {
-            // watch 形态必须有思源在跑（热重载依赖 kernel + 浏览器）。连不上就明确报错、
-            // 并让构建失败，而不是静默继续——否则会以为改源码在生效，其实热重载没起来。
+            // watch 形态必须有思源在跑（刷新靠 kernel 广播）。连不上就明确报错、
+            // 并让构建失败，而不是静默继续——否则会以为改源码在生效，其实刷新没起来。
             throw new Error(`watch 模式需要思源在运行：${messageOf(cause)}`);
           }
           return;

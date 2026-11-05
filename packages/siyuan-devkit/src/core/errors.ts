@@ -62,6 +62,15 @@ export function requireRecoverable(cause: unknown, codes?: readonly string[]): v
   if (!isRecoverable(cause, codes)) throw cause;
 }
 
+/**
+ * 预期内的用户/agent 可见错误：参数不对、依赖的服务没起、配置没开。
+ * CLI 只打印 message，不甩堆栈（堆栈对 agent 是纯 token 开销）。
+ * 编程错误（TypeError 等）仍用普通 Error，照常带堆栈便于排查。
+ */
+export class UserFacingError extends Error {
+  override readonly name = 'UserFacingError';
+}
+
 /** puppeteer 在导航/页面销毁期间的固定报错，属于预期竞态。 */
 export function isNavigationError(cause: unknown): boolean {
   if (!(cause instanceof Error)) return false;

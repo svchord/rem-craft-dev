@@ -42,11 +42,11 @@ function asPlan(value: unknown, path: string): AuditPlan {
 
 /** 读一个配置文件：JSON 直接 parse，其余当 ES 模块动态 import。 */
 async function readConfigFile(path: string): Promise<AuditPlan> {
-  const text = readFileSync(path, 'utf8');
   if (path.endsWith('.json')) {
-    const parsed: unknown = JSON.parse(text);
+    const parsed: unknown = JSON.parse(readFileSync(path, 'utf8'));
     return asPlan(parsed, path);
   }
+  // 模块分支不自己读文件：import() 会读，多读一次纯属浪费 IO。
   const module: unknown = await import(pathToFileURL(path).href);
   const plan: unknown = isRecord(module) && 'default' in module ? module['default'] : module;
   return asPlan(plan, path);
@@ -111,15 +111,20 @@ export function mergePlan(config: AuditPlan, overrides: PlanOverrides): AuditPla
     merged.target = { ...(config.target ?? {}), ...overrides.target };
   }
 
-  if (overrides.setup?.length) merged.setup = overrides.setup;
-  if (overrides.actions?.length) merged.actions = overrides.actions;
-  if (overrides.tokens?.length) merged.tokens = overrides.tokens;
-  if (overrides.counts?.length) merged.counts = overrides.counts;
-  if (overrides.boxes?.length) merged.boxes = overrides.boxes;
-  if (overrides.styles?.length) {
+  // 两类字段的「是否显式传了」判定不同，这是来源决定的，不是笔误：
+  // tokens/counts/boxes/styles 来自 split()，没传是 undefined、传空串是 []，
+  // 所以用 !== undefined，让 `--tokens ""` 能真的清空配置里的值。
+  // setup/actions 来自 allValues()，没传也恒为 []，只能用 ?.length——
+  // 改成 !== undefined 会让每次 audit 都静默清空配置文件里的 setup/actions。
+  if (overrides.tokens !== undefined) merged.tokens = overrides.tokens;
+  if (overrides.counts !== undefined) merged.counts = overrides.counts;
+  if (overrides.boxes !== undefined) merged.boxes = overrides.boxes;
+  if (overrides.styles !== undefined) {
     // 命令行传的样式查询没有 props，统一用默认值；文件里的对象形式保留。
     merged.styles = overrides.styles;
   }
+  if (overrides.setup?.length) merged.setup = overrides.setup;
+  if (overrides.actions?.length) merged.actions = overrides.actions;
 
   return merged;
 }

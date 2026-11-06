@@ -20,11 +20,13 @@ import { box, fail, info, list, section } from './ui.ts';
 
 type Handler = (argv: string[]) => Promise<void>;
 
-const COMMANDS: Record<string, Handler> = {
+// 用无原型对象：普通对象字面量会命中 Object.prototype 上的键，
+// `syt constructor` / `syt toString` 会被当成命令调起来（不报错、退出码 0）。
+const COMMANDS: Record<string, Handler> = Object.assign(Object.create(null) as Record<string, Handler>, {
   measure: runMeasureCli,
   shot: runShotCli,
   verify: runVerifyCli,
-};
+});
 
 /** 打印 `syt --help`：分区排版，命令/选项/示例/退出码各一块。 */
 function usage(): void {
@@ -43,9 +45,9 @@ function usage(): void {
   section('常用选项');
   list([
     ['--kind <类型>', `被测对象类型（${targetTypes().join(' / ')}）；缺省从 public/ 清单自动推断`],
-    ['--dir <路径>', '项目目录，缺省当前目录'],
     ['--frontend <端>', 'desktop | mobile，缺省 desktop'],
-    ['--attach', '复用正在跑的 dev 浏览器'],
+    ['--attach', '复用正在跑的 dev 浏览器（仅 measure / measure audit）'],
+    ['--dir <路径>', '项目目录，缺省当前目录（仅 verify）'],
     ['--help', '显示本帮助'],
   ]);
 

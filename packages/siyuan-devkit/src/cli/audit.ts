@@ -14,10 +14,10 @@ import { DEFAULT_CONFIG_NAME, loadConfig, mergePlan } from '../core/audit-config
 import type { LoadedConfig, PlanOverrides } from '../core/audit-config.ts';
 import type { MountState } from '../core/target-types.ts';
 import type { Target } from '../core/targets.ts';
-import { lastValue, allValues } from './cli-args.ts';
+import { lastValue, allValues, splitList } from './cli-args.ts';
 import type { ParsedArgs } from './cli-args.ts';
 import { resolveTargetFromPlan } from './targets.ts';
-import { fail, info, list, section, table, warn } from './ui.ts';
+import { fail, info, list, section, styleRows, table, warn } from './ui.ts';
 
 /**
  * 执行审计计划。
@@ -38,20 +38,14 @@ export async function runAudit(parsed: ParsedArgs): Promise<void> {
   }
 
   // 2) 命令行覆盖
-  const split = (value: string | undefined): string[] | undefined =>
-    value
-      ?.split(',')
-      .map((item) => item.trim())
-      .filter(Boolean);
-
   const overrides: PlanOverrides = {
     frontend: lastValue(parsed, '--frontend'),
     viewport: lastValue(parsed, '--viewport'),
-    props: split(lastValue(parsed, '--props')),
-    tokens: split(lastValue(parsed, '--tokens')),
-    styles: split(lastValue(parsed, '--styles')),
-    counts: split(lastValue(parsed, '--counts')),
-    boxes: split(lastValue(parsed, '--boxes')),
+    props: splitList(lastValue(parsed, '--props')),
+    tokens: splitList(lastValue(parsed, '--tokens')),
+    styles: splitList(lastValue(parsed, '--styles')),
+    counts: splitList(lastValue(parsed, '--counts')),
+    boxes: splitList(lastValue(parsed, '--boxes')),
     setup: allValues(parsed, '--setup'),
     actions: allValues(parsed, '--do'),
   };
@@ -135,13 +129,6 @@ export async function runAudit(parsed: ParsedArgs): Promise<void> {
   } finally {
     await session.dispose();
   }
-}
-
-/** 非空样式值转成两列表格行。 */
-function styleRows(styles: Record<string, string>): Array<[string, string]> {
-  return Object.entries(styles)
-    .filter(([, value]) => Boolean(value))
-    .map(([prop, value]) => [prop, value]);
 }
 
 /** 人读格式的审计结果。 */

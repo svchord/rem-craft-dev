@@ -5,6 +5,7 @@
  * 这种形状（`--rc-brand-8`），不能用通用的 flag 解析器，所以统一在这里
  * 用「已知选项白名单 + 其余当位置参数」的规则。
  */
+import { UserFacingError } from '../core/errors.ts';
 
 /** 解析结果。 */
 export interface ParsedArgs {
@@ -28,10 +29,15 @@ export interface ParseSpec {
  * 解析 argv。
  *
  * 不在白名单里的 `--xxx` 一律当位置参数——令牌名就是这种形状。
+ *
+ * 带值选项的下一个 token 若是**白名单里的另一个选项**，说明它缺值，报错。
+ * 只判「已知选项」而不是笼统的 `/^--/`：`--props --rc-brand-8` 是合法用法
+ * （CSS 自定义属性名本身以 `--` 开头），笼统判断会把这种输入误杀。
  */
 export function parseArgs(argv: string[], spec: ParseSpec = {}): ParsedArgs {
   const valueFlags = new Set(spec.valueFlags ?? []);
   const booleanFlags = new Set(spec.booleanFlags ?? []);
+  const known = new Set<string>([...valueFlags, ...booleanFlags, '--help', '-h']);
   const values: Record<string, string[]> = {};
   const flags = new Set<string>();
   const positional: string[] = [];
@@ -47,7 +53,9 @@ export function parseArgs(argv: string[], spec: ParseSpec = {}): ParsedArgs {
 
     if (valueFlags.has(arg)) {
       const next = argv[index + 1];
-      if (next === undefined) throw new Error(`${arg} 需要一个参数`);
+      if (next === undefined || known.has(next)) {
+        throw new UserFacingError(`${arg} 需要一个参数`);
+      }
       (values[arg] ??= []).push(next);
       index += 1;
       continue;
@@ -72,4 +80,16 @@ export function allValues(parsed: ParsedArgs, name: string): string[] {
 /** 是否要打印帮助。 */
 export function wantsHelp(argv: string[]): boolean {
   return argv.includes('--help') || argv.includes('-h') || argv[0] === 'help';
+}
+
+/**
+ * 把逗号分隔的选项值拆成数组。
+ *
+ * 没传返回 undefined（保持「未指定」语义），传了空串返回 []（用于清空配置）。
+ */
+export function splitList(value: string | undefined): string[] | undefined {
+  return value
+    ?.split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
 }

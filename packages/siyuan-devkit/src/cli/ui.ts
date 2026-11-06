@@ -5,11 +5,14 @@
  * 需要结构化数据时用 `--json`；这里的函数只保证输出简单、稳定、可解析。
  */
 
-/** 状态级别；纯文本下级别不改变排版，只为调用方保留语义。 */
-export type Level = 'info' | 'success' | 'warn' | 'error';
-
-/** 一行状态输出。 */
-export function status(_level: Level, label: string, detail?: string): void {
+/**
+ * 一行状态输出。
+ *
+ * 不带级别参数：CLI 输出是纯文本，级别不改变任何排版。真正区分通道的只有
+ * warn / fail 走 stderr，其余走 stdout。之前这里有个被函数体完全忽略的
+ * `_level` 首参，是给不存在的「分级排版」预留的。
+ */
+export function status(label: string, detail?: string): void {
   console.log(detail ? `${label}: ${detail}` : label);
 }
 
@@ -48,6 +51,18 @@ export function table(headers: readonly string[], rows: ReadonlyArray<ReadonlyAr
 /** 两列清单。 */
 export function list(rows: ReadonlyArray<readonly [string, string]>): void {
   for (const [name, value] of rows) console.log(`${name}\t${value}`);
+}
+
+/**
+ * 把样式读数转成两列行，跳过空值（未定义的自定义属性读出来是空串）。
+ *
+ * 放在这里而不是各命令里：measure 与 audit 的输出用的是同一份形状，
+ * 之前两边各写了一份逐字相同的实现。
+ */
+export function styleRows(styles: Record<string, string>): Array<[string, string]> {
+  return Object.entries(styles)
+    .filter(([, value]) => Boolean(value))
+    .map(([prop, value]) => [prop, value]);
 }
 
 /** 链接行：标签 + 完整 URL，不做终端超链接。 */

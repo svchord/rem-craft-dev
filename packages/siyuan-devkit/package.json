@@ -15,6 +15,10 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
+    "./plugin": {
+      "types": "./dist/plugin/plugin.d.ts",
+      "default": "./dist/plugin/plugin.js"
+    },
     "./package.json": "./package.json"
   },
   "bin": {

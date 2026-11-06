@@ -41,7 +41,7 @@
  *   startDev() 自己 spawn vite build --watch
  *   插件形态    宿主 vite 跑构建，本插件在 writeBundle 里喂变更给会话
  */
-import { resolve } from 'node:path';
+import { relative, resolve } from 'node:path';
 import boxen from 'boxen';
 import { createConsola } from 'consola';
 import type { Plugin } from 'vite';
@@ -49,7 +49,7 @@ import { siyuanAssets } from './assets.ts';
 import { siyuanPost } from './post.ts';
 import { applyResolvedConfig, createPluginState, isWatchBuild } from './state.ts';
 import type { PluginState } from './state.ts';
-import { messageOf } from './shared.ts';
+import { describeError } from '../core/errors.ts';
 import { startDevSession } from '../dev/dev-session.ts';
 import type { DevSession } from '../dev/dev-session.ts';
 import type { LogLevel } from '../core/log.ts';
@@ -193,7 +193,7 @@ export default function siyuanDev(options: SiYuanPluginOptions = {}): Plugin[] {
       await current.stop();
       log('开发会话已释放', 'success');
     } catch (cause) {
-      log(`开发会话释放失败：${messageOf(cause)}`, 'error');
+      log(`开发会话释放失败：${describeError(cause)}`, 'error');
     }
   }
 
@@ -244,7 +244,7 @@ export default function siyuanDev(options: SiYuanPluginOptions = {}): Plugin[] {
     try {
       return { kind: resolvedKind, target: createTarget(resolvedKind, { cwd }) };
     } catch (cause) {
-      return { ok: false, reason: messageOf(cause) };
+      return { ok: false, reason: describeError(cause) };
     }
   }
 
@@ -274,9 +274,22 @@ export default function siyuanDev(options: SiYuanPluginOptions = {}): Plugin[] {
       return targetType(kind).descriptor.manifestName();
     } catch (cause) {
       // 注册了新类型却取不到描述符时必须让人看见，不能悄悄退回内置类型。
-      log(`取清单名失败，按 theme.json 处理：${messageOf(cause)}`, 'warn');
+      log(`取清单名失败，按 theme.json 处理：${describeError(cause)}`, 'warn');
       return 'theme.json';
     }
+  }
+
+  /**
+   * 会话启动失败的可操作提示。
+   *
+   * 不能一律归因成「思源没在运行」：ensureSession 还会因清单缺 name、
+   * 产物目录不存在、junction 冲突、Chrome 起不来而失败。前缀按原因分，
+   * 底层原因始终附在后面，不丢信息。
+   */
+  function describeSessionFailure(cause: unknown): string {
+    const detail = describeError(cause);
+    if (/思源|kernel|端口|port/i.test(detail)) return `watch 模式需要思源在运行：${detail}`;
+    return `开发会话启动失败：${detail}`;
   }
 
   /** 会话是懒启动的：首次构建完成、产物真的在磁盘上之后才开始。 */
@@ -291,7 +304,12 @@ export default function siyuanDev(options: SiYuanPluginOptions = {}): Plugin[] {
       const created = await startDevSession({
         kind: resolved.kind,
         cwd: state.root,
-        outDir,
+        // 会话层要的是「相对 cwd 的产物目录」（它自己 join(cwd, outDir)）。
+        // 直接用插件选项 outDir 会在父项目自定义 build.outDir 时分叉：
+        // Vite 把产物写到自定义目录，链接却仍指向描述符的 './dev'。
+        // state.outDir 是 configResolved 后的权威值（绝对路径），转回相对即可；
+        // config() 阶段它还是空串，此时退回原始选项。
+        outDir: state.outDir ? relative(state.root, state.outDir) : outDir,
         auditBrowser,
         log,
         // 变更由宿主的 writeBundle 喂进来，不自己 watch 目录。
@@ -420,7 +438,7 @@ export default function siyuanDev(options: SiYuanPluginOptions = {}): Plugin[] {
           } catch (cause) {
             // Vite/Rolldown 的 build --watch 在 hook 抛错后只把本轮构建打红，
             // watcher 继续监听等下次变更重试——这是社区标准做法，不主动杀进程。
-            throw new Error(`watch 模式需要思源在运行：${messageOf(cause)}`);
+            throw new Error(describeSessionFailure(cause));
           }
           return;
         }
@@ -431,7 +449,7 @@ export default function siyuanDev(options: SiYuanPluginOptions = {}): Plugin[] {
           try {
             await ensureSession();
           } catch (cause) {
-            throw new Error(`watch 模式需要思源在运行：${messageOf(cause)}`);
+            throw new Error(describeSessionFailure(cause));
           }
           return;
         }
@@ -440,7 +458,7 @@ export default function siyuanDev(options: SiYuanPluginOptions = {}): Plugin[] {
           session.notifyChange(files);
         } catch (cause) {
           // 会话已建立，只是这一轮通知失败：如实标成重载失败，不伪装成会话问题。
-          log(`重载失败：${messageOf(cause)}`, 'error');
+          log(`重载失败：${describeError(cause)}`, 'error');
         }
       },
 

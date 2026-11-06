@@ -37,9 +37,12 @@ siyuanPlugin({
 判断，打包跟着走：watch 一定不打包、生产一定打包。项目再传一个开关只是重复
 同一件事，还多一处可能不一致的输入。
 
-**链接、产物校验、`public/` 资产监听都是固定行为，不做成入参**：
-它们不是偏好，关掉只会让热重载或发布静默失效。需要单独组合时可以直接
-`import { siyuanAssets, siyuanPost } from 'siyuan-devkit'` 自行拼装。
+**主入口 `siyuanPlugin()` 里，链接、产物校验、`public/` 资产监听都是固定行为，
+不做成入参**：它们不是偏好，关掉只会让热重载或发布静默失效。
+
+需要单独组合时才用导出的子插件（`siyuanAssets` / `siyuanPost`）或 `startDev()`：
+那条路径上保留了 `verify` / `watchPublic` / `link` 等开关，供确实要自定义链路的
+场景使用——它们是逃生舱，不是日常配置项。
 
 - 链接：开发会话启动时自动建立到 `<workspace>/data/<subdir>/<name>`
 - 校验：两个环境都跑，watch 失败只警告，生产失败中断构建
@@ -223,8 +226,10 @@ syt verify
 | `verify`  | 独立校验清单与产物（不跑构建，可用于 CI / 发布前 / 解包后检查） |
 
 **终端输出**：CLI 命令保持纯文本，不做颜色、图标、边框或表格对齐——CLI 的主要
-消费者是 agent，这些排版只是 token 开销。需要结构化数据时用 `--json`，stdout
-只包含 JSON。开发日志（Vite 插件）是给人看的，才使用 `consola` / `boxen` 排版。
+消费者是 agent，这些排版只是 token 开销。需要结构化数据时用 `--json`（**仅
+`measure` 与 `measure audit` 支持**，`shot` / `verify` 没有 JSON 输出）：此时
+stdout 只有 JSON；失败时错误走 stderr、stdout 为空。开发日志（Vite 插件）是给人
+看的，才使用 `consola` / `boxen` 排版。
 
 开发模式（Vite 插件）启动后会打印会话状态和桌面端 / 移动端两个稳定入口：
 
@@ -356,7 +361,10 @@ syt measure audit --tokens a,b --counts .x   # 命令行覆盖
 命令行传了的字段整体替换文件里的同名字段——`--tokens a,b` 就是只查这两个，
 不是追加。需要更多就把要查的写全。
 
-配置文件也可以是 `.siyuan-audit.js` / `.mjs`（走模块加载，能写表达式）。
+配置文件也可以是 `.siyuan-audit.js`（走模块加载，能写表达式）。自动发现依次尝试
+`.siyuan-audit.json` / `.siyuan-audit.ts` / `.siyuan-audit.js`；`--config` 显式指定时
+支持任意后缀（`.mjs` 也行）。注意 `.ts` 依赖运行时原生类型剥离：Node ≥ 22.18 可直接
+加载，Node 20.x 会报 `ERR_UNKNOWN_FILE_EXTENSION`，那时请用 `.js`。
 
 `setup` 在全部测量前执行（先 `reset`），用来把页面推到目标场景——
 菜单项、插件面板在打开前根本不在 DOM 里，不先 setup 就量不到。
@@ -462,11 +470,17 @@ core/    被测对象契约、测量原语与运行时胶水。不依赖 vite、
          workspace.ts / link.ts / paths.ts                         工作区与目录
          target-types.ts / targets.ts / builtin-targets.ts         类型契约、注册表、内置描述符
          verify.ts / audit.ts / audit-config.ts                    校验与审计
-         log.ts / control-server.ts / errors.ts / timing.ts        共享契约与运行支撑
+         guards.ts / log.ts / control-server.ts / errors.ts / timing.ts  共享契约与运行支撑
 dev/     两种形态共用的开发链路：build.ts / dev-session.ts / dev.ts（startDev 程序 API）
 plugin/  Vite 插件形态：plugin.ts / assets.ts / post.ts / state.ts / shared.ts
-cli/     唯一入口 cli.ts + 纯导出的子命令处理函数（不自动执行）
+cli/     唯一入口 cli.ts + 纯导出的子命令处理函数（不自动执行）：
+         cli.ts / cli-args.ts / ui.ts / targets.ts / measure-cli.ts / audit.ts / shot.ts / verify-cli.ts
 ```
+
+> 注意 `cli/` 与 `core/` 有两对同名文件：`audit.ts` 与 `targets.ts`。它们是不同层
+> 的不同职责（`core/audit.ts` 是计划执行与校验，`cli/audit.ts` 是命令编排与输出；
+> `core/targets.ts` 是 `createTarget` 工厂，`cli/targets.ts` 是「参数 → Target」适配）。
+> 看文件时按目录区分，不要当成重复实现。
 
 **共享契约必须落在 `core/`。** 例如日志级别 `LogLevel` 由 `core/log.ts` 定义：
 主题、插件、CLI 三条链路都要用它。若把它留在 `dev/dev-session.ts`，`plugin/`

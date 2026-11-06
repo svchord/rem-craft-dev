@@ -262,18 +262,13 @@ export function createTargetTypeRegistry(seed: readonly TargetTypeEntry[] = []):
 /**
  * 包级默认注册表：惰性由 BUILTIN_TYPES 播种。
  * 这是唯一一处全局状态，且只在第一次查询时创建；需要隔离时改用
- * createTargetTypeRegistry() 自己造实例，或用 resetTargetTypes() 重置。
+ * createTargetTypeRegistry() 自己造实例。
  */
 let defaultRegistry: TargetTypeRegistry | null = null;
 
 function defaultTypes(): TargetTypeRegistry {
   defaultRegistry ??= createTargetTypeRegistry(BUILTIN_TYPES);
   return defaultRegistry;
-}
-
-/** 仅供测试/多租户隔离：丢弃默认实例，下次查询会用 BUILTIN_TYPES 重新播种。 */
-export function resetTargetTypes(): void {
-  defaultRegistry = null;
 }
 
 /** 注册一类被测对象（公开 API：外部项目用它加 widget / iconset）。 */

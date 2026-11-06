@@ -13,7 +13,7 @@
  */
 import { existsSync, lstatSync, mkdirSync, readlinkSync, symlinkSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
-import { dirname, isAbsolute, resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { samePath } from './paths.ts';
 import { errorCode, requireRecoverable, describeError } from './errors.ts';
 import { TIMING } from './timing.ts';
@@ -228,20 +228,45 @@ export function ensureLink(
 }
 
 /**
- * 读已存在链接的类型，仅用于日志。
+ * 读已存在链接的类型，用于日志与「插件必须真 symlink」的判定。
  * 返回 LinkType | null：区分不了时返回 null，绝不谎报成 junction。
+ *
+ * Windows 上唯一的可靠判据是**重解析点的 tag**，不能用 readlink 的形态：
+ *   junction  tag = 0xa0000003（IO_REPARSE_TAG_MOUNT_POINT）
+ *   symlink   tag = 0xa000000c（IO_REPARSE_TAG_SYMLINK）
+ * 曾经用「readlink 是否绝对路径」判断，那个判据是错的：junction 的 readlink
+ * 被 Node 规范化成绝对路径，但 symlink 若当初用绝对 target 创建，readlink
+ * 同样是绝对路径——旧版本创建的链接全部如此，于是老链接会被一律误判成
+ * junction，插件目录被拒绝启动。改用 tag 后，历史链接也能判对。
  */
 export function detectLinkType(targetPath: string): LinkType | null {
   try {
     if (!lstatSync(targetPath).isSymbolicLink()) return null;
-    const target = readlinkSync(targetPath);
     if (process.platform !== 'win32') return 'symlink';
-    // Windows junction 的 readlink 返回绝对路径；symlink 通常是原样存进去的值。
-    return isAbsolute(target) ? 'junction' : null;
+    const tag = reparseTag(targetPath);
+    // 读不到 tag（fsutil 不可用/被裁剪）时退回 null：宁可说「不知道」，
+    // 也不谎报成 junction 去拒绝插件目录。
+    if (tag === null) return null;
+    if (tag === 'a0000003') return 'junction';
+    if (tag === 'a000000c') return 'symlink';
+    return null;
   } catch (cause) {
     if (errorCode(cause) === 'ENOENT') return null;
     throw cause;
   }
+}
+
+/**
+ * 读 Windows 重解析点 tag（小写十六进制，如 `a0000003`）；读不到返回 null。
+ *
+ * 只用 `fsutil reparsepoint query`：它是系统自带工具、不依赖开发者模式，
+ * 且对 junction 与 symlink 都返回各自的 tag。普通目录会以非零码退出。
+ */
+function reparseTag(targetPath: string): string | null {
+  const result = spawnSync('fsutil', ['reparsepoint', 'query', targetPath], { encoding: 'utf8' });
+  if (result.status !== 0 || !result.stdout) return null;
+  const match = /Reparse Tag Value\s*:\s*0x([0-9a-fA-F]+)/i.exec(result.stdout);
+  return match?.[1] ? match[1].toLowerCase() : null;
 }
 
 function describeLinkFailure(

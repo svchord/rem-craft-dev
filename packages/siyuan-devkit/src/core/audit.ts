@@ -419,12 +419,14 @@ export async function runPlan(page: Page, plan: AuditPlan): Promise<AuditResult>
 
   if (plan.diffs?.length) {
     result.diffs = [];
+    // 基线快照必须在循环外拍一次：放在循环内会让第 2 个 diff 的「before」
+    // 是第 1 个 diff 的「after」，多个 diff 之间状态串味。
+    const rootSnapshot = await snapshotRoot(page);
     for (const query of plan.diffs) {
-      const rootSnapshot = await snapshotRoot(page);
-      // 每个 diff 先用同一个 setup 建立基线场景，再执行它自己的动作。
-      if (setup.length) {
-        await runActions({ page, rootSnapshot }, ['reset', ...setup]);
-      }
+      // 每个 diff 都先用同一个 setup 重建基线场景。无条件 reset 而不是
+      // `if (setup.length)`：没有 setup 时同样要把上一个 diff 的动作退掉，
+      // 否则 diff2 的基线就是 diff1 留下的状态。
+      await runActions({ page, rootSnapshot }, ['reset', ...setup]);
       result.diffs.push(
         await diffAfter(page, {
           selector: query.selector,

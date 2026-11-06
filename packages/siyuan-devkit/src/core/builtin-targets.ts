@@ -72,6 +72,20 @@ function readLocale(dir: string, file: string): unknown {
   }
 }
 
+/**
+ * 读一份 i18n 的扁平 key 列表。
+ *
+ * 返回 null 表示「读不出来」，必须与「读出来但是空的」区分开：空对象 flattenKeys
+ * 得到 []，坏文件是 null→['']，两者 join('|') 都是 ''，混在一起会让两个坏文件
+ * 被判成「key 一致」而静默通过校验。
+ */
+function readLocaleKeys(dir: string, file: string): string[] | null {
+  const data = readLocale(dir, file);
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return null;
+  const keys = flattenKeys(data);
+  return keys.length ? keys : null;
+}
+
 // ---------------------------------------------------------------------------
 // 主题
 // ---------------------------------------------------------------------------
@@ -246,15 +260,32 @@ const pluginDescriptor = {
     }
 
     if (localeFiles.includes('en.json')) {
-      const reference = flattenKeys(readLocale(i18nDir, 'en.json')).sort();
-      for (const file of localeFiles) {
-        if (file === 'en.json') continue;
-        const keys = flattenKeys(readLocale(i18nDir, file)).sort();
-        if (keys.join('|') !== reference.join('|')) {
-          issues.push({
-            message: `public/i18n/${file} 的 key 与 en.json 不一致`,
-            hint: '各语言 key 必须完全相同，缺的会显示原始 key。',
-          });
+      // 坏文件/空对象不能当成「key 集合为空」参与比较：两个都坏时 join('|')
+      // 都是 ''，会被判成「一致」而静默通过。所以先单独报「读不出来」。
+      const reference = readLocaleKeys(i18nDir, 'en.json');
+      if (reference === null) {
+        issues.push({
+          message: 'public/i18n/en.json 无法解析或为空',
+          hint: '各语言 key 必须完全相同；基准文件读不出来时无法比对其它语言。',
+        });
+      } else {
+        const referenceKeys = reference.sort();
+        for (const file of localeFiles) {
+          if (file === 'en.json') continue;
+          const keys = readLocaleKeys(i18nDir, file);
+          if (keys === null) {
+            issues.push({
+              message: `public/i18n/${file} 无法解析或为空`,
+              hint: '各语言 key 必须完全相同，坏文件会让界面显示原始 key。',
+            });
+            continue;
+          }
+          if (keys.sort().join('|') !== referenceKeys.join('|')) {
+            issues.push({
+              message: `public/i18n/${file} 的 key 与 en.json 不一致`,
+              hint: '各语言 key 必须完全相同，缺的会显示原始 key。',
+            });
+          }
         }
       }
     }

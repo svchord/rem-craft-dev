@@ -17,9 +17,6 @@ import { isRecord } from './guards.ts';
 import { requireRecoverable } from './errors.ts';
 import type { TargetDescriptor, VerifyContext, VerifyIssue } from './target-types.ts';
 
-// 兼容既有导入；实现已挪到独立小模块，避免 verify.ts ↔ 描述符的循环依赖。
-export { isSemver } from './semver.ts';
-
 /** 校验结果。 */
 export interface VerifyResult {
   ok: boolean;

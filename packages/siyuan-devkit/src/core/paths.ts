@@ -49,7 +49,7 @@ export function portMapCandidates(): string[] {
  */
 export function readWorkspacePaths(): string[] {
   for (const file of workspaceManifestCandidates()) {
-    if (!file || !existsSync(file)) continue;
+    if (!existsSync(file)) continue;
     try {
       const data: unknown = JSON.parse(readFileSync(file, 'utf8'));
       if (Array.isArray(data)) return data.filter(isString);

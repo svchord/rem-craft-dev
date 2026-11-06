@@ -31,7 +31,8 @@ import { formatIssues, verifyTarget } from '../core/verify.ts';
 import type { LogLevel } from '../core/log.ts';
 import { applyResolvedConfig, createPluginState } from './state.ts';
 import type { PluginState } from './state.ts';
-import { messageOf, walkFiles } from './shared.ts';
+import { walkFiles } from './shared.ts';
+import { describeError } from '../core/errors.ts';
 
 /**
  * 思源集市的发布产物名。
@@ -277,7 +278,7 @@ export function siyuanPost(options: PostPluginOptions = {}): Plugin {
       } catch (cause) {
         // 生产构建里打包失败必须让构建失败；同时清掉可能写了一半的坏包。
         rmSync(outFile, { force: true });
-        throw new Error(`打包失败（${PACKAGE_NAME} 未正确生成）：${messageOf(cause)}`, { cause });
+        throw new Error(`打包失败（${PACKAGE_NAME} 未正确生成）：${describeError(cause)}`, { cause });
       }
     },
   };

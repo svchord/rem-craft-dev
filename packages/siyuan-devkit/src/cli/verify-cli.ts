@@ -90,7 +90,7 @@ export async function runVerifyCli(argv: string[] = process.argv.slice(2)): Prom
 
   const result = verifyTarget(target, { root, outDir });
   if (result.ok) {
-    status('success', '校验通过', `${kind} / ${outDir}`);
+    status('校验通过', `${kind} / ${outDir}`);
     return;
   }
 

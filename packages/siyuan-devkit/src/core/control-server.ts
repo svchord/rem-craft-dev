@@ -100,6 +100,13 @@ async function probeEndpoint(port: number): Promise<DevSessionInfo | null> {
 /** 起控制服务，由 dev 进程持有。 */
 export async function startControlServer(info: Omit<DevSessionInfo, 'pid' | 'port' | 'ready'>): Promise<ControlServer> {
   mkdirSync(CONTROL_DIR, { recursive: true });
+  // 顺手清掉上一次被 SIGKILL 留下的孤儿端点文件。放在启动时而不是 discover 里：
+  // discover 是只读发现，不该有副作用；而孤儿文件会拖慢每次 discover。
+  try {
+    await pruneDeadEndpoints();
+  } catch {
+    // 清理失败不影响起服务（目录权限等问题），留给 discover 跳过坏端点。
+  }
 
   // 读租约用「客户端给的 token」标识，Set.add/delete 天然幂等：
   //   - 客户端即使拿不到响应体也知道自己的 token，可以无条件归还；

@@ -54,7 +54,7 @@ describe('frontend links', () => {
 describe('cli ui primitives', () => {
   it('renders plain status, info and section lines', () => {
     const output = capture(() => {
-      status('success', '已链接', 'D:/ws/data/themes/Rem Craft Dev');
+      status('已链接', 'D:/ws/data/themes/Rem Craft Dev');
       info('提示');
       section('预览');
     }) as string;
@@ -121,7 +121,7 @@ describe('measurement provenance', () => {
   const read = (name: string) => readFileSync(join(cliDir, name), 'utf8');
 
   it('exposes whether the reading came from the attached dev browser', () => {
-    // `--attach` 连不上会静默新开无头浏览器，量到的是另一个页面。
+    // 没带 --attach 时量的是新开的无头页面，不是 dev 会话的常驻页。
     // agent 必须能从输出判断读数出处，否则会把"新页面读磁盘"误当成"量了 dev 窗口"。
     const measure = read('measure-cli.ts');
     expect(measure, 'MeasureOutput 必须带 attached 字段').toMatch(/attached: boolean/);

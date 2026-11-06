@@ -23,7 +23,9 @@ import { dirname, isAbsolute, join, resolve } from 'node:path';
 import type { Plugin } from 'vite';
 import { applyResolvedConfig, createPluginState } from './state.ts';
 import type { PluginState } from './state.ts';
-import { isRecord, messageOf, walkFiles } from './shared.ts';
+import { walkFiles } from './shared.ts';
+import { isRecord } from '../core/guards.ts';
+import { describeError } from '../core/errors.ts';
 import type { WalkedFile } from './shared.ts';
 import type { LogLevel } from '../core/log.ts';
 
@@ -79,7 +81,7 @@ function manifestFiles(manifestPath: string, log: AssetLog): string[] {
   try {
     text = readFileSync(manifestPath, 'utf8');
   } catch (cause) {
-    log(`读不到清单 ${manifestPath}：${messageOf(cause)}；元数据按 README*.md 兜底`, 'warn');
+    log(`读不到清单 ${manifestPath}：${describeError(cause)}；元数据按 README*.md 兜底`, 'warn');
     return [];
   }
 
@@ -87,7 +89,7 @@ function manifestFiles(manifestPath: string, log: AssetLog): string[] {
   try {
     parsed = JSON.parse(text);
   } catch (cause) {
-    log(`清单 ${manifestPath} 不是合法 JSON：${messageOf(cause)}；元数据按 README*.md 兜底`, 'warn');
+    log(`清单 ${manifestPath} 不是合法 JSON：${describeError(cause)}；元数据按 README*.md 兜底`, 'warn');
     return [];
   }
   if (!isRecord(parsed)) {
@@ -135,8 +137,9 @@ function normalizeRule(rule: { src: string; dest?: string }, fromManifest: boole
   const src = rule.src.replace(/\\/g, '/');
   const dest = (rule.dest ?? '').replace(/\\/g, '/');
 
-  const escapes = (value: string): boolean =>
-    isAbsolute(value) || value.split('/').includes('..') || value.startsWith('..');
+  // 逃逸检查只按路径段判定：`a/../b`、`..`、`../foo` 都拦；
+  // 不再用 startsWith('..')——那会把 `..gitignore`、`..env` 这类合法文件名误拒。
+  const escapes = (value: string): boolean => isAbsolute(value) || value.split('/').includes('..');
   if (escapes(src) || escapes(dest)) {
     log(`跳过资产规则 ${rule.src}：src/dest 必须是项目根、产物根内的相对路径，不能是绝对路径或含 ..`, 'warn');
     return null;
@@ -259,7 +262,7 @@ export function siyuanAssets(options: AssetsPluginOptions): Plugin {
                 .filter((entry) => entry.isFile())
                 .map((entry) => ({ name: entry.name, path: join(srcRoot, entry.name) }));
         } catch (cause) {
-          log(`资产规则 ${rule.src} 读不到源目录 ${srcRoot}：${messageOf(cause)}`, 'warn');
+          log(`资产规则 ${rule.src} 读不到源目录 ${srcRoot}：${describeError(cause)}`, 'warn');
           continue;
         }
 
@@ -274,7 +277,7 @@ export function siyuanAssets(options: AssetsPluginOptions): Plugin {
             mkdirSync(dirname(destination), { recursive: true });
             copyFileSync(file.path, destination);
           } catch (cause) {
-            log(`资产复制失败 ${relative} → ${destination}：${messageOf(cause)}`, 'error');
+            log(`资产复制失败 ${relative} → ${destination}：${describeError(cause)}`, 'error');
           }
         }
         if (matched === 0) {

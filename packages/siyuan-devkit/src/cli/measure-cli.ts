@@ -57,12 +57,13 @@ import type {
   ProbeHtmlReading,
   SelectorCount,
 } from '../core/measure.ts';
-import { lastValue, allValues, parseArgs, wantsHelp } from './cli-args.ts';
+import { lastValue, allValues, parseArgs, splitList, wantsHelp } from './cli-args.ts';
 import type { MountState } from '../core/target-types.ts';
 import { DEFAULT_PROPS } from '../core/audit.ts';
+import { UserFacingError } from '../core/errors.ts';
 import { resolveTargetFromParsed } from './targets.ts';
 import { runAudit } from './audit.ts';
-import { box, info, list, section, table, warn } from './ui.ts';
+import { box, info, list, section, styleRows, table, warn } from './ui.ts';
 
 const VALUE_FLAGS = [
   '--frontend',
@@ -129,7 +130,8 @@ interface MeasureOutput {
   target: { kind: string; name: string } | null;
   /**
    * 读数来源：true=复用了 dev 会话的浏览器（你眼前那个窗口），
-   * false=新开的无头浏览器。`--attach` 连不上时会静默新开，
+   * false=没带 --attach 时新开的无头浏览器。`--attach` 连不上会直接报错
+   * （不静默降级），所以 attached=false 只表示「本次没要求复用」。
    * 没有这个字段就无法判断读的是不是同一个页面。
    */
   attached: boolean;
@@ -146,13 +148,6 @@ interface MeasureOutput {
   contrast?: { foreground: string | undefined; background: string | undefined; ratio: number | null };
 }
 
-/** 非空样式值转成两列表格行。 */
-function styleRows(styles: Record<string, string>): Array<[string, string]> {
-  return Object.entries(styles)
-    .filter(([, value]) => Boolean(value))
-    .map(([prop, value]) => [prop, value]);
-}
-
 function printHuman(output: MeasureOutput, frontend: string): void {
   // 只在没挂上时提醒，正常情况不打扰。
   if (output.mount && !output.mount.ok) {
@@ -167,7 +162,7 @@ function printHuman(output: MeasureOutput, frontend: string): void {
       ['后端', env.backend ?? '?'],
       ['模式', env.themeMode ?? '?'],
       ['视口', `${env.viewport.width}x${env.viewport.height}@${env.viewport.dpr}`],
-      // 读数出处必须显式给出：--attach 连不上会静默新开无头浏览器，
+      // 读数出处必须显式给出：没带 --attach 时是新开的无头浏览器，
       // 不说明的话无法判断这些值来自哪个页面。
       ['读数来源', output.attached ? 'dev 会话浏览器（--attach 生效）' : '新开无头浏览器'],
       ['DOM 节点', String(env.domNodes)],
@@ -297,11 +292,7 @@ export async function runMeasureCli(argv: string[] = process.argv.slice(2)): Pro
   const viewportArg = lastValue(parsed, '--viewport');
   const viewport = viewportArg ? parseViewport(viewportArg, null) : null;
   const asJson = parsed.flags.has('--json');
-  const props =
-    lastValue(parsed, '--props')
-      ?.split(',')
-      .map((item) => item.trim())
-      .filter(Boolean) ?? DEFAULT_PROPS;
+  const props = splitList(lastValue(parsed, '--props')) ?? DEFAULT_PROPS;
   const actions = allValues(parsed, '--do');
   const setupActions = allValues(parsed, '--setup');
 
@@ -345,34 +336,34 @@ export async function runMeasureCli(argv: string[] = process.argv.slice(2)): Pro
         break;
 
       case 'tokens': {
-        if (!args.length) throw new Error('tokens 需要至少一个令牌名');
+        if (!args.length) throw new UserFacingError('tokens 需要至少一个令牌名');
         output.tokens = await tokens(session.page, args);
         break;
       }
 
       case 'styles': {
         const selector = args[0];
-        if (!selector) throw new Error('styles 需要一个选择器');
+        if (!selector) throw new UserFacingError('styles 需要一个选择器');
         output.styles = await elementStyles(session.page, selector, props);
         break;
       }
 
       case 'count': {
-        if (!args.length) throw new Error('count 需要至少一个选择器');
+        if (!args.length) throw new UserFacingError('count 需要至少一个选择器');
         output.counts = await selectorCounts(session.page, args);
         break;
       }
 
       case 'box': {
         const selector = args[0];
-        if (!selector) throw new Error('box 需要一个选择器');
+        if (!selector) throw new UserFacingError('box 需要一个选择器');
         output.boxes = await elementBox(session.page, selector, Number(lastValue(parsed, '--limit') ?? 5));
         break;
       }
 
       case 'probe': {
         const [html, probeTarget] = args;
-        if (!html || !probeTarget) throw new Error('probe 需要 <html> <target>');
+        if (!html || !probeTarget) throw new UserFacingError('probe 需要 <html> <target>');
         output.probe = await probeHtml(session.page, { html, target: probeTarget, props });
         break;
       }
@@ -381,8 +372,8 @@ export async function runMeasureCli(argv: string[] = process.argv.slice(2)): Pro
         // 语义：--setup 先把页面带到目标场景（如打开菜单），--do 是「相对基线要做的动作」。
         // 没有 --setup 时，--do 就是全部动作，但那样元素可能还不存在（菜单项就是）。
         const selector = args[0];
-        if (!selector) throw new Error('diff 需要一个选择器');
-        if (!actions.length) throw new Error('diff 需要 --do 指定要执行的交互');
+        if (!selector) throw new UserFacingError('diff 需要一个选择器');
+        if (!actions.length) throw new UserFacingError('diff 需要 --do 指定要执行的交互');
         const rootSnapshot = await snapshotRoot(session.page);
 
         // 1) 复位 + 执行 setup，建立可测量的基线场景
@@ -402,7 +393,7 @@ export async function runMeasureCli(argv: string[] = process.argv.slice(2)): Pro
       case 'contrast': {
         // 便捷：直接算两个令牌（或两个颜色值）的对比度
         const [fgArg, bgArg] = args;
-        if (!fgArg || !bgArg) throw new Error('contrast 需要 <前景> <背景>（令牌名或颜色值）');
+        if (!fgArg || !bgArg) throw new UserFacingError('contrast 需要 <前景> <背景>（令牌名或颜色值）');
         const resolveColor = async (input: string): Promise<string | undefined> => {
           if (input.startsWith('--')) return (await tokens(session.page, [input]))[input];
           return input;
@@ -416,7 +407,7 @@ export async function runMeasureCli(argv: string[] = process.argv.slice(2)): Pro
       default:
         // --json 时 stdout 只能有 JSON，用法说明不混进来。
         if (!asJson) usage();
-        throw new Error(`未知子命令：${command}`);
+        throw new UserFacingError(`未知子命令：${command}`);
     }
   } finally {
     await session.dispose();

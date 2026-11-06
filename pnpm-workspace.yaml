@@ -1,9 +1,6 @@
-# pnpm workspace：主题本体 + 独立的开发工具包。
-# 拆包的目的：syt 不依赖本主题的任何东西，可以复制到别的主题/插件项目里用。
-packages:
-  - 'packages/*'
-
-# pnpm 11 的安装脚本白名单：本依赖树里只有 @parcel/watcher（可选 native watcher）带 postinstall，
-# 主题构建用不到它，显式禁用可避免每次 install 报 ERR_PNPM_IGNORED_BUILDS。
+# 本仓库不是 pnpm workspace（只有一个包）。
+# 这个文件只用来放 pnpm 11 的安装脚本白名单：
+# 依赖树里只有 @parcel/watcher（sass 经 vite 带进来的可选 native watcher）带
+# postinstall，主题构建用不到它，显式禁用可避免 install 时提示 ERR_PNPM_IGNORED_BUILDS。
 allowBuilds:
   '@parcel/watcher': false

@@ -10,7 +10,6 @@ lerna-debug.log*
 node_modules
 /dist
 /dev
-packages/*/dist/
 dist-ssr
 coverage
 *.local
@@ -27,9 +26,14 @@ coverage
 *.sln
 *.sw?
 
+# 构建/审计产物
 package.zip
 audit-browser.png
 inspect.png
 .rc-cdp-ws
-# 人工审计截图
 /shots
+
+# 一次性探针脚本留下的临时目录（probe-*.mjs 等）
+/.pw*
+/.watch-*
+/probe-*.mjs

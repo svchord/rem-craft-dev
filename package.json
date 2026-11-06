@@ -6,23 +6,21 @@
   "description": "Rem Craft theme for SiYuan Note",
   "packageManager": "pnpm@11.28.5",
   "engines": {
-    "node": ">=20.19.0"
+    "node": ">=22.18.0"
   },
   "scripts": {
-    "build:devkit": "pnpm --filter siyuan-devkit build",
-    "dev": "pnpm run build:devkit && vite build --watch",
-    "build": "pnpm run build:devkit && pnpm run type-check && vite build",
+    "dev": "vite build --watch",
+    "build": "pnpm run type-check && vite build",
     "check": "pnpm run format:check && pnpm run lint && pnpm run type-check && pnpm run test",
-    "type-check": "tsc --build --force && pnpm --filter siyuan-devkit type-check",
-    "test": "vitest run && pnpm --filter siyuan-devkit test",
-    "lint": "oxlint --deny-warnings src scripts packages/siyuan-devkit/src",
+    "type-check": "tsc --noEmit",
+    "test": "vitest run",
+    "lint": "oxlint --deny-warnings src tests scripts vite.config.ts vitest.config.ts uno.config.ts",
     "format": "oxfmt .",
     "format:check": "oxfmt --check .",
     "measure": "syt measure",
     "shot": "syt shot"
   },
   "devDependencies": {
-    "siyuan-devkit": "workspace:*",
     "@semantic-release/changelog": "^7.0.0",
     "@semantic-release/commit-analyzer": "^13.0.1",
     "@semantic-release/exec": "^7.1.0",
@@ -33,8 +31,8 @@
     "@types/node": "^26.6.6",
     "oxfmt": "^0.75.0",
     "oxlint": "^1.90.0",
-    "puppeteer-core": "^25.16.0",
     "semantic-release": "^25.0.9",
+    "siyuan-devkit": "link:../siyuan-devkit",
     "typescript": "^7.0.2",
     "unocss": "^66.12.0",
     "vite": "^8.3.5",

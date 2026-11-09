@@ -24,6 +24,29 @@
 * **plugin:** 构建配置改由插件按类型注入，项目只传入参 ([f10f2ec](https://github.com/svchord/rem-craft-dev/commit/f10f2ecf5f064e14f28080bb77a9b01e56bb93fb))
 * **plugin:** 统一 entry 入参，构建配置按类型注入且补缺不覆盖 ([747e182](https://github.com/svchord/rem-craft-dev/commit/747e182669d70b0b135fb7313974cb5a7754891c))
 
+## [3.2.0](https://github.com/svchord/rem-craft-dev/compare/v3.1.0...v3.2.0) (2026-11-09)
+
+
+### Features
+
+* **devkit:** measure 复用页面时先跟磁盘对齐 CSS，不再每次新开浏览器 ([b236379](https://github.com/svchord/rem-craft-dev/commit/b236379eab3cfcbb61f90178ce710c3980a9c7c7))
+* **devkit:** 主题热更新可作用到本体（内核广播），并删掉 syncCopy ([0d75dfe](https://github.com/svchord/rem-craft-dev/commit/0d75dfe42c3a960910b01357f7d4b93cdccaac06))
+* **devkit:** 加 auditBrowser 开关，默认关闭常驻测量页；--attach 连不上报错给 agent ([2dcaa6a](https://github.com/svchord/rem-craft-dev/commit/2dcaa6aa3e6debfb71f20d3e927d6b366ed8f81f))
+
+
+### Bug Fixes
+
+* **devkit:** 修 Windows 链接类型误判与一批审查发现的问题 ([9f7e358](https://github.com/svchord/rem-craft-dev/commit/9f7e3584977515157f63e9b2497b286e3152da51))
+* **devkit:** 修回主题热重载，并如实报告「未热重载」 ([146096f](https://github.com/svchord/rem-craft-dev/commit/146096fc978e07cf6bb238e033ac35ea88fa7281))
+* **devkit:** 复用页面测量时把插件 CSS 也跟磁盘对齐 ([f99ddfe](https://github.com/svchord/rem-craft-dev/commit/f99ddfea806ada6619851c00b9b73c4b0b4cc4bc))
+* **devkit:** 插件 JS 的热重载不再被「没有受控页面」挡掉 ([51274c7](https://github.com/svchord/rem-craft-dev/commit/51274c71a0cd399c4dd153fb90c0b038bcb97ba8))
+* **devkit:** 收尾审计：堵住异常状态下的静默降级与资源泄漏 ([34a07ac](https://github.com/svchord/rem-craft-dev/commit/34a07acd04f48102c683294a7600d5dba7445b0a))
+
+
+### Reverts
+
+* **devkit:** 撤回「切主题再切回」广播，补上测量读数出处 ([99afc88](https://github.com/svchord/rem-craft-dev/commit/99afc882d44054ebc45d67a1a8b3e3ad036d5c11))
+
 ## [3.0.1](https://github.com/svchord/rem-craft-dev/compare/v3.0.0...v3.0.1) (2026-11-01)
 
 

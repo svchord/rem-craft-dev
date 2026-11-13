@@ -1,0 +1,14 @@
+/* 项目扩展 space-* / size-*。弃用：无。 */
+
+:root {
+  --rc-space-xs: 4px;
+  --rc-space-sm: 8px;
+  --rc-space-md: 12px;
+  --rc-space-lg: 16px;
+  --rc-space-xl: 24px;
+
+  --rc-size-row: 28px;
+  --rc-size-control: 28px;
+  --rc-size-dock: 44px;
+  --rc-size-panel: 320px;
+}

@@ -1,1005 +1,870 @@
 # Rem Craft 主题架构设计
 
-> 版本：v2（从零重构）
-> 目标：一套 CSS 主题，内置多套**组件风格**与**配色方案**，由插件在运行时切换。
-> 硬约束：产物只有 `theme.css` + `theme.json`，**不允许任何 JS**。
+> 目标：一个主题包，内置多套设计系统风格，运行时切换。
+> 产物：`theme.css` + `theme.json`（+ 清单声明的 icon / preview），**产物内不允许任何 JS**。
+> 当前范围：只做 Material。M3 设计层 token 全量复刻，弃用 token 不落地但逐条标注。
+
+## 版本锚点
+
+| 对象             | 锚点                                                          | 取值                                        |
+| ---------------- | ------------------------------------------------------------- | ------------------------------------------- |
+| Material 3 token | `material-components/material-web` → `tokens/versions/latest` | **34.0.21**                                 |
+| MWC 组件库       | `@material/web`                                               | **2.5.0**（维护模式，token 流水线仍在更新） |
+| 思源             | `siyuan-note/siyuan`                                          | **v3.8.10**                                 |
+| MCU              | `@material/material-color-utilities`                          | **0.4.0**                                   |
+
+`tokens/versions/latest/sass/_index.scss` 共 194 个 `@forward`：组件层 179 个，设计层 15 个（`md-ref-*` 2 + `md-sys-*` 13）。**本项目只复刻设计层。**
 
 ---
 
-## 1. 约束与前提
+## 1. 架构总览
 
-### 1.1 硬约束
+### 1.1 四层
 
-| 约束                                             | 来源                                        | 影响                                    |
-| ------------------------------------------------ | ------------------------------------------- | --------------------------------------- |
-| 产物无 JS                                        | 思源主题通道只认 `theme.css` + `theme.json` | 所有切换能力必须落在 CSS 属性上         |
-| 思源 `base.css` 无 `@layer`、144 处 `!important` | 3.8.9 实测                                  | 产物**绝不能**用 `@layer`，否则整包失效 |
-| 一个主题 = 一个 `package.zip`                    | 思源市场                                    | 多风格必须打进同一个包                  |
+| 层           | 命名空间                                                          | 内容                                                         | 谁消费                               |
+| ------------ | ----------------------------------------------------------------- | ------------------------------------------------------------ | ------------------------------------ |
+| **原料层**   | `--md-ref-palette-*` / `--md-ref-typeface-*`（**M3 原名，不改**） | 239 + 5 条                                                   | 只有 `sys-*` 与 `derived.scss`       |
+| **契约层**   | `--rc-*`（简化名）                                                | `sys-*` 843 条 + 派生 12 角色（24 条）+ 静态标注 18 个唯一名 | 组件、`bridge.scss`、`uno.config.ts` |
+| **项目扩展** | `--rc-*`                                                          | `space-*` 5 + `size-*` 4 + `shadow-*` 6                      | 组件                                 |
+| **桥接层**   | `--b3-*`                                                          | 137 条颜色声明                                               | 思源原生 UI                          |
 
-### 1.2 核心判断：配色与风格必须分开
+### 1.2 数据流
 
-**配色是参数，风格是配方。** 两者的实现机制不同：
-
-|          | 配色（palette）      | 风格（style）              |
-| -------- | -------------------- | -------------------------- |
-| 本质     | 一组 CSS 变量取值    | 一组真实 CSS 规则          |
-| 实现     | 变量覆盖（天然层叠） | 选择器互斥（必须显式隔离） |
-| 切换成本 | 几乎为零             | 需要整套规则切换           |
-| 能否混搭 | 可以                 | 不能（结构不同）           |
-
-把风格塞进变量，最终只会得到「多套配色 + 一套长得一样的组件」；把配色写成规则，则无法运行时切换。
-
-### 1.3 默认即 Material
-
-**没有名为 `default` 的风格与配色。** 未设置任何属性时，生效的是 Material 风格 + Material 配色。
-
-```css
-/* Material 是默认：属性缺失 或 显式写 material 都命中 */
-:root:is(:not([data-rc-style]), [data-rc-style='material']) { … }
 ```
+M3 ref-palette (239) / ref-typeface (5)        --md-ref-*    原料层
+        ↓ 只有 sys-* 与 derived.scss 可引用
+M3 sys-* (843 条) + 派生 (24 条) + 标注 (18 个唯一名)  --rc-*   契约层
+        ↓ 只有 bridge 与组件可引用
+bridge.scss (137 条 → 49 个目标)                --b3-*        桥接层
+        ↓
+components
+```
+
+### 1.3 核心规则
+
+| #   | 规则                                                                                                          |
+| --- | ------------------------------------------------------------------------------------------------------------- |
+| 1   | 依赖严格单向：ref → sys → bridge / UnoCSS theme → components，禁止反向引用。                                  |
+| 2   | M3 设计层全量复刻：非弃用 token 一条不少、取值照抄；变量名可简化，但必须 1:1 双射（不合并、不拆分、不丢弃）。 |
+| 3   | Token 存完整颜色值；透明度统一用 `color-mix()`；组件不出现字面色值。                                          |
+| 4   | 明暗由 token 自动切换，不是变体；风格、密度、平台是变体。                                                     |
+| 5   | 思源内置主题的 **185** 个 `--b3-*` 中，**147 个颜色语义变量全量接管**。                                       |
+| 6   | 产物无 JS；插件只写属性与注入 palette，不参与渲染。                                                           |
+| 7   | UnoCSS 只做构建期 CSS 生成器：`@apply` 展开进组件选择器，产物是普通 CSS。                                     |
+| 8   | 当前只实现 Material；Fluent、shadcn 只保留目录与覆盖入口。                                                    |
 
 ---
 
-## 2. 两个正交轴
+## 2. 目录与分层
+
+### 2.1 两层定义与依赖
+
+| 层           | 内容     | 选择器形态                   |
+| ------------ | -------- | ---------------------------- |
+| `tokens`     | 全部变量 | 只有 `:root` / `:root[attr]` |
+| `components` | 全部样式 | 组件选择器 + 变体链          |
+
+「层」只表示覆盖顺序，判断标准是写变量还是写选择器。`foundation/` 只放 UnoCSS 基线变量（§8.2），不是设计层。
+
+**依赖方向：**
+
+| 文件                     | 可以引用                                                        | 禁止引用                             |
+| ------------------------ | --------------------------------------------------------------- | ------------------------------------ |
+| `tokens/material/*.scss` | `@material/web` 包内 `tokens/versions/latest/sass` 的 Sass 变量 | 任何 `--b3-*`、组件类名              |
+| `tokens/derived.scss`    | `--md-ref-palette-*` 的 static 档位、`sys-color`                | `--b3-*`、组件类名                   |
+| `tokens/bridge.scss`     | `--rc-*`（sys 角色 / 派生角色 / 静态标注 token）                | `--md-ref-*`、定义新角色             |
+| `components/*.scss`      | 短工具类                                                        | 字面色值、`var(--rc-*)`、`--b3-ui-*` |
+
+`bridge.scss` 是唯一允许定义 `--b3-*` 的文件。
+
+### 2.2 目录
 
 ```
-                  <html> 属性
-                        │
-        ┌───────────────┴───────────────┐
-        ▼                               ▼
-  data-rc-style                   data-rc-palette
-  （组件配方轴）                    （配色轴）
-  material（默认）                  material（默认）
-  fluent                           fluent
-  shadcn                           shadcn
-  …可扩展                          …可扩展
-        │                               │
-        └───────────────┬───────────────┘
-                        ▼
-              语义令牌（--rc-*）
-                        ▼
-              思源桥接（--b3-*）
-```
+node_modules/@material/web/tokens/versions/latest/sass/   11 个官方 SCSS（devDependency，不复制进仓库）
+  _md-ref-palette.scss  _md-ref-typeface.scss
+  _md-sys-color.scss  _md-sys-color__dark.scss
+  _md-sys-shape.scss  _md-sys-elevation.scss  _md-sys-motion.scss
+  _md-sys-state.scss  _md-sys-state-focus-indicator.scss
+  _md-sys-typescale.scss  _md-sys-typescale-emphasized.scss
+  版本 34.0.21（各文件头 "Version:" 注释），由 @material/web@2.5.0 精确锁定
 
-两轴可自由组合：`style=fluent` + `palette=material` 合法（Fluent 形状 + Material 配色）。
-
----
-
-## 3. 分层
-
-```
-0  刻度 scale       M3 tone 0–100 色阶、间距、圆角、字体、动效
-        ↓
-1  语义 semantic     契约层：--rc-bg-surface 等，组件唯一可读的变量
-        ↑ 由 palette 覆盖取值
-        ↓
-2  桥接 bridge       --b3-* ← --rc-*，思源原生 UI 的唯一入口
-        ↓
-3  骨架 base         所有风格共享的结构规则，只消费语义令牌
-        ↑ 由 style 覆盖
-        ↓
-4  风格 style/<n>    每套风格的真实配方，互斥生效
-        ↓
-5  变体 variants     暗色 / 密度 / 移动端 / 功能开关 / 文档级属性
-```
-
-### 3.1 依赖方向（严格单向，测试强制）
-
-| 层       | 可引用        | 禁止引用                     |
-| -------- | ------------- | ---------------------------- |
-| scale    | 无（纯数值）  | 任何变量                     |
-| semantic | `--rc-*` 刻度 | `--b3-*`                     |
-| bridge   | `--rc-*` 语义 | 定义 `--rc-*`                |
-| base     | `--rc-*` 语义 | `--b3-*`、`--m3-*`、`--tw-*` |
-| style    | `--rc-*` 语义 | `--b3-*`、`--m3-*`、`--tw-*` |
-| variants | `--rc-*` 语义 | 同上                         |
-
-**唯一例外**：`bridge` 是 `--b3-*` 的唯一定义处。除此之外任何层出现 `--b3-` 都视为违规。
-
----
-
-## 4. 目录结构
-
-```
 src/
-  theme.css                     # 唯一入口，只有 @import，顺序即层级
-  foundation/
-    scale.css                   # 0 刻度（M3 tone 13 档，OKLCH 三通道）
-    semantic.css                # 1 语义契约 + --rc-contract-version
-    bridge.css                  # 2 --b3-* 桥接
-  palettes/
-    material.css                # 默认（:root）
-    fluent.css                  # [data-rc-palette=fluent]
-    shadcn.css                  # [data-rc-palette=shadcn]
-  base/
-    skeleton.css                # 3 共享结构规则（含 .rc-ripple 预留）
-  styles/
-    material/
-      index.css                 # @import 该风格的各区域文件
-      dock.css  toolbar.css  tabs.css  editor.css  sidebar.css
-      menus.css  dialogs.css  statusbar.css  scrollbar.css
-    fluent/                     # 仅桌面
-      index.css  …同构
-    shadcn/                     # 仅桌面
-      index.css  …同构
-  variants/
-    dark.css                    # [data-theme-mode=dark]
-    density.css                 # [data-ui-density=compact]
-    mobile.css                  # [data-backend=ios|android|harmony]
-    features.css                # 功能开关 data-rc-<feature>
-    document.css                # [custom-rc-*] 文档级属性
-contract/
-  tokens.json                   # 契约包（过渡期在主题仓库，稳定后发 npm）
-scripts/palette/
-  argb-to-oklch.mjs             # ARGB/hex → OKLCH 三通道
-  gen-palette.mjs               # 种子色 → palettes/*.css
+├── theme.scss                唯一入口，只有 @use
+├── foundation/
+│   └── _un-baseline.scss     9 条 UnoCSS 基线变量（§8.2）
+├── tokens/
+│   ├── material/_index.scss  严格复刻 M3 设计层：843 条 --rc-*（按族生成）
+│   ├── derived.scss          12 派生 + 18 静态标注 + 6 阴影配方
+│   ├── _extend.scss          项目扩展 space-* / size-*
+│   ├── bridge.scss           137 条 --b3-*（手写）
+│   └── fluent/  shadcn/      预留
+└── components/
+    menu.scss  dialog.scss  dock.scss  editor.scss  tree.scss  mobile.scss
 ```
 
-### 4.1 新增一套风格的成本
+`theme.scss` 的 `@use` 顺序固定：**foundation → tokens（material → derived）→ bridge → components**。
 
-1. 建 `styles/<name>/` 目录，按区域写文件；
-2. 在 `styles/<name>/index.css` 里 `@import` 各区域；
-3. 在 `src/theme.css` 里加一行 `@import`；
-4. 在 `contract/tokens.json` 的风格列表里加一项。
+### 2.3 当前实际状态
 
-没有中心注册表，没有构建配置改动。
+Token 层（实施顺序第 1–7 步）与桥接层（第 8 步）已落地，组件层尚未开始：
+
+| 文件                               | 状态      | 内容                                                                                     |
+| ---------------------------------- | --------- | ---------------------------------------------------------------------------------------- |
+| `src/theme.scss`                   | ✅ 已落地 | 唯一入口，只有 `@use`：foundation → material → derived → extend → bridge → fluent/shadcn |
+| `src/foundation/_un-baseline.scss` | ✅ 已落地 | 9 条 `--un-*` 基线变量（§8.2）                                                           |
+| `src/tokens/material/_index.scss`  | ✅ 已落地 | `meta.module-variables()` 生成 843 条声明 / 795 唯一名，弃用 6 条剔除                    |
+| `src/tokens/derived.scss`          | ✅ 已落地 | 12 派生角色 × 亮暗（24 条）+ 18 静态标注 + 6 阴影配方                                    |
+| `src/tokens/_extend.scss`          | ✅ 已落地 | 项目扩展 `space-*` 5 + `size-*` 4                                                        |
+| `src/tokens/bridge.scss`           | ✅ 已落地 | 137 条 `--b3-*`，映射到 49 个目标，alpha 全用 `color-mix()`                              |
+| `src/tokens/fluent/_index.scss`    | ✅ 空壳   | `:root[data-rc-style='fluent']` 覆盖入口                                                 |
+| `src/tokens/shadcn/_index.scss`    | ✅ 空壳   | `:root[data-rc-style='shadcn']` 覆盖入口                                                 |
+| `src/components/`                  | ⬜ 未开始 | 实施顺序第 9 步                                                                          |
+| `@material/web`（devDependency）   | ✅ 已引入 | **2.5.0 精确锁定**（`"@material/web": "2.5.0"`，无 `^`）；内置 token 34.0.21             |
+
+旧文件已按计划处理：`src/theme.css` 改名重写为 `theme.scss`，`src/foundation/semantic.css` 与 `tests/theme-entry.test.ts` 一并删除。`--rc-contract-version` 已从架构中移除：插件不读它，`vite-plugin-siyuan` 不读它，唯一引用它的旧测试已删除。
+
+产物现状：`dist/theme.css` 46.2 kB（gzip 6.4 kB），1046 条声明 / 986 唯一名，无 JS、无 `@layer`。`pnpm check` 全绿（64 个测试）。
+
+官方 token 不再复制进仓库：`@material/web` 以 **精确版本 2.5.0** 挂在 devDependencies，`src/tokens/material/` 下各族文件直接 `@use` 包内的 `tokens/versions/latest/sass/*`。Vite 能解析裸包名；测试里的 `sass.compile()` 需要显式 `loadPaths: [node_modules]`（已写进 `tests/tokens.test.ts` 与 `tests/components.test.ts`）。
 
 ---
 
-## 5. 隔离机制
+## 3. Token 体系
 
-### 5.1 风格互斥
+### 3.1 全景与落地
 
-```css
-/* styles/material/dock.css —— Material 是默认 */
-:root:is(:not([data-rc-style]), [data-rc-style='material']) .dock__item {
-  border-radius: var(--rc-radius-full);
-  padding: var(--rc-space-1);
-}
+| 族              | 官方文件                    | 官方条数 | 弃用                        | 落地    | 说明                                                         |
+| --------------- | --------------------------- | -------- | --------------------------- | ------- | ------------------------------------------------------------ |
+| 颜色·色阶       | `ref-palette`               | 239      | 0                           | **239** | 无语义原始色阶，`--md-ref-palette-*`                         |
+| 颜色·语义（亮） | `sys-color`                 | 50       | 2                           | **48**  | 背景 / 文字 / 边框 / 品牌                                    |
+| 颜色·语义（暗） | `sys-color__dark`           | 50       | 2                           | **48**  | 与亮色同键同序                                               |
+| 排版·字族       | `ref-typeface`              | 5        | 0                           | **5**   | brand / plain / weight-bold / weight-medium / weight-regular |
+| 排版·字号       | `sys-typescale`             | 213      | 3                           | **210** | 15 层级 × 14 属性                                            |
+| 排版·强调       | `sys-typescale-emphasized`  | 210      | 0                           | **210** | 仅 `weight` / `wght` 更重                                    |
+| 形状            | `sys-shape`                 | 24       | 0                           | **24**  | 9 个 `corner-value-*` + 15 个 `corner.*`                     |
+| 高度            | `sys-elevation`             | 7        | 1                           | **6**   | level0–5 = 0/1/3/6/8/12 px（dp）                             |
+| 动效            | `sys-motion`                | 45       | 0                           | **45**  | 16 时长 + 10 曲线 + 18 spring + 1 path                       |
+| 状态            | `sys-state`                 | 5        | 0                           | **5**   | hover / focus / pressed / dragged / disabled                 |
+| 状态·焦点       | `sys-state-focus-indicator` | 3        | 0                           | **3**   | inner-offset / outer-offset / thickness                      |
+| **合计**        |                             | **1051** | **16 处（6 个唯一 token）** | **843** | 843 条声明 / **795 个唯一变量名**                            |
 
-/* styles/fluent/dock.css —— 只在自己的属性下生效 */
-@media (hover: hover) and (pointer: fine) {
-  :root[data-rc-style='fluent'] .dock__item {
-    border-radius: var(--rc-radius-sm);
-    padding: var(--rc-space-2);
+产物另加派生状态色 **24** 条 + 静态标注色 **22** 条 + 阴影配方 **6** 条 = **895 条声明**。
+
+**不启用**：4 个对比度变体文件（light/dark × medium/high，各 50 条，共 200 条）。思源没有对比度开关；MCU 的 `DynamicScheme` 有 `contrastLevel` 参数可运行时生成（§10.4）。将来需要时按 `:root[data-rc-contrast='high']` 追加，不改架构。
+
+> M3 设计层没有第 7 个族——没有「间距」「密度」「z-index」「图标尺寸」，它们要么在 comp 层，要么是项目自建（§4.3 的 `space-*` / `size-*`）。
+
+### 3.2 `ref-palette` 的 239 条
+
+| 色族                                                        | 档位                                                                  | 条数    |
+| ----------------------------------------------------------- | --------------------------------------------------------------------- | ------- |
+| black / white                                               | —                                                                     | 2       |
+| primary / secondary / tertiary / error                      | 0,10,20,30,40,50,60,70,80,90,95,98,99（error 另有 100）               | 56      |
+| neutral                                                     | 0,4,6,10,12,17,20,22,24,30,40,50,60,70,80,87,90,92,94,95,96,98,99,100 | 24      |
+| neutral-variant                                             | 0,10,20,30,40,50,60,70,80,90,95,98,99,100                             | 14      |
+| blue / cyan / green / orange / pink / purple / red / yellow | 0,10,20,30,40,50,60,70,80,90,95,98,100                                | 104     |
+| blue-variant / grey / grey-variant                          | 0,10,20,30,40,50,60,70,80,90,95,98,100                                | 39      |
+| **合计**                                                    |                                                                       | **239** |
+
+19 个色族分两类：
+
+| 类别           | 色族                                                                                                             | 被 `sys-color` 引用 | 消费者             |
+| -------------- | ---------------------------------------------------------------------------------------------------------------- | ------------------- | ------------------ |
+| **动态**（6）  | primary / secondary / tertiary / neutral / neutral-variant / error                                               | ✅ 49 个 tone       | 插件莫奈覆盖       |
+| **静态**（13） | blue / cyan / green / orange / pink / purple / red / yellow / grey / grey-variant / blue-variant / black / white | ❌ 一个都不引用     | 派生色、静态标注色 |
+
+静态色族必须全量落地：派生色需要 container 对（`green90`/`green10` 等），标注色需要 7 个色族 × 2 档，缺档位则无源可引。静态色族不参与莫奈覆盖。
+
+### 3.3 `sys-color` 的 48 条
+
+```
+background, on-background, surface, on-surface, surface-variant, on-surface-variant,
+surface-dim, surface-bright,
+surface-container-lowest, surface-container-low, surface-container,
+surface-container-high, surface-container-highest,
+inverse-surface, inverse-on-surface,
+outline, outline-variant, shadow, scrim,
+primary, on-primary, primary-container, on-primary-container, inverse-primary,
+primary-fixed, primary-fixed-dim, on-primary-fixed, on-primary-fixed-variant,
+secondary, on-secondary, secondary-container, on-secondary-container,
+secondary-fixed, secondary-fixed-dim, on-secondary-fixed, on-secondary-fixed-variant,
+tertiary, on-tertiary, tertiary-container, on-tertiary-container,
+tertiary-fixed, tertiary-fixed-dim, on-tertiary-fixed, on-tertiary-fixed-variant,
+error, on-error, error-container, on-error-container
+```
+
+亮色、暗色、4 个对比度变体文件里这 50 个键**顺序完全一致**，可按位置断言（B20）。
+
+### 3.4 排版（420 条）
+
+15 个层级（5 类 × 3 档）：
+
+| 层级              | 字号             | 行高           | 字重（常规 / 强调） | 字族  | 用途        |
+| ----------------- | ---------------- | -------------- | ------------------- | ----- | ----------- |
+| `display-large`   | 3.5625rem (57px) | 4rem (64px)    | 400 / 500           | brand | 超大标题    |
+| `display-medium`  | 2.8125rem (45px) | 3.25rem (52px) | 400 / 500           | brand |             |
+| `display-small`   | 2.25rem (36px)   | 2.75rem (44px) | 400 / 500           | brand |             |
+| `headline-large`  | 2rem (32px)      | 2.5rem (40px)  | 400 / 500           | brand | 页面标题    |
+| `headline-medium` | 1.75rem (28px)   | 2.25rem (36px) | 400 / 500           | brand |             |
+| `headline-small`  | 1.5rem (24px)    | 2rem (32px)    | 400 / 500           | brand |             |
+| `title-large`     | 1.375rem (22px)  | 1.75rem (28px) | 400 / 500           | brand | 卡片标题    |
+| `title-medium`    | 1rem (16px)      | 1.5rem (24px)  | 500 / 700           | plain |             |
+| `title-small`     | 0.875rem (14px)  | 1.25rem (20px) | 500 / 700           | plain |             |
+| `body-large`      | 1rem (16px)      | 1.5rem (24px)  | 400 / 500           | plain | **正文**    |
+| `body-medium`     | 0.875rem (14px)  | 1.25rem (20px) | 400 / 500           | plain |             |
+| `body-small`      | 0.75rem (12px)   | 1rem (16px)    | 400 / 500           | plain |             |
+| `label-large`     | 0.875rem (14px)  | 1.25rem (20px) | 500 / 700           | plain | 按钮 / 标签 |
+| `label-medium`    | 0.75rem (12px)   | 1rem (16px)    | 500 / 700           | plain |             |
+| `label-small`     | 0.6875rem (11px) | 1rem (16px)    | 500 / 700           | plain |             |
+
+14 个属性：`size`、`line-height`、`weight`、`font`、`tracking`（思源实际消费这 5 个）+ `wght`、`opsz`、`slnt`、`wdth`、`crsv`、`fill`、`grad`、`hexp`、`rond`（可变字体轴 9 个，照抄不消费）。
+
+**emphasized 与常规版的唯一差别**：15 个层级的 `weight` / `wght` 各提高一档（400→500、500→700），其余 12 个属性完全相同。
+
+### 3.5 形状 / 高度 / 动效 / 状态
+
+**形状 24 条**，分两组，数值重复但必须各自独立成变量：
+
+| 组               | 条数 | 取值                                                                                    |
+| ---------------- | ---- | --------------------------------------------------------------------------------------- |
+| `corner-value-*` | 9    | none 0 / xs 4 / sm 8 / md 12 / lg 16 / lg-inc 20 / xl 28 / xl-inc 32 / xxl 48           |
+| `corner.*`       | 15   | 上述 9 个 + `corner-full` 9999px + `corner-{xs,lg,xl}-top` + `corner-large-{start,end}` |
+
+**高度 6 条**：level0–5 = 0 / 1 / 3 / 6 / 8 / 12 px。第 7 条 `surface-tint-color` 已弃用。
+
+**动效 45 条：**
+
+| 类别   | 条数 | 取值                                                                                                                                                                        |
+| ------ | ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 时长   | 16   | short1–4（50/100/150/200ms）、medium1–4（250/300/350/400ms）、long1–4（450/500/550/600ms）、extra-long1–4（700/800/900/1000ms）                                             |
+| 曲线   | 10   | standard / standard-accelerate / standard-decelerate / emphasized / emphasized-accelerate / emphasized-decelerate / legacy / legacy-accelerate / legacy-decelerate / linear |
+| spring | 18   | default / fast / slow × spatial / effects，各含 damping 与 stiffness                                                                                                        |
+| path   | 1    | 官方值 `null`（类型不支持），照抄                                                                                                                                           |
+
+`easing-emphasized` 官方直接等于 `easing-standard`，不是笔误。
+
+**状态 8 条**：hover 0.08 / focus 0.1 / pressed 0.1 / dragged 0.16 / disabled 0.38；焦点环 inner-offset -3px / outer-offset 2px / thickness 3px。
+
+### 3.6 弃用 token（6 个）
+
+官方设计层共 **6 个唯一 token** 带 `@deprecated`，源码里实际 **16 处**标注（颜色类在 6 个文件中重复）。
+
+| #   | 文件                       | Token                           | 官方说明                    | 替代方案                                   |
+| --- | -------------------------- | ------------------------------- | --------------------------- | ------------------------------------------ |
+| 1   | `md-sys-color`（6 处）     | `surface-tint`                  | 已被 tonal surface 色系取代 | 无直接替代；层次用 `surface-container-*`   |
+| 2   | `md-sys-color`（6 处）     | `surface-tint-color`            | 请替换为 `surface-tint`     | `surface-tint`（同样已弃用）               |
+| 3   | `md-sys-elevation`（1 处） | `surface-tint-color`            | 已移到 `*.color.*`          | 同上                                       |
+| 4   | `md-sys-typescale`（1 处） | `label-medium-text-transform`   | Token 已弃用                | 无                                         |
+| 5   | `md-sys-typescale`（1 处） | `label-large-weight-prominent`  | 改用 emphasized             | `typescale-emphasized.label-large-weight`  |
+| 6   | `md-sys-typescale`（1 处） | `label-medium-weight-prominent` | 改用 emphasized             | `typescale-emphasized.label-medium-weight` |
+
+**标注要求（强制）：**
+
+1. 每个 token 文件头部必须有 `/* 弃用：<token>（官方 @deprecated）→ <替代方案>。本项目不落地。 */` 形式的注释。
+2. `bridge.scss` 与 `material/` 下所有文件禁止出现这 6 个名字；B17 断言产物中不存在。
+3. 官方恢复/改名时按新名追加，不复用旧名。
+4. 「弃用但无替代」也要写明「无替代」，不能留空。
+
+> `surface-tint` 弃用是规范级变化：M3 暗色层次已改由 `surface-container-*` 的亮度差表达。
+
+---
+
+## 4. 命名与生成
+
+### 4.1 命名规则：`--rc-<族>-<官方变量名原样>`
+
+| 官方 Sass 变量                      | 项目变量                         | 规则                           |
+| ----------------------------------- | -------------------------------- | ------------------------------ |
+| `$md-ref-palette.primary40`         | `--md-ref-palette-primary40`     | **不改名**，只把 `$` 换成 `--` |
+| `$md-ref-typeface.weight-bold`      | `--md-ref-typeface-weight-bold`  | **不改名**                     |
+| `$md-sys-color.on-surface-variant`  | `--rc-color-on-surface-variant`  | 去 `md-sys-`，加 `--rc-`       |
+| `$md-sys-shape.corner-value-medium` | `--rc-shape-corner-value-medium` | 去 `md-sys-`，其余保留         |
+| `$md-sys-shape.corner-medium`       | `--rc-shape-corner-medium`       | **必须与上一行是两个不同变量** |
+| `$md-sys-elevation.level2`          | `--rc-elevation-level2`          | 去 `md-sys-`                   |
+| `$md-sys-motion.duration-short2`    | `--rc-motion-duration-short2`    | 去 `md-sys-`                   |
+| `$md-sys-typescale.body-large-size` | `--rc-typescale-body-large-size` | 去 `md-sys-`                   |
+
+**1:1 双射**：每个官方 token 恰好对应一个项目变量，反之亦然。禁止合并、拆分、丢弃；取值与官方向量一字不改。
+
+`corner-value-medium` 与 `corner-medium` 数值相同但是两个官方 token，Sass 遍历会各自产出一个变量。
+
+### 4.2 生成机制
+
+```scss
+// src/tokens/material/_index.scss
+@use 'sass:list';
+@use 'sass:meta';
+
+$deprecated:
+  'surface-tint', 'surface-tint-color', 'label-medium-text-transform', 'label-large-weight-prominent',
+  'label-medium-weight-prominent';
+
+@mixin emit($module, $prefix) {
+  @each $name, $value in meta.module-variables($module) {
+    @if not list.index($deprecated, $name) {
+      --#{$prefix}-#{$name}: #{$value};
+    }
   }
 }
-```
 
-- 属性缺失 → 只有 Material 命中；
-- 属性为 `fluent` → Material 的 `:not()` 不再匹配，Fluent 命中；
-- 属性为 `material` → Material 显式命中。
-
-特异性：`:root:is(…)` 取参数最高者（属性 0,1,0）+ `:root`（0,1,0）= 0,2,0；叠加组件选择器后 0,3,0，稳定压过 `base.css` 的 0,1,0 / 0,2,0。
-
-### 5.2 配色覆盖
-
-变量天然层叠，不需要 `:not()`：
-
-```css
-/* palettes/material.css —— 默认值挂在 :root */
 :root {
-  --rc-brand-40: 0.52 0.16 264;
-  --rc-bg-surface: 0.98 0.01 300;
+  @include emit('ref-palette', 'md-ref-palette');
+  @include emit('ref-typeface', 'md-ref-typeface');
 }
 
-/* palettes/fluent.css —— 更具体的选择器胜出 */
-:root[data-rc-palette='fluent'] {
-  --rc-brand-40: 0.55 0.14 250;
-  --rc-bg-surface: 0.96 0 0;
-}
-```
-
-**必须保证每个 palette 覆盖全部必需角色**，否则会与默认值混色（测试强制）。
-
-### 5.3 功能开关（opt-out）
-
-默认启用，属性为 `off` 时整段规则不生效，自然回落 `base.css`：
-
-```css
-:root:not([data-rc-link-underline='off']) .protyle-wysiwyg a {
-  text-decoration: underline;
-}
-```
-
-### 5.4 不使用 CSS 嵌套
-
-产物要同时被 UnoCSS 处理并直接下发，嵌套会增加构建不确定性。**统一写平铺选择器**，靠 `:is()` 降低重复。
-
-### 5.5 桌面限定（非 Material 风格）
-
-`fluent` / `shadcn` 只做桌面，用媒体查询限定，移动端自动回落思源默认：
-
-```css
-@media (hover: hover) and (pointer: fine) {
-  :root[data-rc-style='fluent'] .dock__item { … }
-}
-```
-
-移动端是 `pointer: coarse`，规则自然不生效。Material 不加这层限制。
-
----
-
-## 6. 语义契约
-
-`foundation/semantic.css` 是主题与插件之间唯一的耦合点。
-
-### 6.1 版本号
-
-```css
 :root {
-  --rc-contract-version: 1;
-}
-```
-
-规则：**只增不改**。新增角色 → 版本不变；改名或删除 → 版本 +1，插件检测到不匹配则降级为「只切属性、不写内联变量」。
-
-### 6.2 刻度：M3 tone 13 档
-
-色阶直接采用 **Material 3 的 tone 刻度**：
-
-```
-tone:  0   5   10   20   30   40   50   60   70   80   90   95   100
-```
-
-| 色族     | 变量前缀                      | 用途         |
-| -------- | ----------------------------- | ------------ |
-| 品牌     | `--rc-brand-{tone}`           | 主色         |
-| 次要     | `--rc-secondary-{tone}`       | 次要色       |
-| 第三     | `--rc-tertiary-{tone}`        | 强调色       |
-| 中性     | `--rc-neutral-{tone}`         | 背景、文字   |
-| 中性变体 | `--rc-neutral-variant-{tone}` | 边框、分隔线 |
-| 错误     | `--rc-error-{tone}`           | 危险状态     |
-
-状态色（success / warning / info）没有 M3 原生 tone 带，用同样 13 档手工定义，保持结构一致。
-
-#### 刻度选择的依据
-
-M3 的 tone 就是 HCT 色彩空间里的**感知亮度**（L*），与 OKLCH 的 L 通道同源：
-
-- tone 值与 OKLCH 三通道可以直接换算，不需要额外的映射表；
-- 种子色算法输出的就是 tone，落到变量上无损；
-- `--rc-brand-40` 在亮色主题是主色、`--rc-brand-80` 在暗色主题是主色，这是 M3 的既有规则。
-
-#### UnoCSS 接入（实测可行）
-
-```js
-// uno.config.ts
-const TONES = [0, 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 95, 100];
-const ramp = (name) => Object.fromEntries(TONES.map((t) => [t, `oklch(var(--rc-${name}-${t}) / <alpha-value>)`]));
-
-export default defineConfig({
-  theme: {
-    colors: {
-      brand: ramp('brand'),
-      neutral: ramp('neutral'),
-      surface: 'oklch(var(--rc-bg-surface) / <alpha-value>)',
-    },
-  },
-});
-```
-
-生成结果（实测）：
-
-```css
-.bg-brand-40/50  { background-color: oklch(var(--rc-brand-40) / 0.5); }
-.text-brand-90/25 { color: oklch(var(--rc-brand-90) / 0.25); }
-```
-
-#### 种子色生成：何时需要转换
-
-`material-color-utilities` 输出 ARGB / hex，而变量要存 OKLCH 三通道，中间需要一次转换。
-
-| 场景                                  | 需要脚本吗              |
-| ------------------------------------- | ----------------------- |
-| 手写色板，直接写 OKLCH 三通道         | ❌ 不需要               |
-| 用 M3 种子算法生成                    | ✅ 需要 `argb → oklch`  |
-| 采用 shadcn / Tailwind v4 的 OKLCH 值 | ❌ 不需要（已是三通道） |
-
-```js
-// scripts/palette/argb-to-oklch.mjs
-import { hexFromArgb } from '@material/material-color-utilities';
-import { converter } from 'culori';
-
-const toOklch = converter('oklch');
-
-export function argbToTriplet(argb) {
-  const { l, c, h } = toOklch(hexFromArgb(argb));
-  return `${l.toFixed(4)} ${c.toFixed(4)} ${(h ?? 0).toFixed(2)}`;
-}
-```
-
-构建时与插件运行时共用同一份，保证结果一致。
-
-#### 变量格式的硬性要求（实测）
-
-| 变量内容                         | `bg-brand/50` 生成结果     | 可用 |
-| -------------------------------- | -------------------------- | ---- |
-| `0.52 0.16 264`（三通道）        | `oklch(var(--x) / 0.5)`    | ✅   |
-| `#6750a4`（hex）                 | `rgb(103 80 164 / 0.5)`    | ✅   |
-| `oklch(0.52 0.16 264)`（完整值） | `var(--x)`，**透明度丢失** | ❌   |
-
-**规则：变量只存数值，不存完整函数。**
-
----
-
-### 6.3 颜色角色
-
-组件只允许引用这一层的变量。
-
-| 分组   | 角色                                                                                                                                          |
-| ------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| 背景   | `--rc-bg-base` `--rc-bg-surface` `--rc-bg-raised` `--rc-bg-sunken` `--rc-bg-inverse` `--rc-bg-scrim`                                          |
-| 文字   | `--rc-text-primary` `--rc-text-secondary` `--rc-text-tertiary` `--rc-text-disabled` `--rc-text-on-brand` `--rc-text-inverse` `--rc-text-link` |
-| 边框   | `--rc-border-subtle` `--rc-border-default` `--rc-border-strong` `--rc-border-focus`                                                           |
-| 品牌   | `--rc-brand-base` `--rc-brand-hover` `--rc-brand-active` `--rc-brand-soft` `--rc-brand-on-soft`                                               |
-| 状态   | `--rc-{success,warning,danger,info}-base` / `-soft` / `-on-soft`                                                                              |
-| 状态层 | `--rc-state-hover` `--rc-state-focus` `--rc-state-pressed` `--rc-state-drag`（透明度数值）                                                    |
-
-#### 设计来源
-
-语义层参考 **Material 3 的「角色配对」思想**（每个前景色都有一条配对的背景色，如 `primary` / `on-primary`），命名采用 **shadcn 的直觉词汇**（`foreground`、`muted`、`ring`）。
-
-| 我们的角色            | M3 对应                  | shadcn 对应            |
-| --------------------- | ------------------------ | ---------------------- |
-| `--rc-brand-base`     | `primary`                | `primary`              |
-| `--rc-text-on-brand`  | `on-primary`             | `primary-foreground`   |
-| `--rc-brand-soft`     | `primary-container`      | `secondary` / `accent` |
-| `--rc-brand-on-soft`  | `on-primary-container`   | `secondary-foreground` |
-| `--rc-bg-base`        | `surface`                | `background`           |
-| `--rc-bg-surface`     | `surface-container`      | `card`                 |
-| `--rc-bg-raised`      | `surface-container-high` | `popover`              |
-| `--rc-bg-sunken`      | `surface-container-low`  | `muted`                |
-| `--rc-text-primary`   | `on-surface`             | `foreground`           |
-| `--rc-text-secondary` | `on-surface-variant`     | `muted-foreground`     |
-| `--rc-border-subtle`  | `outline-variant`        | `border`               |
-| `--rc-border-strong`  | `outline`                | `input`                |
-| `--rc-border-focus`   | `outline`（focus）       | `ring`                 |
-| `--rc-danger-base`    | `error`                  | `destructive`          |
-
-**为什么不直接用 M3 命名**：
-
-- `container` 在 CSS 里与容器查询（`@container`）语义冲突；
-- `on-*` 前缀在中文语境不直观；
-- `primary-container` 这类名字无法表达「浅色背景块」的直觉。
-
-**为什么不直接用 shadcn 命名**：
-
-- shadcn 只有约 20 个角色，表达不了 `raised` / `sunken` / `scrim` 这些层级；
-- 没有「状态层」（hover / pressed 透明度）概念。
-
-结论：**M3 的完整度 + shadcn 的直觉性 = 自研命名**。
-
-#### 角色与刻度的关系
-
-角色是**语义别名**，指向某个 tone。同一个角色在明暗模式下指向不同 tone：
-
-```css
-/* 亮色 */
-:root {
-  --rc-brand-base: var(--rc-brand-40);
-  --rc-text-primary: var(--rc-neutral-10);
+  @include emit('sys-color', 'rc-color');
+  @include emit('sys-shape', 'rc-shape');
+  @include emit('sys-elevation', 'rc-elevation');
+  @include emit('sys-motion', 'rc-motion');
+  @include emit('sys-state', 'rc-state');
+  @include emit('sys-focus', 'rc-state-focus-indicator');
+  @include emit('typescale', 'rc-typescale');
+  @include emit('typescale-emphasized', 'rc-typescale-emphasized');
 }
 
-/* 暗色 */
 :root[data-theme-mode='dark'] {
-  --rc-brand-base: var(--rc-brand-80);
-  --rc-text-primary: var(--rc-neutral-90);
+  @include emit('sys-color-dark', 'rc-color');
 }
 ```
 
-这是 M3 的既有规则（亮色主色 tone 40、暗色主色 tone 80），不需要重新发明。
+实测产出 843 条，与 §3.1 的逐文件计数一致。
 
-### 6.4 形状 / 间距 / 字体 / 动效
+### 4.3 契约层 `--rc-*` 全表
 
-| 分组 | 角色                                                                                                    |
-| ---- | ------------------------------------------------------------------------------------------------------- |
-| 圆角 | `--rc-radius-none` `-xs` `-sm` `-md` `-lg` `-xl` `-full`                                                |
-| 间距 | `--rc-space-0` … `--rc-space-12`（4dp 网格）                                                            |
-| 阴影 | `--rc-elevation-0` … `--rc-elevation-5`                                                                 |
-| 字体 | `--rc-font-sans` `--rc-font-mono` `--rc-font-display`                                                   |
-| 字号 | `--rc-text-display` `-headline` `-title` `-body` `-label`（各含 size / line-height / weight）           |
-| 动效 | `--rc-duration-short` `-medium` `-long`；`--rc-ease-standard` `-emphasized` `-decelerate` `-accelerate` |
-| 布局 | `--rc-editor-max-width` `--rc-gutter-width` `--rc-tab-height` `--rc-dock-width` `--rc-touch-min`        |
+| 分组          | 契约名（均带 `--rc-` 前缀）                                                                      | 数量      |
+| ------------- | ------------------------------------------------------------------------------------------------ | --------- |
+| 颜色          | `color-background`、`color-surface`、`color-on-surface`、`color-primary` …                       | 48 × 亮暗 |
+| 圆角          | `shape-corner-value-none` … `shape-corner-full`                                                  | 24        |
+| 高度          | `elevation-level0` … `elevation-level5`（dp 数值）                                               | 6         |
+| 动效          | `motion-duration-*`、`motion-easing-*`、`motion-spring-*`、`motion-path`                         | 45        |
+| 状态          | `state-hover-state-layer-opacity` … `state-disabled-state-layer-opacity`                         | 5         |
+| 焦点环        | `state-focus-indicator-inner-offset` / `-outer-offset` / `-thickness`                            | 3         |
+| 字号          | `typescale-body-large-size` / `-line-height` / `-weight` …                                       | 210       |
+| 强调字号      | `typescale-emphasized-body-large-size` …                                                         | 210       |
+| 派生状态色    | `success` / `on-success` / `success-container` / `on-success-container` × success、warning、info | 12        |
+| 静态标注色    | `static-{red,orange,yellow,green,pink,blue,purple,cyan}-{40,90,30,80}`                           | 22        |
+| 项目扩展·间距 | `space-xs` / `sm` / `md` / `lg` / `xl`                                                           | 5         |
+| 项目扩展·尺寸 | `size-row` / `size-control` / `size-dock` / `size-panel`                                         | 4         |
+| 项目扩展·阴影 | `shadow-level0` … `shadow-level5`                                                                | 6         |
 
-### 6.5 色彩格式：OKLCH 三通道
+- 组件、`bridge.scss`、`uno.config.ts` 只消费 `--rc-*`，不得直接消费 `--md-ref-*`。
+- 变量不得自引用，自引用会让该变量整条失效（B11）。
 
-#### 「变量」指什么
+### 4.4 派生色与静态标注色 `derived.scss`
 
-指 **CSS 自定义属性（CSS Custom Properties）**，即 `--rc-*` 这些 `:root` 上声明的键值对：
+M3 只有 `error` 一个状态色。**danger 直接复用 M3 `error` 系列**，不新增变量；其余三个状态各 4 个角色：
+
+| 角色                   | 亮色                 | 暗色                 |
+| ---------------------- | -------------------- | -------------------- |
+| `success`              | `green40` `#006c35`  | `green80` `#80da88`  |
+| `on-success`           | `green100` `#fff`    | `green20` `#00381f`  |
+| `success-container`    | `green90` `#beefbb`  | `green30` `#00522c`  |
+| `on-success-container` | `green10` `#002110`  | `green90` `#beefbb`  |
+| `warning`              | `yellow40` `#8f4e06` | `yellow80` `#fcbd00` |
+| `on-warning`           | `yellow100` `#fff`   | `yellow20` `#4d2600` |
+| `warning-container`    | `yellow90` `#ffe07c` | `yellow30` `#6d3a01` |
+| `on-warning-container` | `yellow10` `#2f1400` | `yellow90` `#ffe07c` |
+| `info`                 | `blue40` `#1157ce`   | `blue80` `#a1c9ff`   |
+| `on-info`              | `blue100` `#fff`     | `blue20` `#012c6f`   |
+| `info-container`       | `blue90` `#d0e4ff`   | `blue30` `#04409f`   |
+| `on-info-container`    | `blue10` `#001944`   | `blue90` `#d0e4ff`   |
+
+**12 个派生角色 × 亮暗 = 24 条声明。**
+
+**静态标注色 18 个唯一名**（下表 22 处引用里 `green-40/-90`、`purple-40/-90` 各重复一次；CSS 同名重复声明会互相覆盖，故唯一名 18 个）：
+
+| Token 组                                                    | 数量 | 用途                  |
+| ----------------------------------------------------------- | ---- | --------------------- |
+| `--rc-static-{red,orange,yellow,green,pink,blue,purple}-40` | 7    | PDF 7 种标注色        |
+| `--rc-static-{red,orange,yellow,green,pink,blue,purple}-90` | 7    | 标注底色 / 行内底色   |
+| `--rc-static-{cyan,green,purple}-40`                        | 3    | 图表补充色            |
+| `--rc-static-{cyan,green,purple}-90`                        | 3    | 图表补充底色          |
+| `--rc-static-yellow-80` / `--rc-static-green-30`            | 2    | 高亮当前项 / 暗色选区 |
+
+**6 条阴影配方**（`--rc-shadow-level0..5`，key 30% + ambient 15%，即 `#0000004D` / `#00000026`）：
+
+| 层级   | dp   | 配方                                              |
+| ------ | ---- | ------------------------------------------------- |
+| level0 | 0px  | `0 0 0 0 #0000004D, 0 0 0 0 #00000026`            |
+| level1 | 1px  | `0 1px 2px 0 #0000004D, 0 1px 3px 1px #00000026`  |
+| level2 | 3px  | `0 1px 2px 0 #0000004D, 0 2px 6px 2px #00000026`  |
+| level3 | 6px  | `0 1px 3px 0 #0000004D, 0 4px 8px 3px #00000026`  |
+| level4 | 8px  | `0 2px 3px 0 #0000004D, 0 6px 10px 4px #00000026` |
+| level5 | 12px | `0 4px 4px 0 #0000004D, 0 8px 12px 6px #00000026` |
+
+规则：只允许引用 `--md-ref-palette-*` 的 static / baseline 色阶，不得写死绝对色值，不得用相对颜色语法（B12）。三项均**不随莫奈变化**。
+
+---
+
+## 5. 桥接层 `bridge.scss`
+
+### 5.1 思源的颜色事实
+
+颜色变量定义在 `app/appearance/themes/{daylight,midnight}/theme.css`，两个内置主题各定义 **185** 个 `--b3-*`，变量名集合完全一致。`base.css` 是 webpack 产物，源码 `base.scss` 里零条 `--b3-theme-*` 颜色声明。
+
+185 个 `--b3-*` 分类：
+
+| 类别                                                    | 数量    | 说明                                  |
+| ------------------------------------------------------- | ------- | ------------------------------------- |
+| 字面色值                                                | 104     | `#` / `rgba()` / `hsl()`              |
+| `var()` 转发到颜色                                      | 31      | 递归解析后仍是颜色                    |
+| 颜色关键字                                              | 12      | `inherit` / `initial` / `transparent` |
+| **颜色语义合计**                                        | **147** | 必须全部接管                          |
+| 字体族转发                                              | 5       | `--b3-font-family*`                   |
+| 非颜色（字号 / 尺寸 / 圆角 / 阴影 / 过渡 / 线宽 / URL） | 33      | 不接管                                |
+
+### 5.2 手写 137 条 → 49 个目标
+
+147 个槽位中 10 个是关键字值不接管，剩下 **137 条**映射到 **49 个不同目标**：
+
+| 来源池              | 目标数 | 覆盖槽位 |
+| ------------------- | ------ | -------- |
+| `sys-color` 48 角色 | **24** | 约 80 个 |
+| 派生状态角色        | **8**  | 约 24 个 |
+| 静态标注 token      | **17** | 约 33 个 |
+| **合计**            | **49** | **137**  |
+
+**分组映射：**
+
+| 分组                                        | 槽数 | 主来源         | 说明                                                                                                                                                       |
+| ------------------------------------------- | ---- | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--b3-theme-*`                              | 19   | sys 角色       | `primary` / `secondary` / `background` / `surface` / `error` / `on-*` 直接对应；`primary-light/lighter/lightest` 用 `color-mix()` 做 54% / 38% / 12% alpha |
+| `--b3-card-*`                               | 8    | error + 派生   | error 用 M3 `error-container` / `on-error-container`；warning / info / success 用派生 container 对                                                         |
+| `--b3-callout-*`                            | 5    | sys + 派生     | note→primary、tip→success、caution→error、important→info、warning→warning-container                                                                        |
+| `--b3-font-color1..13`                      | 13   | 混合           | 1–4 状态 `on-*-container`；5–8 on-surface / primary / secondary / error；9–12 静态色族；13 background                                                      |
+| `--b3-font-background1..13`                 | 13   | 混合           | 1–4 状态 `*-container`；5 surface-container；6–12 静态色族；13 on-background                                                                               |
+| `--b3-pdf-*`                                | 17   | 静态标注 token | 7 种标注色 + selection + pdf-dark                                                                                                                          |
+| `--b3-graph-*`                              | 22   | 静态标注 token | 15 个节点色 + 5 条线 + 2 个高亮                                                                                                                            |
+| `--b3-mindmap-*-color`                      | 6    | **不接管**     | 值为 `initial`                                                                                                                                             |
+| `--b3-protyle-inline-{strong,em,u,s}-color` | 4    | **不接管**     | 值为 `inherit`                                                                                                                                             |
+| 其余 UI 单点                                | 40   | sys 角色       | 菜单 / 边框 / 滚动条 / 开关 / 提示气泡 / 表格斑马纹等                                                                                                      |
+
+**三条规则：**
+
+1. **扇入是设计，不是缺陷。** `--b3-menu-background`、`--b3-parent-background`、`--b3-embed-background` 指向同一个 `color-surface-container` 是合理的。
+2. **标注色用静态 token。** PDF 7 色、graph 22 色不随莫奈变化，否则同一篇文档的标注颜色会随主题漂移。
+3. **bridge 允许 `color-mix()`。** `--b3-theme-primary-light` 这类 alpha 变体没有对应 M3 token，用 `color-mix(in oklab, var(--rc-color-primary) 54%, transparent)` 生成。
+
+---
+
+## 6. 调色板与莫奈取色
+
+### 6.1 链路
 
 ```css
+/* ref-palette：M3 原名 */
 :root {
-  --rc-brand-40: 0.55 0.18 264;
+  --md-ref-palette-primary40: #6750a4;
 }
-```
 
-与 Sass 变量的区别：
-
-|                | CSS 变量                       | Sass 变量            |
-| -------------- | ------------------------------ | -------------------- |
-| 生效时机       | **运行时**（浏览器解析）       | 编译时（构建后消失） |
-| 能否被覆盖     | ✅ 层叠覆盖                    | ❌                   |
-| 能否被 JS 读写 | ✅ `element.style.setProperty` | ❌                   |
-| 用途           | **运行时换肤的基础**           | 构建期常量           |
-
-本架构中「配色可运行时切换」「插件可写内联变量」全部依赖 CSS 变量的这一特性。
-
-#### 存储格式
-
-统一存 `L C H` **三通道数值**（不带函数名）：
-
-```css
+/* sys-color：引用 palette */
 :root {
-  --rc-brand-40: 0.55 0.18 264;
-  --rc-bg-surface: 0.98 0.01 300;
+  --rc-color-primary: var(--md-ref-palette-primary40);
 }
 ```
 
-#### 为什么必须只存数值（实测）
+**插件只覆盖 `--md-ref-palette-*`，`--rc-color-*` 通过 `var()` 自动跟随。**
 
-OKLCH **本身完全支持透明度**，`oklch(0.55 0.18 264 / 0.5)` 是合法的。问题出在 UnoCSS 生成透明度工具类时，要把 `<alpha-value>` 插进颜色模板。
+### 6.2 MCU 生成的就是 palette
 
-三种写法实测结果：
+`DynamicScheme` 有 6 个 `TonalPalette`（primary / secondary / tertiary / neutral / neutralVariant / error），每个都能 `.tone(t)`（t = 0–100）算出任意 tone。M3 的 `sys-color` 本就是「角色 → 某 palette 的某 tone」的静态映射表。
 
-| 变量存什么                         | UnoCSS 颜色模板                   | `bg-brand/50` 生成结果                       | 有效 |
-| ---------------------------------- | --------------------------------- | -------------------------------------------- | ---- |
-| `0.55 0.18 264`（三通道）          | `oklch(var(--x) / <alpha-value>)` | `oklch(var(--rc-brand-40) / 0.5)`            | ✅   |
-| `oklch(0.55 0.18 264)`（完整函数） | 同上                              | 展开为 `oklch(oklch(…) / 0.5)`，**嵌套非法** | ❌   |
-| `oklch(0.55 0.18 264)`（完整函数） | `var(--x)`                        | `var(--rc-brand-40)`，`/50` 被丢弃           | ❌   |
+**实测（MCU 0.4.0，`SchemeTonalSpot`，种子 `#6750a4`）**：把 48 个 `sys-color` 按官方 tone 映射投影到 palette，与 MCU 算出的 48 个角色值 **48/48 完全一致**（亮暗都是）。所以插件只需覆盖 palette，不需要生成任何 sys 值。
 
-结论：**函数必须由使用处提供，变量里只放能重新组装的裸数值。**
+### 6.3 MCU 的 palette 行为（实测）
 
-#### 使用方式
+| 变量                                        | 结果                                 |
+| ------------------------------------------- | ------------------------------------ |
+| `isDark` 变化时 6 个色族的 tone 值          | **完全相同**（0 处差异）             |
+| `contrastLevel` 0 → 1 时 6 个色族的 tone 值 | **完全相同**（0 处差异）             |
+| `contrastLevel` 0 → 1 时 48 个角色的值      | **有变化**（8 个采样里 6 个变了）    |
+| `error` 色族是否随种子色变化                | **不变化**（所有种子都是 `#ba1a1a`） |
 
-```css
-/* 不透明 */
-color: oklch(var(--rc-brand-40));
+1. **palette 与明暗无关**——一个种子色只产出一套 palette，插件覆盖一次同时服务亮暗。
+2. **palette 与 `contrastLevel` 无关**——变的是角色取哪个 tone，不是 tone 本身。对比度只能靠覆盖 `--rc-color-*`（不做）。
+3. 全量 239 条的理由见 §3.2；对比度变体额外需要 18 个 tone，全量已覆盖。
 
-/* 半透明 */
-background: oklch(var(--rc-brand-40) / 0.5);
+### 6.4 插件侧契约
 
-/* UnoCSS 工具类（模板已含 oklch()） */
-/* uno.config: brand: 'oklch(var(--rc-brand-40) / <alpha-value>)' */
-/* 得到 bg-brand-40/50 → oklch(var(--rc-brand-40) / 0.5) */
-```
+> 插件只写 `--md-ref-palette-<family>-<tone>`，主题保证 `--rc-color-*` 只引用这张表里的 tone。
 
-**代价**：变量值不能直接当颜色用。`color: var(--rc-brand-40)` 是无效的，必须包一层 `oklch()`。
+- family：6 个动态色族（静态色族不动）；tone：主题定义了哪些就填哪些
+- 覆盖选择器：`:root:root`（特异性 (0,2,0)，压过主题 `:root`）
+- **不需要写亮暗两份**：palette 与 `isDark` 无关
+- 派生色由插件用 HCT 从种子色生成（§10.3）
 
-> RGB 三通道方案同理：`--x: 103 80 164` + `rgb(var(--x) / 0.5)`。
+```ts
+import { Hct, SchemeTonalSpot, hexFromArgb } from '@material/material-color-utilities';
 
-#### 为什么选 OKLCH 而非 RGB
+const scheme = new SchemeTonalSpot(Hct.fromInt(seedArgb), false, 0);
+const families = {
+  primary: scheme.primaryPalette,
+  secondary: scheme.secondaryPalette,
+  tertiary: scheme.tertiaryPalette,
+  neutral: scheme.neutralPalette,
+  'neutral-variant': scheme.neutralVariantPalette,
+  error: scheme.errorPalette,
+} as const;
 
-| 维度       | RGB 三通道                 | OKLCH 三通道                        |
-| ---------- | -------------------------- | ----------------------------------- |
-| 感知均匀性 | 差（同亮度差在暗处更明显） | 好（L 通道线性感知）                |
-| 色阶生成   | 需在 HSL/Lab 空间转换      | 直接调 L 即可                       |
-| 状态色派生 | 提亮/压暗会偏色            | 只改 L，色相不变                    |
-| 与生态一致 | shadcn v3                  | shadcn v4、Tailwind v4、M3 HCT 同源 |
-
-**兼容性**：思源 3.8.9 内嵌 Chromium 156，实测支持 `oklch()`、`color-mix()`、`light-dark()`、相对颜色语法，无风险。
-
-约定：
-
-- 中性色 C 值接近 0，仍保留三通道格式以统一处理；
-- 需要 fallback 时在语义层写 `color: oklch(var(--x))`，不硬编码 RGB。
-
----
-
-## 7. 插件契约
-
-### 7.1 契约包的维护方式
-
-两个仓库（主题 / 插件）互相独立，契约必须有可版本化的载体。分两阶段：
-
-| 阶段               | 方式                                                             | 说明                             |
-| ------------------ | ---------------------------------------------------------------- | -------------------------------- |
-| **过渡（当前）**   | 主题仓库 `contract/tokens.json`，插件仓库用 `file:` 依赖本地路径 | 开发期无需发包，改契约立即生效   |
-| **正式（稳定后）** | 发布 `@rem-craft/contract` 到 npm                                | 有语义化版本，插件可声明兼容范围 |
-
-为什么不用 monorepo / submodule：
-
-| 方案          | 问题                                                         |
-| ------------- | ------------------------------------------------------------ |
-| monorepo      | 思源市场要求「一个仓库一个 package.zip」，主题与插件必须分仓 |
-| git submodule | 更新繁琐，CI 容易漏 `--recursive`                            |
-| 复制文件      | 手工同步，必然漂移                                           |
-| **npm 包**    | 唯一有版本、可追溯、无需 submodule 的通道                    |
-
-契约包内容（刻意保持极小）：
-
-```
-contract/
-  tokens.json     # 角色清单 + 版本号 + 各体系映射
-  index.d.ts      # 角色名类型（可选）
-  package.json
-```
-
-```json
-{
-  "contractVersion": 1,
-  "tones": [0, 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 95, 100],
-  "scaleFamilies": ["brand", "secondary", "tertiary", "neutral", "neutral-variant", "error"],
-  "colorRoles": ["brand-base", "bg-surface", "text-primary", "…"],
-  "shapeRoles": ["radius-md", "elevation-2", "space-4", "…"],
-  "styles": ["material", "fluent", "shadcn"],
-  "palettes": ["material", "fluent", "shadcn"]
-}
-```
-
-### 7.2 属性（写在 `<html>`）
-
-| 属性                | 取值                                 | 缺省行为             |
-| ------------------- | ------------------------------------ | -------------------- |
-| `data-rc-style`     | `material` / `fluent` / `shadcn` / … | 缺失 = `material`    |
-| `data-rc-palette`   | `material` / `fluent` / `shadcn` / … | 缺失 = `material`    |
-| `data-rc-custom`    | `on`                                 | 插件动态配色生效标记 |
-| `data-rc-<feature>` | `on` / `off`                         | 缺失 = 使用主题默认  |
-
-复用思源原生属性：
-
-| 原生属性          | 取值                                                               | 用途                      |
-| ----------------- | ------------------------------------------------------------------ | ------------------------- |
-| `data-theme-mode` | `light` / `dark`                                                   | 明暗模式                  |
-| `data-ui-density` | `compact` / 其它                                                   | 密度                      |
-| `data-backend`    | `ios` / `android` / `harmony` / `win` / `mac` / `linux` / `docker` | 平台判定                  |
-| `data-frontend`   | `desktop` / `desktop-window` / `browser-desktop`                   | 前端类型（**无 mobile**） |
-| `custom-rc-*`     | 自定义                                                             | 文档级 / 块级属性         |
-
-### 7.3 插件职责
-
-```
-设置面板
-  ├─ 风格：material / fluent / shadcn / …
-  ├─ 配色：material / fluent / shadcn / 自定义种子色
-  └─ 功能开关：见 §8.2
-
-运行时
-  ├─ 写 <html> 上的 data-rc-* 属性
-  ├─ 自定义种子色：material-color-utilities → 写内联变量 + data-rc-custom
-  ├─ 监听 data-theme-mode 变化 → 重新生成对应 scheme
-  ├─ 水波纹：监听 pointerdown → 写 --rc-ripple-x/y + 触发动画类
-  └─ 持久化（loadData / saveData）
-```
-
-### 7.4 启动兼容检测
-
-```js
-const root = document.documentElement;
-const version = Number(getComputedStyle(root).getPropertyValue('--rc-contract-version').trim());
-
-if (!version) {
-  // 没装主题：禁用面板，提示先安装主题
-} else if (version < REQUIRED_VERSION) {
-  // 主题过旧：只切属性，不写内联变量
-} else {
-  // 全部功能可用
-}
-```
-
-### 7.5 优先级
-
-```
-主题默认变量（:root）
-  < 调色板变量（[data-rc-palette]）
-    < 插件内联变量（element.style.setProperty）   ← 最高
-```
-
-插件写内联变量时必须同时设置 `data-rc-custom="on"`；切回内置配色时清空内联变量并移除该属性。
-
----
-
-## 8. 能力边界与功能开关
-
-### 8.1 能力边界
-
-| 能力                   | 支持           | 机制                                |
-| ---------------------- | -------------- | ----------------------------------- |
-| 运行时切换配色         | ✅             | `data-rc-palette`                   |
-| 运行时切换组件风格     | ✅             | `data-rc-style`（多套配方全量打包） |
-| 自定义种子色生成配色   | ✅（需插件）   | 插件写内联变量                      |
-| 明暗模式               | ✅             | `data-theme-mode`                   |
-| 紧凑密度               | ✅             | `data-ui-density`                   |
-| 功能开关               | ✅             | `data-rc-<feature>`                 |
-| 文档级样式             | ✅             | `custom-rc-*`                       |
-| 移动端适配             | ✅ 仅 Material | `data-backend`                      |
-| Material 水波纹        | ✅（需插件）   | 插件监听 `pointerdown` + CSS 动画   |
-| 无插件时的多风格切换   | ❌             | 无 JS 无法写属性；用户可用代码片段  |
-| 完整 M3 motion 编排    | ⚠️             | CSS 只能对属性变化加 transition     |
-| Cupertino（Apple）风格 | ❌ 暂缓        | 无官方 Web 组件库，只有 HIG 文档    |
-
-### 8.2 功能开关（`data-rc-<feature>`）
-
-**这是功能开关，不是区域开关。** 每个开关对应一段可独立启用的功能样式。
-
-约定：
-
-- 属性值 `on` / `off`；缺失时使用主题默认；
-- 由插件设置面板控制（写 `<html>`），或用 `custom-rc-<feature>` 按文档生效；
-- 主题侧用 `:root:not([data-rc-<feature>='off'])` 或 `:root[data-rc-<feature>='on']` 表达。
-
-当前候选清单（结构先落地，内容后续增补）：
-
-| 功能       | 属性                     | 默认 | 作用                        |
-| ---------- | ------------------------ | ---- | --------------------------- |
-| 专注模式   | `data-rc-focus-mode`     | off  | 隐藏侧栏与 dock，编辑区居中 |
-| 宽屏编辑   | `data-rc-wide-editor`    | off  | 解除编辑区最大宽度限制      |
-| 块聚焦高亮 | `data-rc-block-focus`    | on   | 当前编辑块加背景/描边       |
-| 链接下划线 | `data-rc-link-underline` | on   | 正文链接显示下划线          |
-| 标题锚点   | `data-rc-heading-anchor` | on   | hover 标题时显示锚点标记    |
-| 列表紧凑   | `data-rc-list-tight`     | off  | 收紧列表项行距              |
-| 代码行号   | `data-rc-line-numbers`   | off  | 代码块显示行号              |
-| 水波纹     | `data-rc-ripple`         | on   | 点击反馈（需插件）          |
-| 动效降级   | `data-rc-reduce-motion`  | off  | 关闭过渡与动画              |
-
----
-
-### 8.3 移动端策略
-
-#### 事实（查思源源码与打包产物核实）
-
-`data-frontend` **只有三个值**，没有 `mobile`：
-
-```js
-// app/src/util/compatibility.ts
-const N$ = () =>
-  window.navigator.userAgent.startsWith('SiYuan/')
-    ? hasNoToolbar()
-      ? 'desktop-window'
-      : 'desktop'
-    : 'browser-desktop';
-```
-
-移动端是**独立构建入口**：
-
-| 入口 | URL                     | 特征                               |
-| ---- | ----------------------- | ---------------------------------- |
-| 桌面 | `/stage/build/desktop/` | 无 `#mobileTopBar`                 |
-| 移动 | `/stage/build/mobile/`  | **有 `#mobileTopBar`**（实测确认） |
-
-移动端判定的可靠依据：
-
-| 依据                   | 取值                                                               | 可靠性     |
-| ---------------------- | ------------------------------------------------------------------ | ---------- |
-| `data-backend`         | `ios` / `android` / `harmony` / `docker` / `win` / `mac` / `linux` | ⭐ 推荐    |
-| `body` class           | `body--ios` / `body--android` / `body--harmony`                    | 可用       |
-| `window.siyuan.mobile` | 移动端才存在                                                       | 仅 JS 可用 |
-
-#### 适配策略
-
-```css
-/* variants/mobile.css */
-:root[data-backend='ios'],
-:root[data-backend='android'],
-:root[data-backend='harmony'] {
-  --rc-touch-min: 44px;
-  --rc-tab-height: 40px;
-  --rc-space-2: 6px;
-}
-```
-
-#### 只有 Material 做移动端
-
-`styles/fluent/`、`styles/shadcn/` 的规则全部限定在桌面（见 §5.5），移动端自动回落思源默认样式。
-
-### 8.4 水波纹实现（需插件）
-
-主题侧预留（`base/skeleton.css`）：
-
-```css
-.rc-ripple-host {
-  position: relative;
-  overflow: hidden;
-}
-
-.rc-ripple::after {
-  content: '';
-  position: absolute;
-  left: var(--rc-ripple-x, 50%);
-  top: var(--rc-ripple-y, 50%);
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: currentColor;
-  opacity: 0.24;
-  transform: translate(-50%, -50%) scale(0);
-  animation: rc-ripple var(--rc-duration-long) var(--rc-ease-decelerate) forwards;
-}
-
-@keyframes rc-ripple {
-  to {
-    transform: translate(-50%, -50%) scale(40);
-    opacity: 0;
+const css: string[] = [];
+for (const [family, palette] of Object.entries(families)) {
+  for (const tone of THEME_TONES) {
+    css.push(`--md-ref-palette-${family}-${tone}: ${hexFromArgb(palette.tone(tone))};`);
   }
 }
+// 注入 <style>：:root:root { ...css }
 ```
-
-插件侧（事件委托，无需关心动态插入的 DOM）：
-
-```js
-document.addEventListener('pointerdown', (e) => {
-  const el = e.target.closest('.b3-menu__item, .b3-button');
-  if (!el) return;
-  const r = el.getBoundingClientRect();
-  el.style.setProperty('--rc-ripple-x', `${e.clientX - r.left}px`);
-  el.style.setProperty('--rc-ripple-y', `${e.clientY - r.top}px`);
-  el.classList.remove('rc-ripple');
-  void el.offsetWidth;
-  el.classList.add('rc-ripple');
-});
-```
-
-限制：
-
-1. 需要元素有 `position: relative; overflow: hidden`（主题侧给宿主加 `.rc-ripple-host`）；
-2. 无法复刻 M3 精确的扩散曲线与多段淡出，视觉近似；
-3. `data-rc-ripple='off'` 时不触发。
 
 ---
 
-## 9. 构建
+## 7. 维度与变体
 
-```
-pnpm build
-  → clean
-  → check:manifest      theme.json 校验（版本与 package.json 一致）
-  → type-check
-  → vite build          UnoCSS 展开 @apply → dist/theme.css
-  → check:dist          守卫：无 JS、无 @layer、体积预算
-  → package.zip
-```
+### 7.1 四个维度
 
-| 决策      | 取值                                  |
-| --------- | ------------------------------------- |
-| 输出      | 单文件 `theme.css`                    |
-| 体积预算  | < 120 KB（思源 `base.css` 为 585 KB） |
-| sourcemap | 关闭                                  |
-| 压缩      | 默认                                  |
-| `@layer`  | **禁用**                              |
+| 维度 | 属性              | 改什么   | 实现                     |
+| ---- | ----------------- | -------- | ------------------------ |
+| 风格 | `data-rc-style`   | 角色取值 | 变体 `s:<style>`         |
+| 明暗 | `data-theme-mode` | 颜色     | Token 自动切换，不是变体 |
+| 密度 | `data-ui-density` | 组件尺寸 | 变体 `s:compact`         |
+| 平台 | `data-backend`    | 组件集合 | 变体 `s:mobile`          |
+
+配色不是独立维度：各风格的品牌词汇不同，配色天然属于风格。
+
+### 7.2 明暗只走 Token
+
+- 颜色全部由 `--rc-color-*` 的两份值自动切换，组件只写一次颜色工具类。
+- 不允许为颜色写 `s:dark:` 变体，否则 bridge 要维护两份 137 条映射。
+- `s:dark:` 只用于非 token 差异：`box-shadow` 减弱或关闭、`filter: brightness(0.9)`、`opacity: 0.9`、渐变切换、`border-width: 0`。
+
+### 7.3 思源写入的 HTML 属性
+
+| 属性              | 值域                                                                           | 写入方           | 备注                                                                      |
+| ----------------- | ------------------------------------------------------------------------------ | ---------------- | ------------------------------------------------------------------------- |
+| `data-theme-mode` | `light` / `dark`                                                               | `assets.ts`      | 跟随系统由 `getThemeMode()` 读 `modeOS` + `prefers-color-scheme` 计算一次 |
+| `data-frontend`   | `desktop` / `desktop-window` / `mobile` / `browser-desktop` / `browser-mobile` | `functions.ts`   | 5 个值                                                                    |
+| `data-backend`    | `windows` / `linux` / `darwin` / `docker` / `android` / `ios` / `harmony`      | `functions.ts`   | 7 个值                                                                    |
+| `data-ui-density` | `compact` / 缺失                                                               | `compactMode.ts` | 仅 desktop / desktop-window / browser-desktop 会写                        |
+
+`color-scheme` 已由思源 `_reset.scss` 按 `:root[data-theme-mode=…]` 声明，主题不重复声明。
+
+### 7.4 变体清单与实现约束
+
+| 变体               | 产物                                                                               | 用途               |
+| ------------------ | ---------------------------------------------------------------------------------- | ------------------ |
+| `s:<style>:`       | `[data-rc-style="<style>"] .x`                                                     | 风格维度           |
+| `s:dark:`          | `[data-theme-mode="dark"] .x`                                                      | 非颜色差异         |
+| `s:compact:`       | `[data-ui-density="compact"] .x`                                                   | 紧凑尺寸           |
+| `s:mobile:`        | `:is([data-backend="ios"], [data-backend="android"], [data-backend="harmony"]) .x` | 移动端             |
+| `off:<flag>:`      | `:root:not([data-rc-<flag>="off"]) .x`                                             | 功能开关，默认开   |
+| `on:<flag>:`       | `:root[data-rc-<flag>="on"] .x`                                                    | 功能开关，默认关   |
+| `doc:<name>=<v>:`  | `[custom-rc-<name>="<v>"] .x`                                                      | 文档级，属性在祖先 |
+| `self:<name>=<v>:` | `.x[custom-rc-<name>="<v>"]`                                                       | 块级，属性在自身   |
+
+约束：
+
+- 多个维度段可叠加（`s:dark:fluent:`）。
+- 必须使用裸属性选择器，不能写 `:root[data-rc-style="fluent"]`——叠加 `dark:` 后会变成永不命中的后代选择器。
+- 多值选择器必须包 `:is()`，否则第一个分支变成裸选择器，规则会应用到整个平台页面。
+- 同一维度重复出现要去重。
+- **Token 层不能用 `s:` 变体**，必须手写 `:root[data-*]` 属性选择器。
 
 ---
 
-## 10. 测试
+## 8. UnoCSS 集成
 
-### 10.1 静态守卫（CI 可跑）
+### 8.1 定位与配置
 
-| 编号 | 规则                                                                                         |
-| ---- | -------------------------------------------------------------------------------------------- |
-| A1   | `theme.css` 的 `@import` 顺序必须 0→1→2→3→4→5                                                |
-| A2   | 产物与源码均不含 `@layer`                                                                    |
-| A3   | `base/`、`styles/`、`variants/` 不得出现 `--b3-`                                             |
-| A4   | `semantic.css` 不得出现 `--b3-`                                                              |
-| A5   | `styles/`、`variants/` 不得出现 `--m3-`、`--tw-`、`--fluent-`                                |
-| A6   | 每个 palette 必须覆盖 §6.3 的全部颜色角色                                                    |
-| A7   | 每个 style 目录必须包含 `index.css` 且被 `theme.css` 引用                                    |
-| A8   | `styles/` 中必须使用 `:is(:not([data-rc-style]), [data-rc-style=<name>])` 或自己的属性作用域 |
-| A9   | 体积预算、`!important` 数量预算                                                              |
-| A10  | 契约版本号存在且为整数                                                                       |
-| A11  | 非 material 风格的规则必须包在 `@media (hover: hover) and (pointer: fine)` 内                |
+UnoCSS 只做构建期 CSS 生成：`@apply` 把工具类展开进组件选择器，产物是普通 CSS，无运行时，不需要给 DOM 加类名。
 
-### 10.2 本地验证（需要思源）
+固定配置：`presetWind3` + `transformerDirectives` + `transformerVariantGroup`；内容扫描 `src` 下的 `.scss` / `.css` 文件。
 
-| 工具           | 用途                                                                   |
-| -------------- | ---------------------------------------------------------------------- |
-| `pnpm dev`     | 构建 watch + 产物变化时整页刷新；可选起常驻无头测量页（桌面/移动各一） |
-| `pnpm measure` | **通用测量原语**：env/tokens/styles/count/box/probe/diff/contrast      |
-| `pnpm shot`    | 无头截取桌面端/移动端页面，供 agent 视觉复核                           |
+`dark` 变体映射到思源属性（`dark: { dark: '[data-theme-mode="dark"]', light: '[data-theme-mode="light"]' }`），不使用 `.dark` 类。只能用于非颜色属性（§7.2）。
 
-#### 测量工具是独立包
+### 8.2 `--un-*` 基础变量：必须手写 9 条
 
-这几个命令都来自 `packages/siyuan-devkit`（workspace 包，`devDependencies` 里
-用 `workspace:*` 引用）。它不依赖本主题的任何东西，复制到别的思源主题/插件项目里
-能直接用——包内的 `readThemeName` 从 `public/theme.json` 读，`themeTarget` 的 CSS
-路径可配置，插件目录从 `workspace.json` 推导。
+**思源主题走 Vite 的 `input` 模式，不是 app 模式，UnoCSS preflight 根本不会注入。**
 
-包的公开 API 与 CLI 见 `packages/siyuan-devkit/README.md`。
+preflight 通过 `transformIndexHtml` 钩子注入，只有存在 `index.html` 的 app 模式才触发。`vite-plugin-siyuan` 把主题配置成 `build.rolldownOptions.input = 'src/theme.scss'`，没有 HTML 入口。
 
-#### 工具只提供能力，不预设「该查什么」
+**后果**：`shadow-*` / `ring-*` 引用的 `--un-ring-offset-shadow` 等变量没有定义，`box-shadow` 整条失效。
 
-这是本工具最重要的设计约定。工具不知道你的主题有哪些组件、哪些颜色该配在一起、
-什么值算「对」。它只负责把页面事实读出来：
-
-| 子命令                                 | 能力                                       |
-| -------------------------------------- | ------------------------------------------ |
-| `env`                                  | 页面环境（前端/后端/模式/视口/DOM 节点数） |
-| `tokens <name...>`                     | 令牌计算值                                 |
-| `styles <selector> [--props]`          | 元素计算样式                               |
-| `count <selector...>`                  | 选择器命中数（总数 / 可见数）              |
-| `box <selector>`                       | 元素盒模型尺寸                             |
-| `probe <html> <target>`                | 插入一段 HTML 再量                         |
-| `diff <selector> --setup ... --do ...` | 动作前后的样式差异                         |
-| `contrast <fg> <bg>`                   | 两个令牌（或颜色值）的对比度               |
-
-查什么、怎么判断，由 agent 在命令行上组合：
-
-```bash
-pnpm measure tokens --rc-text-primary --rc-bg-page
-pnpm measure contrast --rc-text-placeholder --rc-bg-page      # → 2.42:1
-pnpm measure styles .b3-menu__item --props color,background-color
-pnpm measure box .dock__item --frontend mobile                # 触摸目标尺寸
-pnpm measure count .b3-menu__item --do contextmenu:.b3-list-item
-pnpm measure diff .b3-menu__item --setup contextmenu:.b3-list-item \
-  --setup wait:600 --do hover:.b3-menu__item --props background-color
-```
-
-`--json` 输出结构化数据供程序消费；`--frontend` / `--viewport` / `--attach` 等通用。
-
-**为什么不内置「不变量」**：早期版本内置了 9 条不变量（对比度 ≥ 4.5、触摸目标 ≥ 44px…），
-还硬编码了「查哪 5 对颜色、查哪 3 个组件、查哪 2 个交互」。这等于替使用者决定审计范围
-——新增组件不会自动覆盖，改设计还要改工具。现在工具只给原语，判断交给人/agent。
-
-对比度这类计算仍然需要，所以 `color.ts` 提供 `contrastRatio()` 纯函数，
-`measure contrast` 子命令直接暴露它。
-
-#### 主题与插件共用同一套测量
-
-主题和插件在思源里是两套东西，但**测量方法相同**：在真实页面上量计算样式。
-差异只在两处，收敛在 `packages/siyuan-devkit/src/core/builtin-targets.ts` 的类型描述符里：
-
-| 维度       | 主题                                   | 插件                                            |
-| ---------- | -------------------------------------- | ----------------------------------------------- |
-| CSS 从哪来 | 读磁盘 `dev/theme.css`（回退 `dist/`） | 读磁盘 `<workspace>/data/plugins/<n>/index.css` |
-| 加载判定   | `<link id="themeStyle">` 的 href       | 插件是否注入 `<style id="pluginsStyle<n>">`     |
-| 额外状态   | 无                                     | `activate()` 打开面板（面板 DOM 才存在）        |
-
-**两者都读磁盘。** 实测插件的 `index.css` 与思源注入的 `<style id="pluginsStyle<name>">`
-**逐字节相同**（arco-calendar 275334 字符、siyuan-plugin-publisher 492618 字符），
-所以没有理由绕道从页面读。读磁盘的好处：不依赖插件是否已加载，插件出问题时审计照常跑；
-不需要先把插件点开，纯 CSS 断言不受 UI 状态影响。
-
-插件目录按思源约定推导 `<workspace>/data/plugins/<name>/`，工作区从 `workspace.json` 读；
-也可用 `pluginDir` 显式指定（插件源码在别处、或做 CI 时）。
-
-**没有 CSS 时不允许假通过。** 无 `index.css` 的插件（如 Calendar-heatmap）会返回空数组。
-此时若基线里还有样式断言，探针插入的元素无论如何都有默认计算值——那些断言会「通过」
-但毫无意义。所以 `verify` 直接失败并提示换基线，而不是给一条绿的假结论。
-
-`measure-cli.ts` 里没有任何「是主题还是插件」的分支——测试强制它必须通过 `core/targets.ts` 拿被测
-对象。加第三类被测对象时只改 `core/targets.ts`。
-
-> 插件的可观测面比主题窄：面板 DOM 只在打开后才存在，所以纯 CSS 断言（令牌/选择器/
-> 计算样式）是主力，需要真实 DOM 的断言要先用 `activate()` 打开面板。
-
-**`pnpm dev` 让思源真正选中本主题，而不是在页面上打补丁。** 启动时经 kernel API 把
-`themeLight`/`themeDark` 切成 `Rem Craft Dev`（已是它则不动），重建后换 `#themeStyle`
-的 href 让思源重新加载。这样预览、`measure`、生产用的是同一套级联。
-
-对比过另一种做法（注入 `<style>` + 临时禁用宿主主题）：注入只能模拟「本主题叠在宿主之上」，
-而真实级联里本主题是**替代**宿主主题，两者在 `--b3-*` 上结果不同——注入方式下
-`--b3-theme-background` 读到宿主的 `#feffff`，切主题后才是本主题的 `rgb(246 246 246)`。
-
-**为什么在真实页面上量，而不是 iframe 隔离**：早期用 iframe 是为了挡住宿主主题
-（Neo 1.1MB、上万条规则）的覆盖。但 `pnpm dev` 现在经 kernel API 让思源真正选中本主题，
-宿主主题根本不参与级联——隔离的前提消失了。而 iframe 只注入被测 CSS，会漏掉思源
-`base.css` 与运行时样式：实测同一元素 `line-height` 在 iframe 里是 `normal`、
-真实页面是 `28px`。
-
-所以探针插进主文档（`position:fixed` 放到视口外），拿到的是与生产完全一致的级联：
-`base.css` + 本主题 + 插件样式 + 运行时样式。变体（dark / density / 移动端 backend）
-用 `actions` 驱动 `<html>` 属性，测完 `reset`。
-
-#### 交互审计
-
-纯静态断言有个盲区：**思源升级后 CSS 选择器还在、但 DOM 结构变了，静态断言照样绿，
-实际交互已经烂了**。所以基线用例支持驱动真实交互再量：
-
-```json
-{
-  "name": "交互：右键菜单打开后菜单项样式生效",
-  "actions": ["contextmenu:.b3-list-item", "wait:600"],
-  "probes": [{ "label": "menu-item", "target": ".b3-menu__item", "expect": { "display": "flex" } }]
+```scss
+// src/foundation/_un-baseline.scss
+*,
+::before,
+::after {
+  --un-ring-inset: ;
+  --un-ring-offset-width: 0px;
+  --un-ring-offset-color: #fff;
+  --un-ring-width: 0px;
+  --un-ring-color: #93c5fd80;
+  --un-ring-offset-shadow: 0 0 #0000;
+  --un-ring-shadow: 0 0 #0000;
+  --un-shadow-inset: ;
+  --un-shadow: 0 0 #0000;
 }
 ```
 
-可用动作（`packages/siyuan-devkit/src/core/actions.ts`）：`click` / `hover` / `press` / `focus` / `type` /
-`move` / `wait` / `contextmenu` / `dock` / `attr` / `reset`。
+实测：加上这 9 条后，`--un-*` 未定义引用从 3 个降到 **0 个**。
 
-实测确认的四个事实：
+`presetWind3({ preflight: true })` 无效（那是默认值，问题在注入通道）；`@import 'uno.css'` 在 input 模式下直接报错。
 
-| 事实                                                                         | 影响                                                                |
-| ---------------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| `.b3-menu__item` 在菜单打开前**根本不存在**（实测 0 个）                     | 菜单类断言必须先 `contextmenu` 或 `dock`                            |
-| JS 派发 `contextmenu` 事件不触发菜单（仍是 0 个）                            | 必须用真实鼠标右键，见 `contextmenu` 动作                           |
-| 真实指针移动能驱动 `:hover`                                                  | `hover` 是唯一能测伪类的方式                                        |
-| hover 后背景是 `rgba(0,0,0,0.075)`（来自 base.css），不是主题的 `bg-surface` | 主题 hover 规则被 base.css 覆盖——这本身就是靠交互审计发现的真实问题 |
+这 9 条不含 `box-sizing` / `margin` 等重置——那是 Tailwind 的 preflight，且思源 `base.css` 已有自己的重置。
 
-#### 移动端
+### 8.3 `theme` 映射与四个陷阱
 
-桌面与移动是**两个独立构建入口**（`/stage/build/desktop/` 与 `/stage/build/mobile/`），
-`measure` 按 `--frontend` 选前端，移动端用 390x844@3 视口。
+| `theme` key                 | 命名空间                       | 映射来源                                                 |
+| --------------------------- | ------------------------------ | -------------------------------------------------------- |
+| `colors`                    | `bg-*` / `text-*` / `border-*` | 48 个 `color-*` + 12 个派生 + 22 个静态标注              |
+| `borderRadius`              | `rounded-*`                    | 24 个 `shape-*`                                          |
+| `spacing`                   | `p-*` / `gap-*`                | `space-xs` / `sm` / `md` / `lg` / `xl`                   |
+| `height` / `width`          | `h-*` / `w-*`                  | `size-row` / `size-control` / `size-dock` / `size-panel` |
+| `fontSize`                  | `text-*`                       | 15 组 `typescale-<level>-size` + line-height             |
+| `lineHeight` / `fontWeight` | `leading-*` / `font-*`         | 各组 `typescale-*` 对应值                                |
+| `boxShadow`                 | `shadow-*`                     | **`--rc-shadow-level*`**（不是 `elevation-*`）           |
+| `duration` / `easing`       | `duration-*` / `ease-*`        | `motion-duration-*` / `motion-easing-*`                  |
 
-**移动端要能加载自定义主题，`theme.json` 必须有 `frontends` 字段。** 思源的判定逻辑是：
+**陷阱 1：`fontSize` 与 `colors` 同占 `text-*`，颜色赢。** 同名时 `text-body` 只解析成颜色，字号静默失效。约定两者键名不得重名（字号带层级：`body-large` / `label-small`）。
 
-```js
-const canLoad = (theme, frontend) => {
-  if (theme.name === 'daylight' || theme.name === 'midnight') return true;
-  const meta = findThemeMeta(theme); // 从 lightThemes/darkThemes 找
-  return !!meta && (meta.frontends.includes('all') || meta.frontends.includes(frontend));
-};
+**陷阱 2：`borderRadius` 会被合并。** `corner-value-medium` 与 `corner-medium` 数值相同，UnoCSS 产出 `.rounded-medium, .rounded-value-medium { ... }`。变量层仍独立，但 B18 不能用工具类断言。
+
+**陷阱 3：覆盖 `spacing` 不会关掉默认刻度。** `p-4` / `p-13` 依然有效。组件只用 `space-*` 语义名，B23 断言不出现数字刻度。
+
+**陷阱 4：`elevation-*` 不能当 `box-shadow`。** M3 的 `sys-elevation` 是 dp 数值（`level1: 1px`），`box-shadow` 需要 x/y/blur/color。`theme.boxShadow` 必须指向 `--rc-shadow-level*`（§4.4）。
+
+### 8.4 `color-mix()` 的使用边界
+
+| 写法                                            | `bg-surface` | `/50` 是否生效                |
+| ----------------------------------------------- | ------------ | ----------------------------- |
+| `var(--rc-color-surface)`                       | 直接输出     | ❌ 静默丢弃                   |
+| `color-mix(... calc(<alpha-value> * 100%) ...)` | 完整表达式   | ✅ `/8` → `calc(0.08 * 100%)` |
+
+**`<alpha-value>` 占位符必须有**，否则 `/50` 会被丢掉。
+
+| 需求                                     | 是否用 `color-mix()` |
+| ---------------------------------------- | -------------------- |
+| 纯不透明颜色                             | ❌ 裸 `var()`        |
+| `bg-surface/50` 这类 alpha               | ✅                   |
+| 25 个带 alpha 的思源槽位                 | ✅                   |
+| M3 state layer（hover 8% / pressed 10%） | ✅                   |
+
+`color-mix()` 支持：Chrome 111+ / Safari 16.2+ / Firefox 113+，思源 Electron 与 iOS 17 均满足。
+
+`@apply` 实测不增加体积：单个工具类 +1 B、四工具类组合 +1 B、变体组 +2 B，压缩后归零；带 alpha 时反而比手写短 34 B。
+
+### 8.5 不要配置 UnoCSS `layers`
+
+`layers` 只影响 UnoCSS 自身生成选择器的排序。项目全部用 `@apply`，UnoCSS 不产出规则，配置 `layers` 没有意义。也不要开 `outputToCssLayers`——真正的 `@layer` 会被思源未分层的 `base.[contenthash].css` 压制（插件 `verify.ts` 也会报错）。
+
+### 8.6 Sass 与 UnoCSS 的关系
+
+Sass 管 token 层（§4.2），UnoCSS 管组件层。两者处理不同输入，**无冲突**：`@apply` 写在 `.scss` 内正常展开；Sass 变量插值 `@apply bg-#{$name}`、`&:hover` 嵌套、`@include` 混用、`@media` 内 `@apply` 均正常；Sass `//` 注释里的 `@apply` 不会被误处理。
+
+---
+
+## 9. 组件层
+
+### 9.1 编写规则
+
+- 按界面区域拆分文件，不按平台拆目录；同一组件的桌面与移动端规则放同一文件。
+- 组件只写短工具类，不出现 `var(--rc-*)`，也不读 `--b3-ui-*`。
+- 不得出现颜色字面量，不得重复实现派生逻辑。
+
+### 9.2 尺寸与紧凑
+
+- M3 的尺寸 token 在 comp 层，没有独立 metrics 层，尺寸写在 components。
+- 紧凑不能用统一乘数：思源各组件的普通/紧凑比值不统一，必须逐组件给值。
+- **主题不使用 `--b3-ui-*`。** 思源在 `util/_density.scss` 用 `:where(:root[data-ui-density="compact"])` 定义 31 个 `--b3-ui-*`，同时用 `:where(.protyle-wysiwyg), :where(.b3-typography)` 重置为 `initial`；思源自己消费时全部带回退值（`var(--b3-ui-menu-height, 28px)`）。普通模式下这些变量不存在，主题读了只是重复思源的默认值，还会在思源改默认值时产生隐性耦合。
+- 尺寸全部走项目自己的 `--rc-size-*`，紧凑差异用 `:root[data-ui-density="compact"]` 覆盖。
+
+---
+
+## 10. 插件契约
+
+### 10.1 优先级与注入规则
+
+| 优先级 | 来源                                                               | 生效条件               |
+| ------ | ------------------------------------------------------------------ | ---------------------- |
+| 低     | `tokens/*.scss` 产出的 `:root`（含 `--md-ref-palette-*` 静态基线） | 没有插件时生效         |
+| 中     | 预设 palette（`data-rc-palette` 属性）                             | 插件提供预设配色时生效 |
+| 高     | 插件注入的 `<style>`                                               | 动态生成               |
+
+- 必须注入 `<style>`，不能写内联变量（内联优先级高于任何选择器，切换暗色会坏）。
+- 注入样式必须同时写亮色与暗色两块。**例外**：覆盖 `--md-ref-palette-*` 只写一份（palette 与明暗无关）。
+- 选择器 `:root:root`，特异性 (0,2,0)，压过主题 `:root` (0,1,0)。
+- 卸载时删除注入的 `<style>`，清理 `data-rc-palette` 属性。
+- 水波纹由插件实现；主题侧只预留 `.rc-ripple` 宿主样式。
+
+### 10.2 MCU API 现状
+
+| 问题                 | 答案                                                                                                          |
+| -------------------- | ------------------------------------------------------------------------------------------------------------- |
+| MCU 还在维护吗       | **在**。未归档，最新版 0.4.0（2026-01-21），最后推送 2026-11-06                                               |
+| 莫奈功能还在吗       | **在**，是库的核心卖点                                                                                        |
+| 什么被 DEPRECATED 了 | ① `Scheme` 类及配套的 `themeFromSourceColor` / `applyTheme`；② `MaterialDynamicColors` 上的 **55 个静态属性** |
+| 新 API               | `DynamicScheme` + `SchemeTonalSpot` 等 11 个 variant 子类 + `MaterialDynamicColors` 的实例方法                |
+
+**本项目走 palette 路线，不需要 `MaterialDynamicColors`**（§6.4）。它只在将来要直接算角色值时才用得到。
+
+旧 API 不够用的原因：`themeFromSourceColor` 返回的 `Scheme` 只有 29 个 getter，而 M3 `sys-color` 有 48 个角色——`surface-container-*`、`surface-bright`、`*-fixed` 全都没有。
+
+### 10.3 派生色在莫奈下的处理
+
+MCU 不生成 success / warning / info。插件有两种处理：
+
+| 方案           | 做法                                                                       | 代价                 |
+| -------------- | -------------------------------------------------------------------------- | -------------------- |
+| A. 保持静态    | 派生色用 static 色族固定值                                                 | 与动态主色可能不协调 |
+| B. 用 HCT 生成 | 用 `Hct.from(hue, chroma, tone)` 从种子色取 hue，按固定 chroma / tone 生成 | 插件侧增加逻辑       |
+
+推荐 B：`Hct` 类直接可用，派生色用与主色相同的 hue 生成，视觉协调；tone 仍按「40 亮 / 80 暗」保持对比度。
+
+### 10.4 对比度变体（不落地）
+
+```ts
+const normal = new SchemeTonalSpot(hct, isDark, 0.0);
+const medium = new SchemeTonalSpot(hct, isDark, 0.5);
+const high = new SchemeTonalSpot(hct, isDark, 1.0);
 ```
 
-没有 `frontends` 时 `meta.frontends` 为 undefined，移动端（`browser-mobile`）就永远不加载
-——桌面端不受影响，所以很容易漏。写 `["all"]` 最省事。
-
-> 改 `theme.json` 后**必须重启思源内核**：清单只在启动时索引，内核不会热重载它。
-> 验证方式：`lightThemes` 里该主题的条目应带上 `frontends: ["all"]`。
-
-模拟切换：浏览器控制台执行
-
-```js
-document.documentElement.dataset.rcStyle = 'fluent';
-document.documentElement.dataset.rcPalette = 'shadcn';
-```
-
-再跑 `pnpm measure styles <selector>` 核对渲染是否随之变化。
+| 需求                   | 做法                                                                    |
+| ---------------------- | ----------------------------------------------------------------------- |
+| 插件提供对比度开关     | 改 `contrastLevel` 重建 scheme，**覆盖 `--rc-color-*`（不是 palette）** |
+| 纯静态主题也要高对比度 | 才需要把 4 个静态文件落地，用 `:root[data-rc-contrast='high']` 覆盖     |
+| 两者都没有             | 不落地                                                                  |
 
 ---
 
-## 11. UnoCSS 的定位
+## 11. 移动端
 
-**UnoCSS 是构建期 CSS 生成器，不是运行时工具类系统。**
+### 11.1 事实
 
-| 用途                      | 说明                                                     |
-| ------------------------- | -------------------------------------------------------- |
-| `@apply`                  | 在 `styles/` 中把工具类展开进真实选择器                  |
-| `theme` 配置              | 把 `--rc-*` 映射成 UnoCSS 主题，使 `bg-brand-40/50` 可用 |
-| `shortcuts`               | 复用片段（如 `rc-menu-item`）                            |
-| `transformerDirectives`   | 支持 `@apply`                                            |
-| `transformerVariantGroup` | 支持 `hover:(bg-surface text-brand)`                     |
+| 事实                   | 结论                                                                                                     |
+| ---------------------- | -------------------------------------------------------------------------------------------------------- |
+| 移动端 CSS             | 独立构建，不是桌面 CSS 的媒体查询分支                                                                    |
+| 移动端独有变量         | **17** 个                                                                                                |
+| 移动端独有组件         | `.mobile-topbar`、`.mobile-bottom-bar`、`.mobile-safe-area`、`body.mobile-keyboard--open`                |
+| 两端共有组件           | `.b3-menu`、`.b3-list-item`、`.b3-dialog`、`.protyle-breadcrumb`、`.layout-tab-bar`、`.dock`             |
+| 移动端 `data-frontend` | `mobile` / `browser-mobile`                                                                              |
+| 移动端 `data-backend`  | `ios` / `android` / `harmony`                                                                            |
+| 移动端紧凑模式         | 不生效。JS 会写属性，但 `isCompactModeAvailable()` 白名单只含 desktop / desktop-window / browser-desktop |
 
-禁用项：
+17 个移动端变量（`_mobile.scss`）：`--mobile-topbar-height` 48px、`--mobile-bottom-bar-height` 48px、`--mobile-breadcrumb-height` 42px、`--mobile-status-height` 24px、`--mobile-top-safe-area` `env(safe-area-inset-top)`、`--mobile-bottom-bar-safe-area` `env(safe-area-inset-bottom)`、`--mobile-bottom-bar-gap` 8px、`--mobile-bottom-bar-bottom` `calc(...)`、`--mobile-bottom-bar-offset` `calc(...)`、`--android-navigation-overlay` 1、`--file-tree-indent` / `--file-tree-toggle-size` / `--file-tree-toggle-padding` 30px / 32px / 8px、`--b3-snackbar-gap` / `--b3-snackbar-right` / `--b3-snackbar-top` 16px / 30px / `max(22px, …)`、`--b3-protyle-page-scroll-gutter` 0px。
 
-| 禁用                             | 原因                                    |
-| -------------------------------- | --------------------------------------- |
-| preflight / reset                | 思源 `base.css` 已有重置                |
-| `presetAttributify`              | 只影响 HTML 标记，主题无自有 HTML       |
-| `presetIcons` / `presetWebFonts` | 体积与网络成本，思源已有图标与字体      |
-| `outputToCssLayers`              | 会让产物进 `@layer`，被 `base.css` 压制 |
+### 11.2 组织方式
 
-`@apply` 仅允许出现在 `styles/` 与 `base/`；`foundation/`、`palettes/`、`variants/` 写纯 CSS。
-
----
-
-## 12. 从零实施顺序
-
-| 步骤 | 内容                                                         | 验收                      |
-| ---- | ------------------------------------------------------------ | ------------------------- |
-| 1    | 清空 `src/styles/`，建立新目录骨架                           | `pnpm build` 产出空壳 CSS |
-| 2    | `foundation/scale.css`（M3 tone 13 档，OKLCH 三通道）        | 变量在页面上可读          |
-| 3    | `foundation/semantic.css` + `bridge.css`                     | 语义角色与 `--b3-*` 生效  |
-| 4    | `contract/tokens.json` + 守卫测试 A6/A10                     | 测试能拦住缺角色          |
-| 5    | `palettes/material.css`                                      | 默认配色生效              |
-| 6    | `base/skeleton.css`（含 `.rc-ripple` 预留）                  | 基础布局正确              |
-| 7    | `styles/material/`（按区域逐个）                             | 默认风格完整              |
-| 8    | `variants/`（dark / density / mobile / features / document） | 变体生效                  |
-| 9    | 测试 A1–A11 全绿                                             | `pnpm check` 通过         |
-| 10   | `scripts/palette/argb-to-oklch.mjs` + 生成脚本               | 种子色可生成配色          |
-| 11   | `palettes/shadcn.css` + `styles/shadcn/`（仅桌面）           | 切换验证                  |
-| 12   | `palettes/fluent.css` + `styles/fluent/`（仅桌面）           | 切换验证                  |
-| 13   | 文档与体积复核                                               | 预算内                    |
+- 不按平台拆目录，同一组件的规则留在同一区域文件，用 `s:mobile:` 写差异。
+- 移动端独有组件集中放 `components/mobile.scss`，桌面端天然不匹配。
+- 移动端判定必须用 `data-backend ∈ {ios, android, harmony}`，不能用 `@media (max-width: 768px)`——平板横屏和浏览器访问桌面版会被宽度误判。
+- 移动端 token：颜色两端共用；尺寸用 `:root[data-backend=…]` 追加移动端分支，并提供 `touch-min`（44px）。Token 层不能用 `s:` 变体。
 
 ---
 
-## 13. 已定决策
+## 12. 启动与切换
 
-| 议题           | 决策                                                                         |
-| -------------- | ---------------------------------------------------------------------------- |
-| Cupertino 风格 | 暂缓（Apple 无官方 Web 组件库，只有 HIG 文档）                               |
-| 刻度层         | **M3 tone 13 档**（0/5/10/20/30/40/50/60/70/80/90/95/100），无损对接种子生成 |
-| 语义层         | 参考 M3 的配对思路（前景/背景成对），命名自研                                |
-| 色彩格式       | **OKLCH 三通道**（变量只存数值，不存完整函数）                               |
-| UnoCSS 接入    | tone 色阶约 20 行配置，`bg-brand-40/50` 实测可用                             |
-| 移动端判定     | `data-backend ∈ {ios, android, harmony}`；`data-frontend` 无 mobile          |
-| 移动端范围     | 只有 Material 做；其他风格用媒体查询限定桌面                                 |
-| 功能开关       | 见 §8.2，结构先落地，清单后续增补                                            |
-| 插件契约       | 过渡期 `file:` 本地依赖，稳定后发 `@rem-craft/contract`                      |
-| 水波纹         | 插件实现（`pointerdown` + CSS 动画），主题侧预留                             |
+| 场景       | 行为                                                                                                 |
+| ---------- | ---------------------------------------------------------------------------------------------------- |
+| 冷启动     | 思源有启动遮罩，覆盖整个主题加载窗口；`data-theme-mode` 与 `themeStyle` 同时到达，第一帧已是主题样式 |
+| 明暗切换   | `data-theme-mode` 属性立即变化，颜色 token 同帧跟随，无网络请求                                      |
+| 多风格切换 | 插件写 `data-rc-style` 后 CSS 变体生效；插件在 `onload` 第一件事就写该属性                           |
+| Monet 取色 | 必然晚于首帧；页面底色由静态 `:root` 兜住，注入后颜色平滑过渡                                        |
 
 ---
 
-## 14. 待补充
+## 13. 构建与校验
 
-1. 功能开关清单（§8.2）尚未定稿。
-2. `contract/tokens.json` 的完整角色清单需在步骤 4 逐项确认。
-3. 是否引入 `cupertino` 风格，等前几套稳定后评估。
-4. 移动端 Material 适配的具体尺寸表（间距/字号/触摸目标）待实测确定。
+### 13.1 构建流程
+
+`pnpm build`：`type-check` → `vite build`（Vite 调 Sass 编译 `theme.scss`，UnoCSS 展开 `@apply`，`siyuan()` 插件负责产物目录 / 产物名 / public 复制 / 产物校验 / 打 zip）→ `package.zip`。
+
+`vite-plugin-siyuan` 的 `verify.ts` 已覆盖：清单存在与形状、`package.json` 与清单版本一致、产物无 JS、无 `@layer`、无 `rgb(var(--b3-*))` 双重包装、清单声明的资源在产物里。**这些主题侧测试不重复实现。**
+
+### 13.2 构建决策
+
+| 项目      | 取值                                                                            |
+| --------- | ------------------------------------------------------------------------------- |
+| 输出      | `theme.css` + `theme.json`（+ icon / preview）                                  |
+| sourcemap | 关闭                                                                            |
+| `@layer`  | 禁用，`layers` 配置不配                                                         |
+| 预处理器  | `sass`（devDependency），Vite 原生支持 `.scss` 入口                             |
+| token 源  | `@material/web`（devDependency，**2.5.0 精确锁定**，无 `^`）                    |
+| Sass 解析 | Vite 自动解析裸包名；测试里 `sass.compile()` 需显式 `loadPaths: [node_modules]` |
+| 体积      | 只记录，不设硬限                                                                |
+
+### 13.3 性能预算
+
+| 指标            | 上限      |
+| --------------- | --------- |
+| `:has()` 规则数 | ≤ 20 条   |
+| 选择器最大深度  | ≤ 4 层    |
+| 规则总数        | ≤ 3000 条 |
+
+### 13.4 测试清单
+
+| 编号 | 规则                                                                                                                                                                                                                                     |
+| ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| B1   | 产物无 `@layer`（插件已覆盖，主题侧不重复）                                                                                                                                                                                              |
+| B2   | `components/` 内只能写短工具类；不得出现颜色字面量、`var(--rc-*)`、`--b3-ui-*`                                                                                                                                                           |
+| B3   | `bridge.scss` 覆盖全部 **147** 个颜色 `--b3-*`（对照 daylight/midnight 快照）                                                                                                                                                            |
+| B4   | `tokens/` 里不得出现组件类名（分层守卫）                                                                                                                                                                                                 |
+| B5   | 产物中不存在 `[data-theme-mode="dark"] :root`                                                                                                                                                                                            |
+| B6   | 各 token 文件落地条数符合 §3.1：合计 **843 条声明**                                                                                                                                                                                      |
+| B7   | `--rc-*` 契约名覆盖完整（唯一变量名口径）：颜色 48 + 圆角 24 + 高度 6 + 动效 45 + 状态 5 + 焦点 3 + 字号 210 + 强调字号 210 + 派生 12 + 静态标注 18 + 间距 5 + 尺寸 4 + 阴影 6 = **596 个唯一名**（颜色按亮暗两份声明算则为 644 条声明） |
+| B8   | `uno.config.ts` 每个 theme key 必须来自 `--rc-*` 契约，全部颜色契约名必须有对应映射                                                                                                                                                      |
+| B9   | 其他风格的覆盖文件里所有 `:root` 必须带 `[data-rc-style='<style>']`                                                                                                                                                                      |
+| B10  | Token 文件里不得出现嵌套颜色函数写法（`oklch()` / `rgb()` 的通道位置放变量）                                                                                                                                                             |
+| B11  | 不得有变量自引用，否则该变量整条失效                                                                                                                                                                                                     |
+| B12  | `derived.scss` 里的颜色只能引用 `--md-ref-palette-*` 的 static / baseline 色阶，不得写死色值，不得用相对颜色语法                                                                                                                         |
+| B13  | 产物里每个 `var(--un-*)` 引用都要有定义                                                                                                                                                                                                  |
+| B14  | `--rc-color-*` 的 `:root` 和 `:root[data-theme-mode='dark']` 必须定义完全相同的 **48** 个键；palette 只定义一次                                                                                                                          |
+| B15  | `components/` 里不得出现 `@media (prefers-color-scheme: dark)`                                                                                                                                                                           |
+| B16  | `components/` 里不得出现 `.dark` 类选择器                                                                                                                                                                                                |
+| B17  | 产物中不得出现 §3.6 的 6 个弃用 token 名                                                                                                                                                                                                 |
+| B18  | 1:1 双射：产物中每个 `--md-ref-*` / `--rc-*` 变量恰好对应一个官方 M3 变量，断言无合并/拆分/丢弃（**795 个唯一变量名**）                                                                                                                  |
+| B19  | 每个 token 文件头部必须有弃用标注注释，逐条列出 `@deprecated` 项与替代方案                                                                                                                                                               |
+| B20  | `--rc-color-*` 亮暗两份必须按键序一致排列（48 个键顺序完全一致）                                                                                                                                                                         |
+| B21  | `uno.config.ts` 的 `theme.boxShadow` 不得引用 `--rc-elevation-*`，必须引用 `--rc-shadow-level*`                                                                                                                                          |
+| B22  | `theme.colors` 与 `theme.fontSize` 的键名集合不得有交集                                                                                                                                                                                  |
+| B23  | `components/` 里不得出现数字间距刻度（`p-4` / `m-2` / `gap-8`），只能用 `space-*` 语义名                                                                                                                                                 |
+| B24  | `--rc-shadow-level*` 必须覆盖 level0–level5 共 6 条，每条含 key + ambient 双层阴影                                                                                                                                                       |
+| B25  | 带 alpha 的思源槽位（25 个 `rgba()` 原值）在 `bridge.scss` 中必须用 `color-mix()` 表达                                                                                                                                                   |
+| B26  | 产物中每个 `var(--un-*)` 引用都必须有定义；`foundation/_un-baseline.scss` 的 9 条基线变量必须存在                                                                                                                                        |
+
+### 13.5 与插件校验的分工
+
+| 层                               | 负责                                                    | 覆盖            |
+| -------------------------------- | ------------------------------------------------------- | --------------- |
+| `vite-plugin-siyuan` `verify.ts` | 清单 / 版本 / 无 JS / 无 `@layer` / 双重包装 / 声明资源 | B1 及产物完整性 |
+| 主题侧 `tests/*.test.ts`         | 分层守卫、映射双射、弃用标注、bridge 覆盖、契约完整性   | B2–B26          |
+
+---
+
+## 14. 实施顺序
+
+| 步骤 | 内容                                                                                                                                        | 验收                        |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
+| 1    | `uno.config.ts` 按 §8.3 重写；`theme.css` 改名 `theme.scss`；删除 `foundation/semantic.css` 与对应测试；新建 `foundation/_un-baseline.scss` | B10 / B13 / B26 绿          |
+| 2    | 引入 devDependency `@material/web@2.5.0`（精确锁定）；`@use` 其内置 11 个设计层 SCSS；写 `tokens/material/_index.scss`                      | B18 绿                      |
+| 3    | 补齐 color / shape / elevation 三段                                                                                                         | B6 / B10 / B14 / B17 绿     |
+| 4    | 补齐 motion / state / focus-indicator 三段                                                                                                  | B6 / B18 绿                 |
+| 5    | 补齐 typescale / emphasized，加 3 条弃用标注                                                                                                | B6 / B17 / B19 绿           |
+| 6    | 校验 `--rc-*` 契约完整性 + 项目扩展                                                                                                         | B4 / B7 / B8 / B11 绿       |
+| 7    | `derived.scss`：12 派生 + 22 静态标注 + 6 阴影配方                                                                                          | B12 / B24 绿                |
+| 8    | `bridge.scss` 手写 137 条                                                                                                                   | B3 / B25 绿                 |
+| 9    | `components/` 按区域逐个（先菜单、对话框、停靠栏）                                                                                          | B2 / B15 / B16 / B21–B23 绿 |
+| 10   | `components/mobile.scss` + 各文件的 `s:mobile:` 分支                                                                                        | 移动端复核                  |
+| 11   | `tokens/fluent/`、`tokens/shadcn/` 空覆盖文件占位                                                                                           | B9 绿                       |
+| 12   | 插件：`<style>` 注入 + Monet 取色                                                                                                           | 运行时切换验证              |
+| 13   | B2–B26 全绿                                                                                                                                 | `pnpm check` 通过           |
+
+---
+
+## 15. 已知限制
+
+| #   | 限制                                | 影响                                                                                      |
+| --- | ----------------------------------- | ----------------------------------------------------------------------------------------- |
+| 1   | `fontSize` / `colors` 同占 `text-*` | 颜色赢，字号静默失效。靠命名约定规避，无强制手段                                          |
+| 2   | `spacing` 默认刻度无法关闭          | `p-4` 永远有效，只能靠 lint 规则禁止                                                      |
+| 3   | `bridge.scss` 137 条无自动化来源    | 思源升级时变量可能增删，只能靠 B3 快照测试发现                                            |
+| 4   | 多风格覆盖文件为空壳                | `tokens/fluent/` 与 `tokens/shadcn/` 只有占位，B9 断言其 `:root` 必须带 `[data-rc-style]` |

@@ -1,0 +1,15 @@
+/* UnoCSS preflight 在 input 模式不注入，这 9 条 --un-* 必须手写。 */
+
+*,
+::before,
+::after {
+  --un-ring-inset: ;
+  --un-ring-offset-width: 0px;
+  --un-ring-offset-color: #fff;
+  --un-ring-width: 0px;
+  --un-ring-color: #93c5fd80;
+  --un-ring-offset-shadow: 0 0 #0000;
+  --un-ring-shadow: 0 0 #0000;
+  --un-shadow-inset: ;
+  --un-shadow: 0 0 #0000;
+}

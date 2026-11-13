@@ -1,0 +1,10 @@
+/* 唯一入口：@use 顺序即层级，不得调整。 */
+
+@use 'foundation/un-baseline';
+@use 'tokens/material';
+@use 'tokens/derived';
+@use 'tokens/extend';
+@use 'tokens/bridge';
+
+@use 'tokens/fluent';
+@use 'tokens/shadcn';

@@ -1,0 +1,79 @@
+/* 派生状态色（亮暗）+ 静态标注色 + 阴影配方。弃用：无。 */
+
+:root {
+  --rc-success: var(--md-ref-palette-green40);
+  --rc-on-success: var(--md-ref-palette-green100);
+  --rc-success-container: var(--md-ref-palette-green90);
+  --rc-on-success-container: var(--md-ref-palette-green10);
+
+  --rc-warning: var(--md-ref-palette-yellow40);
+  --rc-on-warning: var(--md-ref-palette-yellow100);
+  --rc-warning-container: var(--md-ref-palette-yellow90);
+  --rc-on-warning-container: var(--md-ref-palette-yellow10);
+
+  --rc-info: var(--md-ref-palette-blue40);
+  --rc-on-info: var(--md-ref-palette-blue100);
+  --rc-info-container: var(--md-ref-palette-blue90);
+  --rc-on-info-container: var(--md-ref-palette-blue10);
+}
+
+:root[data-theme-mode='dark'] {
+  --rc-success: var(--md-ref-palette-green80);
+  --rc-on-success: var(--md-ref-palette-green20);
+  --rc-success-container: var(--md-ref-palette-green30);
+  --rc-on-success-container: var(--md-ref-palette-green90);
+
+  --rc-warning: var(--md-ref-palette-yellow80);
+  --rc-on-warning: var(--md-ref-palette-yellow20);
+  --rc-warning-container: var(--md-ref-palette-yellow30);
+  --rc-on-warning-container: var(--md-ref-palette-yellow90);
+
+  --rc-info: var(--md-ref-palette-blue80);
+  --rc-on-info: var(--md-ref-palette-blue20);
+  --rc-info-container: var(--md-ref-palette-blue30);
+  --rc-on-info-container: var(--md-ref-palette-blue90);
+}
+
+:root {
+  --rc-static-red-40: var(--md-ref-palette-red40);
+  --rc-static-red-90: var(--md-ref-palette-red90);
+  --rc-static-orange-40: var(--md-ref-palette-orange40);
+  --rc-static-orange-90: var(--md-ref-palette-orange90);
+  --rc-static-yellow-40: var(--md-ref-palette-yellow40);
+  --rc-static-yellow-90: var(--md-ref-palette-yellow90);
+  --rc-static-green-40: var(--md-ref-palette-green40);
+  --rc-static-green-90: var(--md-ref-palette-green90);
+  --rc-static-pink-40: var(--md-ref-palette-pink40);
+  --rc-static-pink-90: var(--md-ref-palette-pink90);
+  --rc-static-blue-40: var(--md-ref-palette-blue40);
+  --rc-static-blue-90: var(--md-ref-palette-blue90);
+  --rc-static-purple-40: var(--md-ref-palette-purple40);
+  --rc-static-purple-90: var(--md-ref-palette-purple90);
+
+  --rc-static-cyan-40: var(--md-ref-palette-cyan40);
+  --rc-static-cyan-90: var(--md-ref-palette-cyan90);
+
+  --rc-static-yellow-80: var(--md-ref-palette-yellow80);
+  --rc-static-green-30: var(--md-ref-palette-green30);
+}
+
+:root {
+  --rc-shadow-level0:
+    0 0 0 0 color-mix(in oklab, var(--md-ref-palette-black) 30%, transparent),
+    0 0 0 0 color-mix(in oklab, var(--md-ref-palette-black) 15%, transparent);
+  --rc-shadow-level1:
+    0 1px 2px 0 color-mix(in oklab, var(--md-ref-palette-black) 30%, transparent),
+    0 1px 3px 1px color-mix(in oklab, var(--md-ref-palette-black) 15%, transparent);
+  --rc-shadow-level2:
+    0 1px 2px 0 color-mix(in oklab, var(--md-ref-palette-black) 30%, transparent),
+    0 2px 6px 2px color-mix(in oklab, var(--md-ref-palette-black) 15%, transparent);
+  --rc-shadow-level3:
+    0 1px 3px 0 color-mix(in oklab, var(--md-ref-palette-black) 30%, transparent),
+    0 4px 8px 3px color-mix(in oklab, var(--md-ref-palette-black) 15%, transparent);
+  --rc-shadow-level4:
+    0 2px 3px 0 color-mix(in oklab, var(--md-ref-palette-black) 30%, transparent),
+    0 6px 10px 4px color-mix(in oklab, var(--md-ref-palette-black) 15%, transparent);
+  --rc-shadow-level5:
+    0 4px 4px 0 color-mix(in oklab, var(--md-ref-palette-black) 30%, transparent),
+    0 8px 12px 6px color-mix(in oklab, var(--md-ref-palette-black) 15%, transparent);
+}

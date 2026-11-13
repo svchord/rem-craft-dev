@@ -1,0 +1,57 @@
+/* M3 设计层（§3、§4.1、§4.2）：官方 11 个 SCSS 经 meta.module-variables() 生成 843 条声明。
+ * 来源：devDependency @material/web@2.5.0 的 tokens/versions/latest/sass（token 版本 34.0.21）。
+ *
+ * 弃用：以下 6 条官方 @deprecated token 不落地（B17），本文件亦不出现其名字。
+ *   surface-tint → 已被 tonal surface 取代，无直接替代，层次用 surface-container-*。
+ *   surface-tint-color（color / elevation 两处）→ 替代 surface-tint，其亦已弃用，实质无替代。
+ *   label-medium-text-transform → 无替代。
+ *   label-large-weight-prominent → 改用 --rc-typescale-emphasized-label-large-weight。
+ *   label-medium-weight-prominent → 改用 --rc-typescale-emphasized-label-medium-weight。
+ */
+
+@use 'sass:list';
+@use 'sass:meta';
+
+@use '@material/web/tokens/versions/latest/sass/md-ref-palette' as ref-palette;
+@use '@material/web/tokens/versions/latest/sass/md-ref-typeface' as ref-typeface;
+@use '@material/web/tokens/versions/latest/sass/md-sys-color' as sys-color;
+@use '@material/web/tokens/versions/latest/sass/md-sys-color__dark' as sys-color-dark;
+@use '@material/web/tokens/versions/latest/sass/md-sys-shape' as sys-shape;
+@use '@material/web/tokens/versions/latest/sass/md-sys-elevation' as sys-elevation;
+@use '@material/web/tokens/versions/latest/sass/md-sys-motion' as sys-motion;
+@use '@material/web/tokens/versions/latest/sass/md-sys-state' as sys-state;
+@use '@material/web/tokens/versions/latest/sass/md-sys-state-focus-indicator' as sys-focus;
+@use '@material/web/tokens/versions/latest/sass/md-sys-typescale' as typescale;
+@use '@material/web/tokens/versions/latest/sass/md-sys-typescale-emphasized' as typescale-emphasized;
+
+$deprecated:
+  'surface-tint', 'surface-tint-color', 'label-medium-text-transform', 'label-large-weight-prominent',
+  'label-medium-weight-prominent';
+
+@mixin emit($module, $prefix) {
+  @each $name, $value in meta.module-variables($module) {
+    @if not list.index($deprecated, $name) {
+      --#{$prefix}-#{$name}: #{$value};
+    }
+  }
+}
+
+:root {
+  @include emit('ref-palette', 'md-ref-palette');
+  @include emit('ref-typeface', 'md-ref-typeface');
+}
+
+:root {
+  @include emit('sys-color', 'rc-color');
+  @include emit('sys-shape', 'rc-shape');
+  @include emit('sys-elevation', 'rc-elevation');
+  @include emit('sys-motion', 'rc-motion');
+  @include emit('sys-state', 'rc-state');
+  @include emit('sys-focus', 'rc-state-focus-indicator');
+  @include emit('typescale', 'rc-typescale');
+  @include emit('typescale-emphasized', 'rc-typescale-emphasized');
+}
+
+:root[data-theme-mode='dark'] {
+  @include emit('sys-color-dark', 'rc-color');
+}

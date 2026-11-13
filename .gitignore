@@ -32,6 +32,7 @@ audit-browser.png
 inspect.png
 .rc-cdp-ws
 /shots
+.playwright-cli
 
 # 一次性探针脚本留下的临时目录（probe-*.mjs 等）
 /.pw*

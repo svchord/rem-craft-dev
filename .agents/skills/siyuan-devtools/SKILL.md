@@ -19,17 +19,20 @@ siyuan-devtools close                       # 关掉整个浏览器
 
 已经开着会话时再 `open` 不会重开浏览器，但会**重新导航**当前页——hover、菜单、滚动位置全丢。加载新产物用 `reload` 就够了，不需要 `open`。
 
-## 改完源码后
+## 改完源码后：watcher 必须一直在跑
+
+**Agent 测量期间必须常驻一个 `pnpm dev` watcher，不要把它结束掉。** watcher 会监听源码、重建并自动刷新页面，
+所以改完源码只需等 `[vite-plugin-siyuan] build #N ready`，不需要手动 `reload`。
 
 ```
-1. 改源码
-2. 等 pnpm dev 输出 [vite-plugin-siyuan] build #N ready
-3. siyuan-devtools reload
-4. 重新建立交互场景（do hover / do menu ...）
-5. 测量
+1. 后台起 pnpm dev（保留 job id，全程不要 kill）
+2. 改源码
+3. 等 watcher 输出 [vite-plugin-siyuan] build #N ready
+4. 直接测量（页面已自动刷新）
 ```
 
-`reload` 整页刷新，交互态清空；但它会从当前页面读一次明暗/密度并重放，所以「设暗色 → 改 CSS → reload → 测量」不会静默测成亮色。
+只有 watcher 没在跑或它明确失败时，才用 `siyuan-devtools reload` 兜底。`reload` 会清空交互态
+（hover、菜单、滚动位置），能用自动刷新就不要用它。
 
 ## 读数
 

@@ -213,6 +213,23 @@ describe('components / B2 B15 B16 B23 component style guards', () => {
     expect(violations).toEqual([]);
   });
 
+  it('never applies color utilities (bridge owns the --b3-* colors)', () => {
+    const colorKeys = Object.keys((unoConfig.theme as { colors?: Record<string, unknown> }).colors ?? {});
+    const violations: string[] = [];
+    for (const file of files) {
+      const source = stripComments(readFileSync(file, 'utf8'));
+      for (const match of source.matchAll(/@apply\s+([^;]+);/g)) {
+        for (const token of match[1].split(/\s+/)) {
+          const bare = token.replace(/^(?:[a-z-]+:)+/, '').replace(/\/[\d.]+$/, '');
+          if (colorKeys.some((key) => bare === 'bg-' + key || bare === 'text-' + key || bare === 'border-' + key)) {
+            violations.push(file + ': ' + token);
+          }
+        }
+      }
+    }
+    expect(violations).toEqual([]);
+  });
+
   it('never reads --b3-ui-*', () => {
     const violations = files.filter((file) => stripComments(readFileSync(file, 'utf8')).includes('--b3-ui-'));
     expect(violations).toEqual([]);

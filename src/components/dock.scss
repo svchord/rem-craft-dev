@@ -1,0 +1,20 @@
+/* 停靠栏：M3 导航轨道 + 图标项状态层。 */
+.dock {
+  @apply flex h-full w-dock flex-col select-none;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.dock__item {
+  @apply m-xs flex items-center justify-center rounded-md p-xs text-on-surface-variant cursor-pointer;
+}
+
+.dock__item:hover,
+.dock__item--active {
+  @apply bg-surface-container-high text-on-surface;
+}
+
+.dock__item--activefocus {
+  @apply bg-primary text-on-primary;
+}

@@ -1,0 +1,41 @@
+/* 对话框：scrim + 表面容器 + 头/内容/动作三段。 */
+.b3-dialog {
+  @apply fixed inset-0 flex items-center justify-center;
+}
+
+.b3-dialog__scrim {
+  @apply absolute inset-0 bg-scrim/40;
+}
+
+.b3-dialog__container {
+  @apply relative flex flex-col rounded-xl border border-outline-variant bg-surface-container text-on-background shadow-level3;
+  max-width: 88vw;
+  max-height: 85vh;
+  box-sizing: border-box;
+}
+
+.b3-dialog__header {
+  @apply flex items-center gap-sm border-b border-outline-variant px-md py-sm text-title-medium;
+}
+
+.b3-dialog__body {
+  @apply flex flex-col;
+  overflow: auto;
+}
+
+.b3-dialog__content {
+  @apply flex-1 p-md text-body-medium;
+  word-break: break-word;
+}
+
+.b3-dialog__action {
+  @apply flex flex-wrap items-center justify-end gap-sm border-t border-outline-variant px-md py-sm select-none;
+}
+
+.b3-dialog__close {
+  @apply absolute right-xs top-xs flex h-control w-control cursor-pointer items-center justify-center rounded-full p-xs text-on-surface-variant;
+}
+
+.b3-dialog__close:hover {
+  @apply bg-surface-container-high text-on-surface;
+}

@@ -202,9 +202,9 @@ export default defineConfig({
     },
     // 字号键名带层级（body-large / label-small），与颜色键名零交集（B22）。
     fontSize: Object.fromEntries(
-      TYPESCALE.map((level): [string, [string, { lineHeight: string }]] => [
+      TYPESCALE.map((level): [string, [string, string]] => [
         level,
-        [`var(--rc-typescale-${level}-size)`, { lineHeight: `var(--rc-typescale-${level}-line-height)` }],
+        [`var(--rc-typescale-${level}-size)`, `var(--rc-typescale-${level}-line-height)`],
       ])
     ),
     lineHeight: Object.fromEntries(TYPESCALE.map((level) => [level, `var(--rc-typescale-${level}-line-height)`])),

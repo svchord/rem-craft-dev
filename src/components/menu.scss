@@ -1,0 +1,53 @@
+/* 菜单：M3 表面容器 + 列表项状态层。 */
+.b3-menu {
+  @apply fixed rounded-lg border border-outline-variant bg-surface-container text-on-background shadow-level2 p-xs;
+  box-sizing: border-box;
+  min-width: 180px;
+  max-width: 420px;
+  max-height: 50vh;
+  overflow: auto;
+}
+
+.b3-menu__items {
+  @apply flex flex-col gap-xs p-xs;
+}
+
+.b3-menu__item {
+  @apply flex w-full h-row items-center gap-sm rounded-sm border-0 bg-transparent px-sm text-body-medium text-on-surface select-none cursor-pointer whitespace-nowrap;
+  text-align: left;
+}
+
+.b3-menu__item:hover,
+.b3-menu__item--show,
+.b3-menu__item--current {
+  @apply bg-surface-container-high;
+}
+
+.b3-menu__item--selected {
+  @apply text-primary;
+}
+
+.b3-menu__item--warning:hover,
+.b3-menu__item--warning.b3-menu__item--current {
+  @apply text-error;
+}
+
+.b3-menu__item[disabled='disabled'] {
+  @apply cursor-not-allowed opacity-38;
+}
+
+.b3-menu__separator {
+  @apply my-xs border-t border-outline-variant;
+}
+
+.b3-menu__icon {
+  @apply flex items-center justify-center text-on-surface-variant;
+}
+
+.b3-menu__label {
+  @apply flex-1 overflow-hidden text-ellipsis;
+}
+
+.b3-menu__accelerator {
+  @apply text-label-small text-on-surface-variant;
+}

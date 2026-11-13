@@ -8,3 +8,7 @@
 
 @use 'tokens/fluent';
 @use 'tokens/shadcn';
+
+@use 'components/menu';
+@use 'components/dialog';
+@use 'components/dock';

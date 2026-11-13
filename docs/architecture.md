@@ -118,7 +118,7 @@ Token 层（实施顺序第 1–7 步）与桥接层（第 8 步）已落地，�
 | `src/tokens/bridge.scss`           | ✅ 已落地 | 137 条 `--b3-*`，映射到 49 个目标，alpha 全用 `color-mix()`                              |
 | `src/tokens/fluent/_index.scss`    | ✅ 空壳   | `:root[data-rc-style='fluent']` 覆盖入口                                                 |
 | `src/tokens/shadcn/_index.scss`    | ✅ 空壳   | `:root[data-rc-style='shadcn']` 覆盖入口                                                 |
-| `src/components/`                  | ⬜ 未开始 | 实施顺序第 9 步                                                                          |
+| `src/components/`                  | 🟡 初版   | menu / dialog / dock 三个基础组件                                                        |
 | `@material/web`（devDependency）   | ✅ 已引入 | **2.5.0 精确锁定**（`"@material/web": "2.5.0"`，无 `^`）；内置 token 34.0.21             |
 
 旧文件已按计划处理：`src/theme.css` 改名重写为 `theme.scss`，`src/foundation/semantic.css` 与 `tests/theme-entry.test.ts` 一并删除。`--rc-contract-version` 已从架构中移除：插件不读它，`vite-plugin-siyuan` 不读它，唯一引用它的旧测试已删除。

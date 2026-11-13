@@ -1,8 +1,21 @@
-/* 停靠栏：颜色由 bridge 层接管，这里只改 M3 尺寸与形状。 */
+/* 停靠栏：M3 icon button（40dp 容器、24dp 图标、corner-full），选中态用 M3 nav rail 的 secondary-container。 */
 .dock {
-  @apply w-dock;
+  @apply w-dock py-xs;
 }
 
 .dock__item {
-  @apply rounded-md;
+  @apply mx-auto my-xs flex h-control w-control items-center justify-center rounded-full;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  margin: 2px auto;
+}
+
+.dock__item svg {
+  width: 24px;
+  height: 24px;
+}
+
+.dock__item--activefocus {
+  @apply bg-secondary-container text-on-secondary-container;
 }

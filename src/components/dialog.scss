@@ -1,6 +1,6 @@
-/* 对话框：颜色由 bridge 层接管，这里只改 M3 形状与阴影。 */
+/* 对话框：M3 dialog 容器形状 + 阴影；颜色由 bridge 层接管。 */
 .b3-dialog__container {
   @apply rounded-xl shadow-level3;
-  max-width: 88vw;
+  max-width: 560px;
   max-height: 85vh;
 }

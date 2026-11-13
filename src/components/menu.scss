@@ -1,7 +1,7 @@
-/* 菜单：颜色由 bridge 层接管，这里只改 M3 形状与阴影。 */
+/* 菜单：M3 menu 容器形状 + 阴影；颜色由 bridge 层接管。 */
 .b3-menu {
   @apply rounded-xs shadow-level2;
-  max-width: 420px;
+  max-width: 280px;
   max-height: 50vh;
 }
 

@@ -1,11 +1,11 @@
-/* 停靠栏：M3 navigation rail 按 56dp 轨道等比缩放（指示器 40×32、图标 18dp、corner-full）。 */
+/* 停靠栏：M3 square icon button（圆角矩形 32dp 容器 / 18dp 图标 / corner-small）。 */
 .dock {
   @apply w-dock py-xs;
 }
 
 .dock__item {
-  @apply mx-auto flex items-center justify-center rounded-full;
-  width: 40px;
+  @apply mx-auto flex items-center justify-center rounded-sm;
+  width: 32px;
   height: 32px;
   padding: 0;
   margin: 6px auto;

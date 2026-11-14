@@ -30,3 +30,10 @@
 .b3-switch:checked::before {
   left: 34px;
 }
+
+.b3-switch:active:not(:disabled)::after,
+.b3-switch:checked:active:not(:disabled)::after {
+  @apply h-[28px] w-[28px];
+  transition-duration: 100ms;
+  transition-timing-function: linear;
+}

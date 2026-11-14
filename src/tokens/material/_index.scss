@@ -12,9 +12,9 @@
 @use 'sass:list';
 @use 'sass:meta';
 
-@use '../palette' as ref-palette;
+@use './palette' as ref-palette;
 @use '@material/web/tokens/versions/latest/sass/md-ref-typeface' as ref-typeface;
-@use '../sys-color' as sys-color;
+@use './sys-color' as sys-color;
 @use '@material/web/tokens/versions/latest/sass/md-sys-shape' as sys-shape;
 @use '@material/web/tokens/versions/latest/sass/md-sys-elevation' as sys-elevation;
 @use '@material/web/tokens/versions/latest/sass/md-sys-motion' as sys-motion;

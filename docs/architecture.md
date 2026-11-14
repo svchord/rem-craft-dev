@@ -284,7 +284,7 @@ error, on-error, error-container, on-error-container
 | `$md-sys-motion.duration-short2`    | `--rc-motion-duration-short2`    | 去 `md-sys-`                   |
 | `$md-sys-typescale.body-large-size` | `--rc-typescale-body-large-size` | 去 `md-sys-`                   |
 
-**1:1 双射**：每个官方 token 恰好对应一个项目变量，反之亦然。禁止合并、拆分、丢弃。取值：静态色族照抄官方 34.0.21；6 个动态色族由 `_palette.scss` 按 MCU 生成（见 §6.1）。
+**1:1 双射**：每个官方 token 恰好对应一个项目变量，反之亦然。禁止合并、拆分、丢弃。取值：静态色族照抄官方 34.0.21；6 个动态色族由 `material/_palette.scss` 按 MCU 生成（见 §6.1）。
 
 `corner-value-medium` 与 `corner-medium` 数值相同但是两个官方 token，Sass 遍历会各自产出一个变量。
 
@@ -468,7 +468,7 @@ M3 只有 `error` 一个状态色。**danger 直接复用 M3 `error` 系列**，
 
 **插件只覆盖 `--md-ref-palette-*`，`--rc-color-*` 通过 `var()` 自动跟随。**
 
-当前 `src/tokens/_palette.scss` 的 6 个动态色族由 MCU 0.4.0 `SchemeContent` 从 Google Blue `#1A73E8` 生成（primary → `#005bc0`，tone50 恰为 `#1b73e8`），静态色族照抄官方 34.0.21；`src/tokens/_sys-color.scss` 把 48 个颜色角色写成 `var(--md-ref-palette-*)` 引用。
+当前 `src/tokens/material/_palette.scss` 的 6 个动态色族由 MCU 0.4.0 `SchemeContent` 从 Google Blue `#1A73E8` 生成（primary → `#005bc0`，tone50 恰为 `#1b73e8`），静态色族照抄官方 34.0.21；`src/tokens/material/_sys-color.scss` 把 48 个颜色角色写成 `var(--md-ref-palette-*)` 引用。
 
 ### 6.2 MCU 生成的就是 palette
 

@@ -1,27 +1,20 @@
+@use './field' as field;
+
 /* 下拉框：M3 filled select 桌面紧凑（32dp 高、顶部 4dp 圆角、1dp active indicator、body-medium 14/20）。 */
 .b3-select {
-  @apply s:m3:(
-    relative box-border flex h-[32px] items-center justify-start
-    rounded-t-[4px] rounded-b-none
-    border-b-[1px] border-solid border-on-surface-variant
-    bg-surface-container-highest text-body-medium text-on-surface
-    py-[0px] pl-sm pr-[26px]
-    overflow-hidden text-ellipsis whitespace-nowrap
-    shadow-none outline-none field-sizing-fixed
-  );
+  @include field.m3-field;
+  @apply s:m3:(relative flex items-center justify-start py-[0px] pl-sm pr-[26px] overflow-hidden text-ellipsis whitespace-nowrap);
 }
 
-.b3-select:hover,
-.b3-select:active {
-  @apply s:m3:(border-on-surface bg-surface-dim shadow-none);
+.b3-select {
+  @include field.m3-field;
 }
 
-.b3-select:focus,
-.b3-select:focus-visible,
 .b3-select:open {
   @apply s:m3:(border-b-2 border-primary shadow-none);
 }
 
+/* 下拉面板与选项只在支持 base-select 的浏览器生效（与思源原生判断一致）。 */
 @supports (appearance: base-select) {
   .b3-select::picker(select) {
     @apply s:m3:p:desktop:(rounded-xs border-0 bg-surface-container p-sm shadow-level2);

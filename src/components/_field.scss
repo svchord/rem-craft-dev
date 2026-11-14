@@ -1,0 +1,12 @@
+@mixin m3-field {
+  @apply s:m3:(
+    box-border h-[32px] rounded-t-[4px] rounded-b-none
+    border-b-[1px] border-solid border-on-surface-variant
+    bg-surface-container-highest text-body-medium text-on-surface
+    shadow-none outline-none field-sizing-fixed
+    hover:(border-on-surface bg-surface-dim shadow-none outline-none)
+    active:(border-on-surface bg-surface-dim shadow-none outline-none)
+    focus-visible:(border-b-2 important-border-primary shadow-none outline-none)
+    focus:(border-b-2 important-border-primary shadow-none outline-none)
+  );
+}

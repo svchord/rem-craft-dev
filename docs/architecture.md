@@ -99,7 +99,8 @@ src/
 │   ├── bridge.scss           137 条 --b3-*（手写）
 │   └── fluent/  shadcn/      预留
 └── components/
-    menu.scss  dialog.scss  dock.scss  editor.scss  tree.scss  mobile.scss
+    _field.scss  button.scss  dialog.scss  dock.scss  menu.scss
+    progress.scss  select.scss  switch.scss  text-field.scss
 ```
 
 `theme.scss` 的 `@use` 顺序固定：**foundation → tokens（material → derived）→ bridge → components**。
@@ -108,18 +109,18 @@ src/
 
 Token 层（实施顺序第 1–7 步）与桥接层（第 8 步）已落地，组件层尚未开始：
 
-| 文件                               | 状态      | 内容                                                                                     |
-| ---------------------------------- | --------- | ---------------------------------------------------------------------------------------- |
-| `src/theme.scss`                   | ✅ 已落地 | 唯一入口，只有 `@use`：foundation → material → derived → extend → bridge → fluent/shadcn |
-| `src/foundation/_un-baseline.scss` | ✅ 已落地 | 9 条 `--un-*` 基线变量（§8.2）                                                           |
-| `src/tokens/material/_index.scss`  | ✅ 已落地 | `meta.module-variables()` 生成 843 条声明 / 795 唯一名，弃用 6 条剔除                    |
-| `src/tokens/derived.scss`          | ✅ 已落地 | 12 派生角色 × 亮暗（24 条）+ 18 静态标注 + 6 阴影配方                                    |
-| `src/tokens/_extend.scss`          | ✅ 已落地 | 项目扩展 `space-*` 5 + `size-*` 4                                                        |
-| `src/tokens/bridge.scss`           | ✅ 已落地 | 137 条 `--b3-*`，映射到 49 个目标，alpha 全用 `color-mix()`                              |
-| `src/tokens/fluent/_index.scss`    | ✅ 空壳   | `:root[data-rc-style='fluent']` 覆盖入口                                                 |
-| `src/tokens/shadcn/_index.scss`    | ✅ 空壳   | `:root[data-rc-style='shadcn']` 覆盖入口                                                 |
-| `src/components/`                  | 🟡 初版   | menu / dialog / dock 三个基础组件                                                        |
-| `@material/web`（devDependency）   | ✅ 已引入 | **2.5.0 精确锁定**（`"@material/web": "2.5.0"`，无 `^`）；内置 token 34.0.21             |
+| 文件                               | 状态      | 内容                                                                                                      |
+| ---------------------------------- | --------- | --------------------------------------------------------------------------------------------------------- |
+| `src/theme.scss`                   | ✅ 已落地 | 唯一入口，只有 `@use`：foundation → material → derived → extend → bridge → fluent/shadcn                  |
+| `src/foundation/_un-baseline.scss` | ✅ 已落地 | 9 条 `--un-*` 基线变量（§8.2）                                                                            |
+| `src/tokens/material/_index.scss`  | ✅ 已落地 | `meta.module-variables()` 生成 843 条声明 / 795 唯一名，弃用 6 条剔除                                     |
+| `src/tokens/derived.scss`          | ✅ 已落地 | 12 派生角色 × 亮暗（24 条）+ 18 静态标注 + 6 阴影配方                                                     |
+| `src/tokens/_extend.scss`          | ✅ 已落地 | 项目扩展 `space-*` 5 + `size-*` 4                                                                         |
+| `src/tokens/bridge.scss`           | ✅ 已落地 | 137 条 `--b3-*`，映射到 49 个目标，alpha 全用 `color-mix()`                                               |
+| `src/tokens/fluent/_index.scss`    | ✅ 空壳   | `:root[data-rc-style='fluent']` 覆盖入口                                                                  |
+| `src/tokens/shadcn/_index.scss`    | ✅ 空壳   | `:root[data-rc-style='shadcn']` 覆盖入口                                                                  |
+| `src/components/`                  | 🟡 初版   | button / dialog / dock / menu / progress / select / switch / text-field；`_field.scss` 为共享 field mixin |
+| `@material/web`（devDependency）   | ✅ 已引入 | **2.5.0 精确锁定**（`"@material/web": "2.5.0"`，无 `^`）；内置 token 34.0.21                              |
 
 旧文件已按计划处理：`src/theme.css` 改名重写为 `theme.scss`，`src/foundation/semantic.css` 与 `tests/theme-entry.test.ts` 一并删除。`--rc-contract-version` 已从架构中移除：插件不读它，`vite-plugin-siyuan` 不读它，唯一引用它的旧测试已删除。
 
@@ -676,6 +677,7 @@ Sass 管 token 层（§4.2），UnoCSS 管组件层。两者处理不同输入�
 ### 9.1 编写规则
 
 - 按界面区域拆分文件，不按平台拆目录；同一组件的桌面与移动端规则放同一文件。
+- 共享 field 结构放 `components/_field.scss`，mixin 内可以直接写 `@apply s:m3:(...)`；`select` 与 `text-field` 只写各自差异。
 - M3 组件差异用 `s:m3:` 变体表达；不要用 Sass scope mixin 包整文件——它会重复选择器，并且与 `p:` 变体组合时会生成 `.body--windows :is(:root…) .x` 这类永不命中的选择器。
 - 组件只写短工具类，不出现 `var(--rc-*)`，也不读 `--b3-ui-*`。
 - 颜色默认由 `bridge.scss` 接管（思源原生选择器已消费 `--b3-*`）；只有实测确认 bridge 的取值不符合 M3（如 nav rail 选中态需要 secondary-container）时，组件层才用颜色工具类覆盖。

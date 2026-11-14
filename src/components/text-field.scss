@@ -1,0 +1,8 @@
+@use './field' as field;
+
+/* 文本输入：M3 filled text field 桌面紧凑（32dp 高、顶部 4dp 圆角、1dp active indicator、body-medium 14/20）。 */
+.b3-text-field {
+  @include field.m3-field;
+  @apply s:m3:(block px-sm py-[0px]);
+  @include field.m3-field;
+}

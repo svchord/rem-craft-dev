@@ -1,0 +1,12 @@
+/* 进度：M3 circular indicator 主色；按钮内进度条用 primary 填充。 */
+.b3-loading {
+  @apply text-primary;
+}
+
+.b3-button--progress {
+  @apply bg-surface-container-highest text-on-surface;
+}
+
+.b3-button--progress > span {
+  @apply bg-primary;
+}

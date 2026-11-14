@@ -1,0 +1,17 @@
+/* 开关：M3 52x32 轨道 + 24dp 手柄。 */
+.b3-switch {
+  @apply relative box-border h-[32px] w-[52px] rounded-full border-2 border-outline bg-surface-container-highest;
+}
+
+.b3-switch::after {
+  content: '';
+  @apply absolute left-[4px] top-[4px] h-[24px] w-[24px] rounded-full bg-outline transition-all;
+}
+
+.b3-switch:checked {
+  @apply border-0 bg-primary;
+}
+
+.b3-switch:checked::after {
+  @apply left-[24px] bg-on-primary;
+}

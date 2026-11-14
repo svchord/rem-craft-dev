@@ -16,5 +16,5 @@
     "noUncheckedSideEffectImports": true,
     "types": ["node"]
   },
-  "include": ["tests", "vite.config.ts", "vitest.config.ts", "uno.config.ts"]
+  "include": ["tests", "unocss", "vite.config.ts", "vitest.config.ts", "uno.config.ts"]
 }

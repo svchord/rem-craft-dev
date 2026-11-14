@@ -1,12 +1,12 @@
-/* 进度：M3 circular indicator 主色；按钮内进度条用 primary 填充。 */
+/* 进度：M3 线性进度条 4dp + 主色；加载指示器用主色。 */
+.b3-dialog__progress {
+  @apply h-[4px] rounded-none bg-surface-container-highest text-primary;
+}
+
+.b3-dialog__progressbar {
+  @apply rounded-none bg-current;
+}
+
 .b3-loading {
   @apply text-primary;
-}
-
-.b3-button--progress {
-  @apply bg-surface-container-highest text-on-surface;
-}
-
-.b3-button--progress > span {
-  @apply bg-primary;
 }

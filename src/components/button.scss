@@ -1,6 +1,10 @@
 /* 按钮：M3 filled / outlined / text 变体（40dp 高、full 圆角、label-large）。 */
 .b3-button {
-  @apply inline-flex h-[40px] items-center justify-center gap-sm rounded-full px-lg text-label-large font-medium;
+  @apply inline-flex h-[40px] items-center justify-center gap-sm rounded-full px-xl text-label-large font-medium;
+}
+
+.b3-button svg {
+  @apply mr-[0px] h-[20px] w-[20px];
 }
 
 .b3-button--text {

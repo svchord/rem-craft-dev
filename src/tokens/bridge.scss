@@ -147,4 +147,7 @@
   --b3-embed-background: color-mix(in oklab, var(--rc-color-surface) 0%, transparent);
   --b3-bq-background: color-mix(in oklab, var(--rc-color-surface) 0%, transparent);
   --b3-parent-background: var(--rc-color-surface-container);
+
+  /* 思源原生在 body 上叠了一层主题色径向渐变；M3 表面是纯色，关掉。 */
+  --b3-body-background-gradient: none;
 }

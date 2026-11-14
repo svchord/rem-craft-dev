@@ -43,18 +43,21 @@ const EXCLUDED_SLOTS = [
 const LITERAL_COLOR = /#[0-9a-fA-F]{3,8}|\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\(/;
 
 describe('bridge layer / B3 coverage', () => {
-  it('declares exactly 137 --b3-* slots', () => {
-    expect(declarations).toHaveLength(137);
+  it('declares exactly 137 color slots plus the gradient override', () => {
+    const colorSlots = declarations.filter((declaration) => declaration.name !== '--b3-body-background-gradient');
+    expect(colorSlots).toHaveLength(137);
+    expect(declarations).toHaveLength(138);
   });
 
   it('uses a unique variable name per slot', () => {
     const names = declarations.map((declaration) => declaration.name);
     expect(new Set(names).size).toBe(names.length);
-    expect(names).toHaveLength(137);
+    expect(names).toHaveLength(138);
   });
 
   it('accounts for all 147 color slots: 137 taken over + 10 keyword slots', () => {
-    expect(declarations.length + EXCLUDED_SLOTS.length).toBe(147);
+    const colorSlots = declarations.filter((declaration) => declaration.name !== '--b3-body-background-gradient');
+    expect(colorSlots.length + EXCLUDED_SLOTS.length).toBe(147);
   });
 
   it('never defines the 10 excluded keyword slots', () => {

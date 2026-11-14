@@ -1,14 +1,14 @@
-/* 停靠栏：M3 icon button（40dp 容器、24dp 图标、corner-full），选中态用 M3 nav rail 的 secondary-container。 */
+/* 停靠栏：M3 icon button（40dp 容器 / 24dp 图标 / corner-full），48dp 轨道留 4dp 呼吸。 */
 .dock {
   @apply w-dock py-xs;
 }
 
 .dock__item {
-  @apply mx-auto my-xs flex h-control w-control items-center justify-center rounded-full;
+  @apply mx-auto flex items-center justify-center rounded-full;
   width: 40px;
   height: 40px;
   padding: 0;
-  margin: 2px auto;
+  margin: 4px auto;
 }
 
 .dock__item svg {

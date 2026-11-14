@@ -1,11 +1,11 @@
-/* 开关：M3 52x32 轨道、关闭 16dp / 打开 24dp 手柄、2dp outline。 */
+/* 开关：M3 桌面 0.75 密度（40x24 轨道、12/18dp 手柄、2dp outline）。 */
 .b3-switch {
-  @apply relative box-border h-[32px] w-[52px] rounded-full border-2 border-outline bg-surface-container-highest transition-colors duration-200;
+  @apply relative box-border h-[24px] w-[40px] rounded-full border-2 border-outline bg-surface-container-highest transition-colors duration-200;
 }
 
 .b3-switch::after {
   content: '';
-  @apply absolute left-[14px] top-1/2 h-[16px] w-[16px] rounded-full bg-outline;
+  @apply absolute left-[10px] top-1/2 h-[12px] w-[12px] rounded-full bg-outline;
   transition:
     left 300ms cubic-bezier(0.175, 0.885, 0.32, 1.275),
     width 250ms cubic-bezier(0.2, 0, 0, 1),
@@ -14,9 +14,12 @@
 }
 
 .b3-switch::before {
-  @apply h-[40px] w-[40px] rounded-full bg-on-surface/8;
-  left: 14px;
-  top: 14px;
+  @apply h-[30px] w-[30px] rounded-full bg-on-surface/8;
+  left: 10px;
+  top: 50%;
+  transition:
+    left 300ms cubic-bezier(0.175, 0.885, 0.32, 1.275),
+    background-color 67ms linear;
 }
 
 .b3-switch:checked {
@@ -24,16 +27,16 @@
 }
 
 .b3-switch:checked::after {
-  @apply left-[34px] h-[24px] w-[24px] bg-on-primary;
+  @apply left-[26px] h-[18px] w-[18px] bg-on-primary;
 }
 
 .b3-switch:checked::before {
-  left: 34px;
+  left: 26px;
 }
 
 .b3-switch:active:not(:disabled)::after,
 .b3-switch:checked:active:not(:disabled)::after {
-  @apply h-[28px] w-[28px];
+  @apply h-[21px] w-[21px];
   transition-duration: 100ms;
   transition-timing-function: linear;
 }

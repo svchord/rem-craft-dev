@@ -1,4 +1,4 @@
-/* 停靠栏：M3 icon button（40dp 容器 / 24dp 图标 / corner-full），48dp 轨道留 4dp 呼吸。 */
+/* 停靠栏：M3 navigation rail 按 56dp 轨道等比缩放（指示器 40×32、图标 18dp、corner-full）。 */
 .dock {
   @apply w-dock py-xs;
 }
@@ -6,14 +6,14 @@
 .dock__item {
   @apply mx-auto flex items-center justify-center rounded-full;
   width: 40px;
-  height: 40px;
+  height: 32px;
   padding: 0;
-  margin: 4px auto;
+  margin: 6px auto;
 }
 
 .dock__item svg {
-  width: 24px;
-  height: 24px;
+  width: 18px;
+  height: 18px;
 }
 
 .dock__item--activefocus {

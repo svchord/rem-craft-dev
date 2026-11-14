@@ -1,8 +1,16 @@
-/* 菜单：M3 menu 容器形状 + 阴影；颜色由 bridge 层接管。 */
+/* 菜单：M3 menu（容器 4dp 圆角 / level2 阴影 / 48dp 列表项 / label-large）。 */
 .b3-menu {
   @apply max-h-[50vh] max-w-[280px] rounded-xs shadow-level2;
 }
 
 .b3-menu__item {
-  @apply rounded-xs;
+  @apply flex h-[48px] items-center rounded-xs px-md text-label-large font-medium;
+}
+
+.b3-menu__item--selected {
+  @apply bg-secondary-container text-on-secondary-container;
+}
+
+.b3-menu__separator {
+  @apply bg-surface-variant;
 }

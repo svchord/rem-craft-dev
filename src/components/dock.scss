@@ -1,14 +1,10 @@
 /* 停靠栏：M3 square icon button（圆角矩形 32dp 容器 / 18dp 图标 / corner-small）。 */
 .dock {
-  @apply w-dock pb-xs;
+  @apply flex w-dock flex-col gap-[12px] pb-xs;
 }
 
 .dock__item {
-  @apply mx-auto my-[6px] flex h-[32px] w-[32px] items-center justify-center rounded-sm p-[0px];
-}
-
-.dock__item:first-of-type {
-  @apply mt-[0px];
+  @apply mx-auto my-[0px] flex h-[32px] w-[32px] items-center justify-center rounded-sm p-[0px];
 }
 
 .dock__item svg {

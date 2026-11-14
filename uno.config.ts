@@ -1,6 +1,6 @@
 import { defineConfig, presetWind3, transformerDirectives, transformerVariantGroup } from 'unocss';
 import { theme } from './unocss/theme';
-import { platformVariants } from './unocss/variants';
+import { platformVariants, styleVariants } from './unocss/variants';
 
 /* UnoCSS 构建期生成器：theme key 全部来自 --rc-* 契约。 */
 export default defineConfig({
@@ -12,7 +12,7 @@ export default defineConfig({
     }),
   ],
   transformers: [transformerDirectives(), transformerVariantGroup()],
-  variants: platformVariants,
+  variants: [...platformVariants, ...styleVariants],
   content: {
     filesystem: ['src/**/*.scss', 'src/**/*.css'],
     pipeline: { include: [/.(scss|css)$/] },

@@ -1,21 +1,21 @@
 /* 停靠栏：M3 square icon button（32dp 容器 / 18dp 图标 / corner-small）。 */
 .dock {
-  @apply flex w-dock flex-col gap-md pb-xs;
+  @apply s:m3:(flex w-dock flex-col gap-md pb-xs);
 }
 
 .dock__items {
-  @apply flex flex-col gap-md;
+  @apply s:m3:(flex flex-col gap-md);
 }
 
 .dock__item {
-  @apply mx-auto my-[0px] flex h-[32px] w-[32px] items-center justify-center rounded-sm p-[0px];
+  @apply s:m3:(mx-auto my-[0px] flex h-[32px] w-[32px] items-center justify-center rounded-sm p-[0px]);
 }
 
 .dock__item svg {
-  @apply h-[18px] w-[18px];
+  @apply s:m3:(h-[18px] w-[18px]);
 }
 
 .dock__item--active,
 .dock__item--activefocus {
-  @apply bg-secondary-container text-primary;
+  @apply s:m3:(bg-secondary-container text-primary);
 }

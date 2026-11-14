@@ -526,12 +526,12 @@ for (const [family, palette] of Object.entries(families)) {
 
 ### 7.1 四个维度
 
-| 维度 | 属性              | 改什么   | 实现                     |
-| ---- | ----------------- | -------- | ------------------------ |
-| 风格 | `data-rc-style`   | 角色取值 | 变体 `s:<style>`         |
-| 明暗 | `data-theme-mode` | 颜色     | Token 自动切换，不是变体 |
-| 密度 | `data-ui-density` | 组件尺寸 | 变体 `s:compact`         |
-| 平台 | `data-backend`    | 组件集合 | 变体 `s:mobile`          |
+| 维度 | 属性              | 改什么   | 实现                                                        |
+| ---- | ----------------- | -------- | ----------------------------------------------------------- |
+| 风格 | `data-rc-style`   | 角色取值 | 变体 `s:<style>`                                            |
+| 明暗 | `data-theme-mode` | 颜色     | Token 自动切换，不是变体                                    |
+| 密度 | `data-ui-density` | 组件尺寸 | 变体 `s:compact`                                            |
+| 平台 | `data-backend`    | 组件集合 | 变体 `p:desktop` / `p:mobile` / `p:windows`（单条 utility） |
 
 配色不是独立维度：各风格的品牌词汇不同，配色天然属于风格。
 
@@ -554,18 +554,22 @@ for (const [family, palette] of Object.entries(families)) {
 
 ### 7.4 变体清单与实现约束
 
-| 变体               | 产物                                                                               | 用途               |
-| ------------------ | ---------------------------------------------------------------------------------- | ------------------ |
-| `s:<style>:`       | `[data-rc-style="<style>"] .x`                                                     | 风格维度           |
-| `s:dark:`          | `[data-theme-mode="dark"] .x`                                                      | 非颜色差异         |
-| `s:compact:`       | `[data-ui-density="compact"] .x`                                                   | 紧凑尺寸           |
-| `s:mobile:`        | `:is([data-backend="ios"], [data-backend="android"], [data-backend="harmony"]) .x` | 移动端             |
-| `off:<flag>:`      | `:root:not([data-rc-<flag>="off"]) .x`                                             | 功能开关，默认开   |
-| `on:<flag>:`       | `:root[data-rc-<flag>="on"] .x`                                                    | 功能开关，默认关   |
-| `doc:<name>=<v>:`  | `[custom-rc-<name>="<v>"] .x`                                                      | 文档级，属性在祖先 |
-| `self:<name>=<v>:` | `.x[custom-rc-<name>="<v>"]`                                                       | 块级，属性在自身   |
+| 变体               | 产物                                                  | 用途                        |
+| ------------------ | ----------------------------------------------------- | --------------------------- |
+| `s:<style>:`       | `[data-rc-style="<style>"] .x`                        | 风格维度                    |
+| `s:dark:`          | `[data-theme-mode="dark"] .x`                         | 非颜色差异                  |
+| `s:compact:`       | `[data-ui-density="compact"] .x`                      | 紧凑尺寸                    |
+| `p:desktop:`       | `.body--windows .x, .body--linux .x, .body--mac .x`   | 桌面端                      |
+| `p:mobile:`        | `.body--android .x, .body--ios .x, .body--harmony .x` | 移动端                      |
+| `p:windows:`       | `.body--windows .x`                                   | 单平台（后续 Windows 专属） |
+| `off:<flag>:`      | `:root:not([data-rc-<flag>="off"]) .x`                | 功能开关，默认开            |
+| `on:<flag>:`       | `:root[data-rc-<flag>="on"] .x`                       | 功能开关，默认关            |
+| `doc:<name>=<v>:`  | `[custom-rc-<name>="<v>"] .x`                         | 文档级，属性在祖先          |
+| `self:<name>=<v>:` | `.x[custom-rc-<name>="<v>"]`                          | 块级，属性在自身            |
 
 约束：
+
+- 风格差异用 `s:<style>:` 变体；平台差异用 `p:` 变体，两者可链式组合（`s:m3:p:desktop:(...)`），但平台变体的多值选择器必须包 `:is()`。
 
 - 多个维度段可叠加（`s:dark:fluent:`）。
 - 必须使用裸属性选择器，不能写 `:root[data-rc-style="fluent"]`——叠加 `dark:` 后会变成永不命中的后代选择器。
@@ -672,6 +676,7 @@ Sass 管 token 层（§4.2），UnoCSS 管组件层。两者处理不同输入�
 ### 9.1 编写规则
 
 - 按界面区域拆分文件，不按平台拆目录；同一组件的桌面与移动端规则放同一文件。
+- M3 组件差异用 `s:m3:` 变体表达；不要用 Sass scope mixin 包整文件——它会重复选择器，并且与 `p:` 变体组合时会生成 `.body--windows :is(:root…) .x` 这类永不命中的选择器。
 - 组件只写短工具类，不出现 `var(--rc-*)`，也不读 `--b3-ui-*`。
 - 颜色默认由 `bridge.scss` 接管（思源原生选择器已消费 `--b3-*`）；只有实测确认 bridge 的取值不符合 M3（如 nav rail 选中态需要 secondary-container）时，组件层才用颜色工具类覆盖。
 - 不得出现颜色字面量，不得重复实现派生逻辑。
@@ -770,7 +775,7 @@ const high = new SchemeTonalSpot(hct, isDark, 1.0);
 
 ### 11.2 组织方式
 
-- 不按平台拆目录，同一组件的规则留在同一区域文件，用 `s:mobile:` 写差异。
+- 不按平台拆目录，同一组件的规则留在同一区域文件，用 `p:mobile:` 写差异。
 - 移动端独有组件集中放 `components/mobile.scss`，桌面端天然不匹配。
 - 移动端判定必须用 `data-backend ∈ {ios, android, harmony}`，不能用 `@media (max-width: 768px)`——平板横屏和浏览器访问桌面版会被宽度误判。
 - 移动端 token：颜色两端共用；尺寸用 `:root[data-backend=…]` 追加移动端分支，并提供 `touch-min`（44px）。Token 层不能用 `s:` 变体。
@@ -869,7 +874,7 @@ const high = new SchemeTonalSpot(hct, isDark, 1.0);
 | 7    | `derived.scss`：12 派生 + 22 静态标注 + 6 阴影配方                                                                                          | B12 / B24 绿                |
 | 8    | `bridge.scss` 手写 137 条                                                                                                                   | B3 / B25 绿                 |
 | 9    | `components/` 按区域逐个（先菜单、对话框、停靠栏）                                                                                          | B2 / B15 / B16 / B21–B23 绿 |
-| 10   | `components/mobile.scss` + 各文件的 `s:mobile:` 分支                                                                                        | 移动端复核                  |
+| 10   | `components/mobile.scss` + 各文件的 `p:mobile:` 分支                                                                                        | 移动端复核                  |
 | 11   | `tokens/fluent/`、`tokens/shadcn/` 空覆盖文件占位                                                                                           | B9 绿                       |
 | 12   | 插件：`<style>` 注入 + Monet 取色                                                                                                           | 运行时切换验证              |
 | 13   | B2–B26 全绿                                                                                                                                 | `pnpm check` 通过           |

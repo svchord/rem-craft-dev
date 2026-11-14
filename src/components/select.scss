@@ -1,45 +1,37 @@
 /* 下拉框：M3 filled select 桌面紧凑（32dp 高、顶部 4dp 圆角、1dp active indicator、body-medium 14/20）。 */
 .b3-select {
-  /* 尺寸与形状 */
-  @apply relative box-border flex h-[32px] items-center justify-start;
-  @apply rounded-t-[4px] rounded-b-none;
-
-  /* 容器与文字 */
-  @apply border-b-[1px] border-solid border-on-surface-variant;
-  @apply bg-surface-container-highest text-body-medium text-on-surface;
-  @apply py-[0px] pl-sm pr-[26px];
-
-  /* 超长文本截断；右侧 26px 给下拉箭头 */
-  @apply overflow-hidden text-ellipsis whitespace-nowrap;
-
-  /* 去掉原生 inset 阴影与 focus ring */
-  @apply shadow-none outline-none;
+  @apply s:m3:(
+    relative box-border flex h-[32px] items-center justify-start
+    rounded-t-[4px] rounded-b-none
+    border-b-[1px] border-solid border-on-surface-variant
+    bg-surface-container-highest text-body-medium text-on-surface
+    py-[0px] pl-sm pr-[26px]
+    overflow-hidden text-ellipsis whitespace-nowrap
+    shadow-none outline-none field-sizing-fixed
+  );
 }
 
-/* 悬浮 / 按下保持 M3 容器色，不出现额外边框 */
 .b3-select:hover,
 .b3-select:active {
-  @apply border-on-surface bg-surface-dim shadow-none;
+  @apply s:m3:(border-on-surface bg-surface-dim shadow-none);
 }
 
-/* 聚焦 / 展开时 active indicator 变 2dp primary */
 .b3-select:focus,
 .b3-select:focus-visible,
 .b3-select:open {
-  @apply border-b-2 border-primary shadow-none;
+  @apply s:m3:(border-b-2 border-primary shadow-none);
 }
 
-/* 下拉面板与选项只在支持 base-select 的浏览器生效（与思源原生判断一致） */
 @supports (appearance: base-select) {
   .b3-select::picker(select) {
-    @apply p:desktop:(rounded-xs border-0 bg-surface-container p-sm shadow-level2);
+    @apply s:m3:p:desktop:(rounded-xs border-0 bg-surface-container p-sm shadow-level2);
   }
 
   .b3-select option {
-    @apply p:desktop:(h-[36px] rounded-xs px-sm text-label-large font-medium leading-[20px]);
+    @apply s:m3:p:desktop:(h-[36px] rounded-xs px-sm text-label-large font-medium leading-[20px]);
   }
 
   .b3-select option:checked {
-    @apply important-bg-secondary-container important-text-on-secondary-container;
+    @apply s:m3:(important-bg-secondary-container important-text-on-secondary-container);
   }
 }

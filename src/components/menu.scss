@@ -1,17 +1,17 @@
 /* 菜单：M3 menu 容器 + 紧凑列表项；子菜单共用同一套表面。 */
 .b3-menu,
 .b3-menu__submenu {
-  @apply overflow-hidden rounded-md shadow-level2;
+  @apply s:m3:(overflow-hidden rounded-md shadow-level2);
 }
 
 .b3-menu__item {
-  @apply my-[0px] flex h-[32px] items-center rounded-sm px-sm text-body-medium;
+  @apply s:m3:(my-[0px] flex h-[32px] items-center rounded-sm px-sm text-body-medium);
 }
 
 .b3-menu__item--selected {
-  @apply bg-secondary-container text-on-secondary-container;
+  @apply s:m3:(bg-secondary-container text-on-secondary-container);
 }
 
 .b3-menu__separator {
-  @apply bg-surface-variant;
+  @apply s:m3:(bg-surface-variant);
 }

@@ -4,16 +4,11 @@
 }
 
 .dock__item {
-  @apply mx-auto flex items-center justify-center rounded-sm;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  margin: 6px auto;
+  @apply mx-auto my-[6px] flex h-[32px] w-[32px] items-center justify-center rounded-sm p-[0px];
 }
 
 .dock__item svg {
-  width: 18px;
-  height: 18px;
+  @apply h-[18px] w-[18px];
 }
 
 .dock__item--activefocus {

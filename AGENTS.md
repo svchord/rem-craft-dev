@@ -29,4 +29,4 @@
 
 ## 组件尺寸按组件映射
 
-M3 comp token 是移动端触控尺寸，不能统一乘一个系数。按 `docs/architecture.md` §9.2 的映射：switch 52×32→26×16（0.5）、select 56→28（0.5）、button 40→28（0.7，M3 density -3）、progress 4→4（1）。字体不随几何缩放，按钮/Select 保持 14/20。
+M3 comp token 是移动端触控尺寸，不能统一乘一个系数。按 `docs/architecture.md` §9.2 的映射：switch 52×32→32×20（0.6）、select 56→28（0.5）、button 40→28（0.7，M3 density -3）、progress 4→4（1）。字体不随几何缩放，按钮/Select 保持 14/20。

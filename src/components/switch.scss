@@ -1,11 +1,11 @@
-/* 开关：M3 形态 0.5 缩放（26x16 轨道、12dp 手柄）。 */
+/* 开关：M3 形态 0.6 缩放（32x20 轨道、手柄 10/14dp、corner-full）。 */
 .b3-switch {
-  @apply relative box-border h-[16px] w-[26px] rounded-full border-0 bg-surface-container-highest ring-1 ring-inset ring-outline;
+  @apply relative box-border h-[20px] w-[32px] rounded-full border-0 bg-surface-container-highest ring-[1.5px] ring-inset ring-outline transition-colors duration-200;
 }
 
 .b3-switch::after {
   content: '';
-  @apply absolute left-[2px] top-[2px] h-[12px] w-[12px] rounded-full bg-outline transform-none;
+  @apply absolute left-[3px] top-[3px] h-[14px] w-[14px] rounded-full bg-outline transform-none transition-all duration-200 ease-emphasized;
 }
 
 .b3-switch:checked {
@@ -13,5 +13,5 @@
 }
 
 .b3-switch:checked::after {
-  @apply left-[12px] top-[2px] bg-on-primary;
+  @apply left-[15px] bg-on-primary;
 }

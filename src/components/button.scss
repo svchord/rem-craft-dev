@@ -1,14 +1,14 @@
-/* 按钮：M3 filled / outlined / text 变体（40dp 高、full 圆角、label-large）。 */
+/* 按钮：M3 形态按思源桌面密度（28dp 高、full 圆角、label-large）。 */
 .b3-button {
-  @apply inline-flex h-[40px] items-center justify-center gap-sm rounded-full px-xl text-label-large font-medium;
+  @apply inline-flex h-control items-center justify-center gap-xs rounded-full px-lg text-label-large font-medium;
 }
 
 .b3-button svg {
-  @apply mr-[0px] h-[20px] w-[20px];
+  @apply mr-[0px] h-[14px] w-[14px];
 }
 
 .b3-button--text {
-  @apply bg-transparent px-md text-primary;
+  @apply bg-transparent px-sm text-primary;
 }
 
 .b3-button--outline {

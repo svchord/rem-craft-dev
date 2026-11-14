@@ -683,6 +683,17 @@ Sass 管 token 层（§4.2），UnoCSS 管组件层。两者处理不同输入�
 - **主题不使用 `--b3-ui-*`。** 思源在 `util/_density.scss` 用 `:where(:root[data-ui-density="compact"])` 定义 31 个 `--b3-ui-*`，同时用 `:where(.protyle-wysiwyg), :where(.b3-typography)` 重置为 `initial`；思源自己消费时全部带回退值（`var(--b3-ui-menu-height, 28px)`）。普通模式下这些变量不存在，主题读了只是重复思源的默认值，还会在思源改默认值时产生隐性耦合。
 - 尺寸全部走项目自己的 `--rc-size-*`，紧凑差异用 `:root[data-ui-density="compact"]` 覆盖。
 
+M3 comp token 是移动端触控尺寸，思源桌面按组件分别映射（没有统一乘数）：
+
+| 组件            | M3    | 思源  | 比例                 |
+| --------------- | ----- | ----- | -------------------- |
+| switch          | 52×32 | 26×16 | 0.5                  |
+| select          | 56    | 28    | 0.5                  |
+| button          | 40    | 28    | 0.7（M3 density -3） |
+| linear progress | 4     | 4     | 1                    |
+
+字体不随几何缩放：按钮/Select 一律 `label-large` 或 `body-medium` 的 14/20。
+
 ---
 
 ## 10. 插件契约

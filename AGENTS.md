@@ -26,3 +26,7 @@
 ## 组件样式必须实测
 
 改基础组件前先读对应的 M3 comp token；改完必须用 siyuan-devtools 读取实际渲染的计算样式（尺寸、圆角、颜色、间距），逐项对照 M3 token。没测量过不得声称符合 M3。
+
+## 组件尺寸按组件映射
+
+M3 comp token 是移动端触控尺寸，不能统一乘一个系数。按 `docs/architecture.md` §9.2 的映射：switch 52×32→26×16（0.5）、select 56→28（0.5）、button 40→28（0.7，M3 density -3）、progress 4→4（1）。字体不随几何缩放，按钮/Select 保持 14/20。

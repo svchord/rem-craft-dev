@@ -1,10 +1,10 @@
-/* 菜单：M3 menu 容器 / 列表项按 Google 桌面菜单的紧凑高度。 */
+/* 菜单：M3 menu 容器 + 紧凑列表项。 */
 .b3-menu {
-  @apply max-h-[50vh] max-w-[280px] rounded-xs shadow-level2;
+  @apply overflow-hidden rounded-xs shadow-level2;
 }
 
 .b3-menu__item {
-  @apply flex h-[36px] items-center rounded-xs px-md text-label-large font-medium;
+  @apply my-[0px] flex h-[36px] items-center rounded-xs px-md text-label-large font-medium;
 }
 
 .b3-menu__item--selected {

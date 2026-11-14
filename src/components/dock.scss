@@ -7,6 +7,10 @@
   @apply mx-auto my-[0px] flex h-[32px] w-[32px] items-center justify-center rounded-sm p-[0px];
 }
 
+.dock__item + .dock__item {
+  @apply mt-[12px];
+}
+
 .dock__item svg {
   @apply h-[18px] w-[18px];
 }

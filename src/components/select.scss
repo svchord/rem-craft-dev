@@ -1,4 +1,4 @@
-/* 下拉框：M3 filled select（56dp 高、顶部 4dp 圆角、1dp 底部指示线）。 */
+/* 下拉框：M3 filled select 按 0.5 缩放（28dp 高、顶部 2dp 圆角、1dp 底部线）。 */
 .b3-select {
-  @apply box-border h-[56px] rounded-t-[4px] rounded-b-none border-0 border-b-[1px] border-on-surface-variant bg-surface-container-highest px-md text-body-large text-on-surface;
+  @apply box-border h-[28px] rounded-t-[2px] rounded-b-none border-0 border-b-[1px] border-on-surface-variant bg-surface-container-highest px-sm text-body-medium text-on-surface;
 }

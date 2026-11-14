@@ -8,7 +8,7 @@
   --b3-theme-secondary: var(--rc-color-secondary);
   --b3-theme-background: var(--rc-color-background);
   --b3-theme-background-light: var(--rc-color-surface-variant);
-  --b3-theme-surface: var(--rc-color-surface);
+  --b3-theme-surface: var(--rc-color-surface-container-low);
   --b3-theme-surface-light: color-mix(in oklab, var(--rc-color-surface-container) 86%, transparent);
   --b3-theme-surface-lighter: var(--rc-color-surface-container-highest);
   --b3-theme-error: var(--rc-color-error);
@@ -105,7 +105,7 @@
   --b3-graph-hl-point: var(--rc-static-orange-40);
   --b3-graph-hl-line: var(--rc-static-red-40);
 
-  --b3-body-background: var(--rc-color-surface-dim);
+  --b3-body-background: var(--rc-color-surface-container-high);
   --b3-toolbar-color: color-mix(in oklab, var(--rc-color-on-surface) 68%, transparent);
   --b3-toolbar-hover: color-mix(in oklab, var(--rc-color-on-surface) 8%, transparent);
   --b3-border-color: var(--rc-color-outline-variant);

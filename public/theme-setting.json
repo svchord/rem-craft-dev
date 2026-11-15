@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "items": [
+    {
+      "id": "style",
+      "type": "select",
+      "title": "$style.title",
+      "description": "$style.description",
+      "default": "m3",
+      "options": [
+        {
+          "value": "m3",
+          "label": "Material 3"
+        }
+      ],
+      "apply": {
+        "kind": "attribute",
+        "name": "data-rc-style"
+      }
+    },
+    {
+      "id": "field",
+      "type": "select",
+      "title": "$fieldStyle.title",
+      "description": "$fieldStyle.description",
+      "default": "filled",
+      "options": [
+        {
+          "value": "filled",
+          "label": "$fieldStyle.filled"
+        },
+        {
+          "value": "outlined",
+          "label": "$fieldStyle.outlined"
+        }
+      ],
+      "showWhen": {
+        "style": "m3"
+      },
+      "apply": {
+        "kind": "attribute",
+        "name": "data-rc-field"
+      }
+    }
+  ]
+}

@@ -529,9 +529,9 @@ for (const [family, palette] of Object.entries(families)) {
 
 | 维度 | 属性              | 改什么   | 实现                                                        |
 | ---- | ----------------- | -------- | ----------------------------------------------------------- |
-| 风格 | `data-rc-style`   | 角色取值 | 变体 `s:<style>`                                            |
+| 风格 | `data-rc-style`   | 角色取值 | 变体 `opt:style:<value>`                                    |
 | 明暗 | `data-theme-mode` | 颜色     | Token 自动切换，不是变体                                    |
-| 密度 | `data-ui-density` | 组件尺寸 | 变体 `s:compact`                                            |
+| 密度 | `data-ui-density` | 组件尺寸 | 由思源自己的 `--b3-ui-*` 驱动，主题不接管                   |
 | 平台 | `data-backend`    | 组件集合 | 变体 `p:desktop` / `p:mobile` / `p:windows`（单条 utility） |
 
 配色不是独立维度：各风格的品牌词汇不同，配色天然属于风格。
@@ -539,8 +539,8 @@ for (const [family, palette] of Object.entries(families)) {
 ### 7.2 明暗只走 Token
 
 - 颜色全部由 `--rc-color-*` 的两份值自动切换，组件只写一次颜色工具类。
-- 不允许为颜色写 `s:dark:` 变体，否则 bridge 要维护两份 137 条映射。
-- `s:dark:` 只用于非 token 差异：`box-shadow` 减弱或关闭、`filter: brightness(0.9)`、`opacity: 0.9`、渐变切换、`border-width: 0`。
+- 不允许为颜色写 `dark:` 变体，否则 bridge 要维护两份 137 条映射。
+- `dark:` 只用于非 token 差异：`box-shadow` 减弱或关闭、`filter: brightness(0.9)`、`opacity: 0.9`、渐变切换、`border-width: 0`。
 
 ### 7.3 思源写入的 HTML 属性
 
@@ -555,24 +555,20 @@ for (const [family, palette] of Object.entries(families)) {
 
 ### 7.4 变体清单与实现约束
 
-| 变体               | 产物                                                  | 用途                        |
-| ------------------ | ----------------------------------------------------- | --------------------------- |
-| `s:<style>:`       | `[data-rc-style="<style>"] .x`                        | 风格维度                    |
-| `s:dark:`          | `[data-theme-mode="dark"] .x`                         | 非颜色差异                  |
-| `s:compact:`       | `[data-ui-density="compact"] .x`                      | 紧凑尺寸                    |
-| `p:desktop:`       | `.body--windows .x, .body--linux .x, .body--mac .x`   | 桌面端                      |
-| `p:mobile:`        | `.body--android .x, .body--ios .x, .body--harmony .x` | 移动端                      |
-| `p:windows:`       | `.body--windows .x`                                   | 单平台（后续 Windows 专属） |
-| `off:<flag>:`      | `:root:not([data-rc-<flag>="off"]) .x`                | 功能开关，默认开            |
-| `on:<flag>:`       | `:root[data-rc-<flag>="on"] .x`                       | 功能开关，默认关            |
-| `doc:<name>=<v>:`  | `[custom-rc-<name>="<v>"] .x`                         | 文档级，属性在祖先          |
-| `self:<name>=<v>:` | `.x[custom-rc-<name>="<v>"]`                          | 块级，属性在自身            |
+| 变体                  | 产物                                                                                   | 用途                           |
+| --------------------- | -------------------------------------------------------------------------------------- | ------------------------------ |
+| `opt:<name>:<value>:` | 默认值 → `:root:not([data-rc-<name>]) .x`；其余 → `:root[data-rc-<name>="<value>"] .x` | 选项维度（风格/枚举/开关统一） |
+| `opt:a:x:b:y:`        | 多条件拼复合选择器 `:root[a][b] .x`                                                    | 同元素上的维度组合             |
+| `dark:`               | `[data-theme-mode="dark"] .x`                                                          | 非颜色差异                     |
+| `p:desktop:`          | `.body--windows .x, .body--linux .x, .body--mac .x`                                    | 桌面端                         |
+| `p:mobile:`           | `.body--android .x, .body--ios .x, .body--harmony .x`                                  | 移动端                         |
+| `p:windows:`          | `.body--windows .x`                                                                    | 单平台（后续 Windows 专属）    |
 
 约束：
 
-- 风格差异用 `s:<style>:` 变体；平台差异用 `p:` 变体，两者可链式组合（`s:m3:p:desktop:(...)`），但平台变体的多值选择器必须包 `:is()`。
+- 风格差异用 `opt:style:<value>:`；平台差异用 `p:`。两者**不能**链式组合：`opt:` 的条件在 `<html>` 上、`p:` 在 `<body>` 上，拼成后代链会得到 `:root` 位于 `.body--*` 内部的永不命中写法。需要平台限定时，用原生 `:is(.body--windows, .body--linux)` 包住选择器，再在内部 `@apply opt:...`。
 
-- 多个维度段可叠加（`s:dark:fluent:`）。
+- 同一元素上的多个选项条件可叠加（`opt:style:m3:field:outlined:`），拼成复合选择器 `:root[a][b]`。默认值登记在 `unocss/options.ts`；源码用到未登记的维度会构建失败。
 - 必须使用裸属性选择器，不能写 `:root[data-rc-style="fluent"]`——叠加 `dark:` 后会变成永不命中的后代选择器。
 - 多值选择器必须包 `:is()`，否则第一个分支变成裸选择器，规则会应用到整个平台页面。
 - 同一维度重复出现要去重。

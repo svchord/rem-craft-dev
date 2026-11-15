@@ -1,30 +1,35 @@
 @use './field' as field;
 
-/* 下拉框：M3 filled select 桌面紧凑（32dp 高、顶部 4dp 圆角、1dp active indicator、body-medium 14/20）。 */
+/* 下拉框：M3 filled / outlined select，桌面紧凑 32dp。 */
 .b3-select {
   @include field.m3-field;
-  @apply s:m3:(relative flex items-center justify-start py-[0px] pl-sm pr-[26px] overflow-hidden text-ellipsis whitespace-nowrap);
-}
-
-.b3-select {
-  @include field.m3-field;
+  @apply opt:style:m3:field:filled:(relative flex items-center justify-start py-[0px] pl-sm pr-[26px] overflow-hidden text-ellipsis whitespace-nowrap)
+    opt:style:m3:field:outlined:(relative flex items-center justify-start py-[0px] pl-sm pr-[26px] overflow-hidden text-ellipsis whitespace-nowrap);
 }
 
 .b3-select:open {
-  @apply s:m3:(border-b-2 border-primary shadow-none);
+  @apply opt:style:m3:field:filled:(shadow-[inset_0_-2px_0_0] shadow-primary);
 }
 
-/* 下拉面板与选项只在支持 base-select 的浏览器生效（与思源原生判断一致）。 */
+/*
+ * picker 只在思源启用了 base-select 的平台生效——宿主的规则是
+ * .body--windows .b3-select, .body--linux .b3-select { appearance: base-select }，
+ * 浏览器版（body--win32-browser / body--ios）没有这条，::picker 规则不会命中，
+ * 下拉会退回 UA 原生样式。这里用同一组平台类限定，避免写永远不生效的规则。
+ */
 @supports (appearance: base-select) {
-  .b3-select::picker(select) {
-    @apply s:m3:p:desktop:(rounded-xs border-0 bg-surface-container p-sm shadow-level2);
+  :is(.body--windows, .body--linux) .b3-select::picker(select) {
+    @apply opt:style:m3:field:filled:(rounded-xs border-0 bg-surface-container p-sm shadow-level2)
+      opt:style:m3:field:outlined:(rounded-xs border-0 bg-surface-container p-sm shadow-level2);
   }
 
-  .b3-select option {
-    @apply s:m3:p:desktop:(h-[36px] rounded-xs px-sm text-label-large font-medium leading-[20px]);
+  :is(.body--windows, .body--linux) .b3-select option {
+    @apply opt:style:m3:field:filled:(h-[36px] rounded-xs px-sm text-label-large font-medium leading-[20px])
+      opt:style:m3:field:outlined:(h-[36px] rounded-xs px-sm text-label-large font-medium leading-[20px]);
   }
 
-  .b3-select option:checked {
-    @apply s:m3:(important-bg-secondary-container important-text-on-secondary-container);
+  :is(.body--windows, .body--linux) .b3-select option:checked {
+    @apply opt:style:m3:field:filled:(important-bg-secondary-container important-text-on-secondary-container)
+      opt:style:m3:field:outlined:(important-bg-secondary-container important-text-on-secondary-container);
   }
 }

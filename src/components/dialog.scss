@@ -1,4 +1,0 @@
-/* 对话框：M3 dialog 容器形状 + 阴影；颜色由 bridge 层接管。 */
-.b3-dialog__container {
-  @apply s:m3:(max-h-[85vh] max-w-[560px] rounded-xl shadow-level3);
-}

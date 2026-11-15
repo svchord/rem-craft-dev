@@ -1,0 +1,30 @@
+{
+  "group.appearance": {
+    "default": "Appearance",
+    "zh-CN": "外观"
+  },
+  "style.title": {
+    "default": "Style",
+    "zh-CN": "风格"
+  },
+  "style.description": {
+    "default": "Design language. Material 3 is the default and writes no attribute.",
+    "zh-CN": "切换主题的设计语言。Material 3 为默认值，此时不写属性。"
+  },
+  "fieldStyle.title": {
+    "default": "Input style",
+    "zh-CN": "输入框风格"
+  },
+  "fieldStyle.description": {
+    "default": "Filled or outlined text fields and selects. Only meaningful in Material 3.",
+    "zh-CN": "输入框与下拉框的填充 / 描边样式。只在 Material 3 下可选。"
+  },
+  "fieldStyle.filled": {
+    "default": "Filled",
+    "zh-CN": "填充"
+  },
+  "fieldStyle.outlined": {
+    "default": "Outlined",
+    "zh-CN": "描边"
+  }
+}

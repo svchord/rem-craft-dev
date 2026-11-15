@@ -41,6 +41,20 @@
         "kind": "attribute",
         "name": "data-rc-field"
       }
+    },
+    {
+      "id": "seed",
+      "type": "color",
+      "title": "$seed.title",
+      "description": "$seed.description",
+      "default": "#1a73e8",
+      "showWhen": {
+        "style": "m3"
+      },
+      "apply": {
+        "kind": "palette",
+        "generator": "m3"
+      }
     }
   ]
 }

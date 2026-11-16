@@ -9,7 +9,17 @@
   @apply opt:style:m3:(bg-surface-container);
 }
 
-/* 移动端是整屏抽屉，抽屉本身承担页面底色，才和桌面同色。 */
+/* 移动端是整屏抽屉：内容区直接着页面底色，不依赖 :has 兼容性。 */
+.config--mobile {
+  @apply opt:style:m3:(bg-surface-container);
+}
+
+/* 宿主用 #model/#menu 的 ID 选择器写背景，需同权重覆盖。 */
+#model .config--mobile,
+#menu .config--mobile {
+  @apply opt:style:m3:(bg-surface-container);
+}
+
 .side-panel--all:has(.config--mobile) {
   @apply opt:style:m3:(bg-surface-container);
 }

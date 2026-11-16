@@ -1,17 +1,17 @@
 {
   "features": {
     "ripple": {
-      "tab": "feature",
+      "tab": "general",
       "group": "ripple",
-      "selector": ".dock__item, .b3-menu__item",
+      "selector": ".dock__item, .b3-menu__item, .b3-button:not(:disabled)",
       "className": "rc-ripple",
       "duration": 450
     }
   },
   "tabs": [
     {
-      "id": "style",
-      "title": "$tab.style",
+      "id": "general",
+      "title": "$tab.general",
       "icon": "iconTheme",
       "groups": [
         {
@@ -34,40 +34,9 @@
                 "kind": "attribute",
                 "name": "data-rc-style"
               }
-            },
-            {
-              "id": "field",
-              "type": "select",
-              "title": "$fieldStyle.title",
-              "description": "$fieldStyle.description",
-              "default": "filled",
-              "options": [
-                {
-                  "value": "filled",
-                  "label": "$fieldStyle.filled"
-                },
-                {
-                  "value": "outlined",
-                  "label": "$fieldStyle.outlined"
-                }
-              ],
-              "showWhen": {
-                "style": "m3"
-              },
-              "apply": {
-                "kind": "attribute",
-                "name": "data-rc-field"
-              }
             }
           ]
-        }
-      ]
-    },
-    {
-      "id": "feature",
-      "title": "$tab.feature",
-      "icon": "iconSparkles",
-      "groups": [
+        },
         {
           "id": "color",
           "title": "$group.color",

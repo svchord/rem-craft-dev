@@ -568,7 +568,7 @@ for (const [family, palette] of Object.entries(families)) {
 
 - 风格差异用 `opt:style:<value>:`；平台差异用 `p:`。两者**不能**链式组合：`opt:` 的条件在 `<html>` 上、`p:` 在 `<body>` 上，拼成后代链会得到 `:root` 位于 `.body--*` 内部的永不命中写法。需要平台限定时，用原生 `:is(.body--windows, .body--linux)` 包住选择器，再在内部 `@apply opt:...`。
 
-- 同一元素上的多个选项条件可叠加（`opt:style:m3:field:outlined:`），拼成复合选择器 `:root[a][b]`。默认值登记在 `unocss/options.ts`；源码用到未登记的维度会构建失败。
+- 同一元素上的多个选项条件可叠加（如 `opt:a:x:b:y:`），拼成复合选择器 `:root[a][b]`。默认值登记在 `unocss/options.ts`；源码用到未登记的维度会构建失败。
 - 必须使用裸属性选择器，不能写 `:root[data-rc-style="fluent"]`——叠加 `dark:` 后会变成永不命中的后代选择器。
 - 多值选择器必须包 `:is()`，否则第一个分支变成裸选择器，规则会应用到整个平台页面。
 - 同一维度重复出现要去重。
@@ -691,11 +691,11 @@ M3 comp token 是移动端触控尺寸，思源桌面按组件分别映射（没
 | 组件            | M3    | 思源  | 比例                 |
 | --------------- | ----- | ----- | -------------------- |
 | switch          | 52×32 | 40×24 | 0.75                 |
-| select          | 56    | 32    | 0.57（桌面紧凑）     |
+| select / 输入框 | 56    | 28    | 0.5                  |
 | button          | 40    | 28    | 0.7（M3 density -3） |
 | linear progress | 4     | 4     | 1                    |
 
-字体不随几何缩放：按钮/Select 一律 `label-large` 或 `body-medium` 的 14/20。
+字体不随几何缩放：按钮/Select 一律 `label-large` 或 `body-medium` 的 14/20。移动端不套用桌面密度，field 保持 M3 原始 56dp 触控高度。`textarea` 按 Compose Material Catalog 的 TextArea 示例 100dp，桌面 ×0.5 = 50dp。
 
 ---
 

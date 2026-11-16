@@ -1,14 +1,14 @@
 @use './field' as field;
 
-/* 下拉框：M3 filled / outlined select，桌面紧凑 32dp。 */
+/* 下拉框：沿用旧 field 的容器与底色；桌面 28dp 高、4dp 圆角。 */
 .b3-select {
   @include field.m3-field;
-  @apply opt:style:m3:field:filled:(relative flex items-center justify-start py-[0px] pl-sm pr-[26px] overflow-hidden text-ellipsis whitespace-nowrap)
-    opt:style:m3:field:outlined:(relative flex items-center justify-start py-[0px] pl-sm pr-[26px] overflow-hidden text-ellipsis whitespace-nowrap);
+  @apply opt:style:m3:(relative flex items-center justify-start py-[0px] pl-[7px] pr-[23px] overflow-hidden text-ellipsis whitespace-nowrap);
 }
 
-.b3-select:open {
-  @apply opt:style:m3:field:filled:(shadow-[inset_0_-2px_0_0] shadow-primary);
+/* 移动端不跟桌面密度缩放，回到 M3 field 的原始 56dp 触控高度。 */
+:is(body.body--android, body.body--ios, body.body--harmony) .b3-select {
+  @apply opt:style:m3:(h-[56px] pl-lg pr-[39px] text-body-large);
 }
 
 /*
@@ -19,17 +19,14 @@
  */
 @supports (appearance: base-select) {
   :is(.body--windows, .body--linux) .b3-select::picker(select) {
-    @apply opt:style:m3:field:filled:(rounded-xs border-0 bg-surface-container p-sm shadow-level2)
-      opt:style:m3:field:outlined:(rounded-xs border-0 bg-surface-container p-sm shadow-level2);
+    @apply opt:style:m3:(rounded-xs border-0 bg-surface-container p-sm shadow-level2);
   }
 
   :is(.body--windows, .body--linux) .b3-select option {
-    @apply opt:style:m3:field:filled:(h-[36px] rounded-xs px-sm text-label-large font-medium leading-[20px])
-      opt:style:m3:field:outlined:(h-[36px] rounded-xs px-sm text-label-large font-medium leading-[20px]);
+    @apply opt:style:m3:(h-[36px] rounded-xs px-sm text-label-large font-medium leading-[20px]);
   }
 
   :is(.body--windows, .body--linux) .b3-select option:checked {
-    @apply opt:style:m3:field:filled:(important-bg-secondary-container important-text-on-secondary-container)
-      opt:style:m3:field:outlined:(important-bg-secondary-container important-text-on-secondary-container);
+    @apply opt:style:m3:(important-bg-secondary-container important-text-on-secondary-container);
   }
 }

@@ -1,0 +1,13 @@
+/* 链接：M3 用 primary 色，不继承宿主全局 a 的默认下划线。 */
+a {
+  @apply text-primary no-underline;
+}
+
+a:hover {
+  @apply text-primary no-underline;
+}
+
+.b3-snackbar__content a,
+.tooltip a:hover {
+  @apply no-underline;
+}

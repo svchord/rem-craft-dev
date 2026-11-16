@@ -38,7 +38,7 @@ function assertDimensionsDeclared<T extends Record<string, string>>(defaults: T)
         continue;
       }
       if (!/\.(scss|css)$/.test(entry.name)) continue;
-      // opt: 后可跟多对 name:value:（opt:style:m3:field:filled:），逐对收集。
+      // opt: 后可跟多对 name:value:（如 opt:a:x:b:y:），逐对收集。
       for (const block of readFileSync(path, 'utf8').matchAll(/opt:((?:[a-z0-9-]+:[a-z0-9-]+:)+)/g)) {
         const pairs = block[1].split(':').filter(Boolean);
         for (let i = 0; i < pairs.length; i += 2) used.add(pairs[i]);
@@ -62,19 +62,25 @@ function assertDimensionsDeclared<T extends Record<string, string>>(defaults: T)
 function assertConfigAgrees(defaults: Record<string, string>): void {
   const file = resolve(process.cwd(), 'public/theme-setting.json');
   if (!existsSync(file)) return;
-  const raw = JSON.parse(readFileSync(file, 'utf8')) as { items?: Array<Record<string, unknown>> };
-  for (const item of raw.items ?? []) {
-    const apply = item['apply'];
-    if (!apply || typeof apply !== 'object') continue;
-    const rule = apply as Record<string, unknown>;
-    if (rule['kind'] !== 'attribute' || typeof rule['name'] !== 'string') continue;
-    const name = rule['name'].replace(/^data-rc-/, '');
-    if (!(name in defaults)) continue;
-    const value = item['type'] === 'switch' ? (item['default'] ? 'on' : 'off') : item['default'];
-    if (value !== defaults[name]) {
-      throw new Error(
-        `theme-setting.json 里 ${name} 的默认值是 ${String(value)}，与 unocss/options.ts 的 ${defaults[name]} 不一致`
-      );
+  type RawGroup = { items?: Array<Record<string, unknown>> };
+  type RawTab = { groups?: RawGroup[] };
+  const raw = JSON.parse(readFileSync(file, 'utf8')) as { tabs?: RawTab[] };
+  for (const tab of raw.tabs ?? []) {
+    for (const group of tab.groups ?? []) {
+      for (const item of group.items ?? []) {
+        const apply = item['apply'];
+        if (!apply || typeof apply !== 'object') continue;
+        const rule = apply as Record<string, unknown>;
+        if (rule['kind'] !== 'attribute' || typeof rule['name'] !== 'string') continue;
+        const name = rule['name'].replace(/^data-rc-/, '');
+        if (!(name in defaults)) continue;
+        const value = item['type'] === 'switch' ? (item['default'] ? 'on' : 'off') : item['default'];
+        if (value !== defaults[name]) {
+          throw new Error(
+            `theme-setting.json 里 ${name} 的默认值是 ${String(value)}，与 unocss/options.ts 的 ${defaults[name]} 不一致`
+          );
+        }
+      }
     }
   }
 }

@@ -30,7 +30,7 @@ export function createDimensionVariants(optionDefaults: Record<string, string>) 
       },
     },
     {
-      // 链式多条件：opt:style:m3:field:outlined: 表示两者同时成立。
+      // 链式多条件：opt:a:x:b:y: 表示两个条件同时成立。
       // 条件都在同一个 <html> 上，必须拼复合选择器；后代链永不命中。
       pattern: /^opt:((?:[a-z0-9-]+:[a-z0-9-]+:)+)(?<rest>.+)$/,
       build(match) {

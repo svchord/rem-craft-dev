@@ -8,7 +8,6 @@
  */
 export const OPTION_DEFAULTS = {
   style: 'm3',
-  field: 'filled',
 } as const;
 
 export type OptionName = keyof typeof OPTION_DEFAULTS;

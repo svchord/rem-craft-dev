@@ -1,8 +1,21 @@
 @use './field' as field;
 
-/* 文本输入：桌面紧凑 32dp。 */
+/* 文本输入：沿用旧 field 的容器与底色；桌面 28dp 高、4dp 圆角、7dp 左右内边距（32→28 ×0.875）。 */
 .b3-text-field {
   @include field.m3-field;
-  @apply opt:style:m3:field:filled:(block px-sm py-[0px])
-    opt:style:m3:field:outlined:(block px-sm py-[0px]);
+  @apply opt:style:m3:(block px-[7px] py-[0px]);
+}
+
+/* HTML <textarea> 对应 Compose Material Catalog 的 TextArea 示例（100dp）；桌面按 50% 收到 50dp。 */
+textarea.b3-text-field:not(.search__input) {
+  @apply opt:style:m3:(h-[50px] px-sm py-sm text-[12.25px] leading-[17.5px]);
+}
+
+/* 移动端不跟桌面密度缩放，回到 M3 field 的原始 56dp 触控高度。 */
+:is(body.body--android, body.body--ios, body.body--harmony) .b3-text-field {
+  @apply opt:style:m3:(h-[56px] px-lg text-body-large);
+}
+
+:is(body.body--android, body.body--ios, body.body--harmony) textarea.b3-text-field:not(.search__input) {
+  @apply opt:style:m3:(h-[100px] px-lg py-[16px] text-body-large);
 }

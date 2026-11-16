@@ -1,27 +1,13 @@
 /*
- * filled / outlined 同属 field 选项维度。默认值 filled 不写属性，走 :root:not([data-rc-field])。
- *
- * 状态以 @material/web 的组件实现为准，不看 token 文件：outlined-select 与
- * outlined-text-field 都没有 state-layer 变量，hover 只改描边颜色。
- * focus 视觉 3dp 用内阴影补足，不改 border-width——改宽度会让内容区收缩 2px。
+ * Field 沿用旧版 field 的底色与 hover：surface-container-highest → surface-dim。
+ * 桌面按旧 field 32dp → 28dp（×0.875）缩放：字号 12.25/17.5、左右内边距 7dp，圆角仍 4dp。
+ * 不加阴影、下划线、焦点环等其余装饰。
  */
 @mixin m3-field {
-  @apply opt:style:m3:field:filled:(
-      box-border h-[32px] rounded-t-[4px] rounded-b-none border-0
-      bg-surface-container-highest text-body-medium text-on-surface
-      shadow-[inset_0_-1px_0_0] shadow-on-surface-variant outline-none field-sizing-fixed
-      hover:(bg-surface-dim shadow-[inset_0_-1px_0_0] shadow-on-surface outline-none)
-      active:(bg-surface-dim shadow-[inset_0_-1px_0_0] shadow-on-surface outline-none)
-      focus-visible:(shadow-[inset_0_-2px_0_0] shadow-primary outline-none)
-      focus:(shadow-[inset_0_-2px_0_0] shadow-primary outline-none)
-    )
-    opt:style:m3:field:outlined:(
-      box-border h-[32px] rounded-xs border-[1px] border-solid border-outline
-      bg-transparent text-body-medium text-on-surface shadow-none outline-none field-sizing-fixed
-      hover:(border-on-surface bg-transparent)
-      active:(border-on-surface bg-transparent)
-      focus:(border-primary bg-transparent shadow-[inset_0_0_0_2px] shadow-primary)
-      focus-visible:(border-primary bg-transparent shadow-[inset_0_0_0_2px] shadow-primary)
-      [&:open]:(border-primary bg-transparent shadow-[inset_0_0_0_2px] shadow-primary)
+  @apply opt:style:m3:(
+      box-border h-[28px] rounded-xs border-0
+      bg-surface-container-highest text-[12.25px] leading-[17.5px] text-on-surface
+      shadow-none outline-none field-sizing-fixed
+      hover:(bg-surface-dim shadow-none outline-none)
     );
 }

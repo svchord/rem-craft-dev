@@ -11,22 +11,6 @@
     "default": "Design language. Material 3 is the default and writes no attribute.",
     "zh-CN": "切换主题的设计语言。Material 3 为默认值，此时不写属性。"
   },
-  "fieldStyle.title": {
-    "default": "Input style",
-    "zh-CN": "输入框风格"
-  },
-  "fieldStyle.description": {
-    "default": "Filled or outlined text fields and selects. Only meaningful in Material 3.",
-    "zh-CN": "输入框与下拉框的填充 / 描边样式。只在 Material 3 下可选。"
-  },
-  "fieldStyle.filled": {
-    "default": "Filled",
-    "zh-CN": "填充"
-  },
-  "fieldStyle.outlined": {
-    "default": "Outlined",
-    "zh-CN": "描边"
-  },
   "seed.title": {
     "default": "Seed color",
     "zh-CN": "种子色"
@@ -35,13 +19,9 @@
     "default": "Generates the whole Material 3 palette from this color. The default matches the built-in palette.",
     "zh-CN": "用这个颜色生成整套 Material 3 调色板。默认值与内置色板一致。"
   },
-  "tab.style": {
-    "default": "Style",
-    "zh-CN": "风格样式"
-  },
-  "tab.feature": {
-    "default": "Features",
-    "zh-CN": "功能"
+  "tab.general": {
+    "default": "General",
+    "zh-CN": "通用"
   },
   "group.color": {
     "default": "Color",

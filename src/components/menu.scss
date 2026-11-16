@@ -1,10 +1,20 @@
-/* 菜单：M3 menu 容器 + 紧凑列表项。 */
+/*
+ * 菜单：M3 menu 容器 + 列表项。
+ *
+ * 尺寸按 M3 comp token：容器内边距 8dp、item 高度 48dp、容器圆角 corner-extra-small。
+ * 思源桌面按 0.67 收到 32dp；移动端 `.b3-menu--fullscreen` 是整页列表，宿主自己给了
+ * 36px 行高 + 16px 上下留白，主题不能再压——所以 fullscreen 下完全不接管 item。
+ */
 .b3-menu,
 .b3-menu__submenu {
   @apply opt:style:m3:(overflow-hidden rounded-md shadow-level2);
 }
 
-.b3-menu__item {
+.b3-menu:not(.b3-menu--fullscreen) {
+  @apply opt:style:m3:(py-2);
+}
+
+.b3-menu:not(.b3-menu--fullscreen) .b3-menu__item {
   @apply opt:style:m3:(my-[0px] flex h-[32px] items-center rounded-sm px-sm text-body-medium);
 }
 

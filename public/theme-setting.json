@@ -1,60 +1,85 @@
 {
-  "version": 1,
-  "items": [
+  "tabs": [
     {
       "id": "style",
-      "type": "select",
-      "title": "$style.title",
-      "description": "$style.description",
-      "default": "m3",
-      "options": [
+      "title": "$tab.style",
+      "icon": "iconTheme",
+      "groups": [
         {
-          "value": "m3",
-          "label": "Material 3"
+          "id": "appearance",
+          "title": "$group.appearance",
+          "items": [
+            {
+              "id": "style",
+              "type": "select",
+              "title": "$style.title",
+              "description": "$style.description",
+              "default": "m3",
+              "options": [
+                {
+                  "value": "m3",
+                  "label": "Material 3"
+                }
+              ],
+              "apply": {
+                "kind": "attribute",
+                "name": "data-rc-style"
+              }
+            },
+            {
+              "id": "field",
+              "type": "select",
+              "title": "$fieldStyle.title",
+              "description": "$fieldStyle.description",
+              "default": "filled",
+              "options": [
+                {
+                  "value": "filled",
+                  "label": "$fieldStyle.filled"
+                },
+                {
+                  "value": "outlined",
+                  "label": "$fieldStyle.outlined"
+                }
+              ],
+              "showWhen": {
+                "style": "m3"
+              },
+              "apply": {
+                "kind": "attribute",
+                "name": "data-rc-field"
+              }
+            }
+          ]
         }
-      ],
-      "apply": {
-        "kind": "attribute",
-        "name": "data-rc-style"
-      }
+      ]
     },
     {
-      "id": "field",
-      "type": "select",
-      "title": "$fieldStyle.title",
-      "description": "$fieldStyle.description",
-      "default": "filled",
-      "options": [
+      "id": "feature",
+      "title": "$tab.feature",
+      "icon": "iconSparkles",
+      "groups": [
         {
-          "value": "filled",
-          "label": "$fieldStyle.filled"
-        },
-        {
-          "value": "outlined",
-          "label": "$fieldStyle.outlined"
+          "id": "color",
+          "title": "$group.color",
+          "items": [
+            {
+              "id": "seed",
+              "type": "color",
+              "title": "$seed.title",
+              "description": "$seed.description",
+              "default": "#1a73e8",
+              "showWhen": {
+                "style": "m3"
+              },
+              "apply": {
+                "kind": "palette",
+                "generator": "m3"
+              }
+            }
+          ]
         }
-      ],
-      "showWhen": {
-        "style": "m3"
-      },
-      "apply": {
-        "kind": "attribute",
-        "name": "data-rc-field"
-      }
-    },
-    {
-      "id": "seed",
-      "type": "color",
-      "title": "$seed.title",
-      "description": "$seed.description",
-      "default": "#1a73e8",
-      "showWhen": {
-        "style": "m3"
-      },
-      "apply": {
-        "kind": "palette",
-        "generator": "m3"
-      }
+      ]
     }
   ]
 }

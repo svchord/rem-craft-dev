@@ -34,5 +34,17 @@
   "seed.description": {
     "default": "Generates the whole Material 3 palette from this color. The default matches the built-in palette.",
     "zh-CN": "用这个颜色生成整套 Material 3 调色板。默认值与内置色板一致。"
+  },
+  "tab.style": {
+    "default": "Style",
+    "zh-CN": "风格样式"
+  },
+  "tab.feature": {
+    "default": "Features",
+    "zh-CN": "功能"
+  },
+  "group.color": {
+    "default": "Color",
+    "zh-CN": "配色"
   }
 }

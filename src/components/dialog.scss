@@ -9,6 +9,11 @@
   @apply opt:style:m3:(bg-surface-container);
 }
 
+/* 移动端是整屏抽屉，抽屉本身承担页面底色，才和桌面同色。 */
+.side-panel--all:has(.config--mobile) {
+  @apply opt:style:m3:(bg-surface-container);
+}
+
 /* 左侧 tab 保持宿主原生样式，不覆盖标题与选中态；Google Account 设置页没有导航/内容竖分割线。 */
 .config__side {
   @apply opt:style:m3:(border-r-0);

@@ -16,6 +16,7 @@
 
 .b3-menu:not(.b3-menu--fullscreen) .b3-menu__item {
   @apply opt:style:m3:(my-[0px] flex h-[32px] items-center rounded-sm px-sm text-body-medium);
+  @apply relative overflow-hidden;
 }
 
 .b3-menu__item--selected {

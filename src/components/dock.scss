@@ -9,6 +9,8 @@
 
 .dock__item {
   @apply opt:style:m3:(mx-auto my-[0px] flex h-[32px] w-[32px] items-center justify-center rounded-sm p-[0px]);
+  @apply relative overflow-hidden;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .dock__item svg {
@@ -18,4 +20,13 @@
 .dock__item--active,
 .dock__item--activefocus {
   @apply opt:style:m3:(bg-secondary-container text-primary);
+}
+
+/* hover / pressed 由 ripple feature 的 surface 负责；禁用 feature 时退回 CSS hover。 */
+.dock__item:not(:has(.rc-ripple-surface)):hover {
+  @apply bg-on-surface/8;
+}
+
+.dock__item:focus-visible {
+  @apply outline-none ring-2 ring-primary ring-offset-2;
 }

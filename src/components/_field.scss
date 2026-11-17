@@ -7,7 +7,7 @@
  */
 @mixin m3-field {
   @apply opt:style:m3:(
-      box-border h-[#{scale.rc-scale(56, 0.5)}] rounded-xs border-0
+      box-border h-[#{scale.rc-scale(56px, 0.5)}] rounded-xs border-0
       bg-surface-container-highest text-[12.25px] leading-[17.5px] text-on-surface
       shadow-none outline-none field-sizing-fixed
       hover:(bg-surface-dim shadow-none outline-none)

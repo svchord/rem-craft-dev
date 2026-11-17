@@ -9,7 +9,7 @@
 
 /* HTML <textarea> 对应 Compose Material Catalog 的 TextArea 示例（100dp）；桌面按 50% 收到 50dp。 */
 textarea.b3-text-field:not(.search__input) {
-  @apply opt:style:m3:(h-[#{scale.rc-scale(100, 0.5)}] px-sm py-sm text-[12.25px] leading-[17.5px]);
+  @apply opt:style:m3:(h-[#{scale.rc-scale(100px, 0.5)}] px-sm py-sm text-[12.25px] leading-[17.5px]);
 }
 
 /* 移动端不跟桌面密度缩放，回到 M3 field 的原始 56dp 触控高度。 */

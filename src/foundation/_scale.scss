@@ -1,6 +1,10 @@
 @use 'sass:math';
 
-/* MD comp token 的桌面密度换算：value 为 M3 原始尺寸，ratio 为组件级缩放比例。 */
+/*
+ * MD comp token 的密度换算：$value 传带单位的值（如 52px），$ratio 是组件级缩放比例。
+ * 直接 $value * $ratio 保留单位；不要用 math.div($value, 1px) —— 入参带 px 时会得到 px^-1，
+ * 输出成 left: 12 这类非法声明被浏览器静默丢弃。
+ */
 @function rc-scale($value, $ratio) {
-  @return math.div($value, 1px) * $ratio * 1px;
+  @return $value * $ratio;
 }

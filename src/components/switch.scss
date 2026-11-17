@@ -1,64 +1,65 @@
-/* 开关：桌面按 0.75 收到 40x24；移动端保持 M3 原生 52x32、手柄 16/24、按下 28。 */
+@use 'sass:math';
+@use '../foundation/scale' as scale;
+
+/*
+ * 开关：M3 轨道 52×32、outline 2px、手柄 16 / 24、按下 28、状态层 40。
+ * 宿主 ::after/::before 自带 translate(-50%,-50%)，left 是圆心。
+ * M3 的边距从轨道外缘量，而 left 从 padding box 量，所以圆心要扣掉 2px 边框：
+ * 圆心 = 外缘边距 − 边框 + 半径。边框固定 2px 不参与缩放。
+ * 桌面 0.75 收到 40×24（圆心 10 / 26）；移动端 M3 原尺寸（圆心 14 / 34）。
+ */
+@mixin rc-switch($ratio, $track-w, $track-h) {
+  $border: 2px;
+  $off: scale.rc-scale(16px, $ratio);
+  $on: scale.rc-scale(24px, $ratio);
+  $pressed: scale.rc-scale(28px, $ratio);
+  $state: scale.rc-scale(40px, $ratio);
+  $center-off: scale.rc-scale(8px, $ratio) - $border + math.div($off, 2);
+  $center-on: $track-w - $border - scale.rc-scale(4px, $ratio) - math.div($on, 2);
+
+  @apply opt:style:m3:(
+      relative box-border w-[#{$track-w}] h-[#{$track-h}] rounded-full
+      border-2 border-outline bg-surface-container-highest transition-colors duration-200
+    );
+
+  &::after {
+    @apply opt:style:m3:(absolute left-[#{$center-off}] top-1/2 w-[#{$off}] h-[#{$off}] rounded-full bg-outline);
+    transition:
+      left 300ms cubic-bezier(0.175, 0.885, 0.32, 1.275),
+      width 250ms cubic-bezier(0.2, 0, 0, 1),
+      height 250ms cubic-bezier(0.2, 0, 0, 1),
+      background-color 67ms linear;
+  }
+
+  &::before {
+    @apply opt:style:m3:(absolute left-[#{$center-off}] top-1/2 w-[#{$state}] h-[#{$state}] rounded-full bg-on-surface/8);
+    transition:
+      left 300ms cubic-bezier(0.175, 0.885, 0.32, 1.275),
+      background-color 67ms linear;
+  }
+
+  &:checked {
+    @apply opt:style:m3:(border-transparent bg-primary);
+  }
+
+  &:checked::after {
+    @apply opt:style:m3:(left-[#{$center-on}] w-[#{$on}] h-[#{$on}] bg-on-primary);
+  }
+
+  &:checked::before {
+    @apply opt:style:m3:(left-[#{$center-on}]);
+  }
+
+  &:active:not(:disabled)::after,
+  &:checked:active:not(:disabled)::after {
+    @apply opt:style:m3:(w-[#{$pressed}] h-[#{$pressed}] duration-100 ease-linear);
+  }
+}
+
 .b3-switch {
-  @apply opt:style:m3:(relative box-border h-[24px] w-[40px] rounded-full border-2 border-outline bg-surface-container-highest transition-colors duration-200);
+  @include rc-switch(0.75, 40px, 24px);
 }
 
-.b3-switch::after {
-  @apply opt:style:m3:(absolute left-[10px] top-1/2 h-[12px] w-[12px] rounded-full bg-outline);
-  content: '';
-  transition:
-    left 300ms cubic-bezier(0.175, 0.885, 0.32, 1.275),
-    width 250ms cubic-bezier(0.2, 0, 0, 1),
-    height 250ms cubic-bezier(0.2, 0, 0, 1),
-    background-color 67ms linear;
-}
-
-.b3-switch::before {
-  @apply opt:style:m3:(h-[30px] w-[30px] rounded-full bg-on-surface/8 left-[10px] top-1/2);
-  transition:
-    left 300ms cubic-bezier(0.175, 0.885, 0.32, 1.275),
-    background-color 67ms linear;
-}
-
-.b3-switch:checked {
-  @apply opt:style:m3:(border-transparent bg-primary);
-}
-
-.b3-switch:checked::after {
-  @apply opt:style:m3:(left-[26px] h-[18px] w-[18px] bg-on-primary);
-}
-
-.b3-switch:checked::before {
-  @apply opt:style:m3:(left-[26px]);
-}
-
-.b3-switch:active:not(:disabled)::after,
-.b3-switch:checked:active:not(:disabled)::after {
-  @apply opt:style:m3:(h-[21px] w-[21px] duration-100 ease-linear);
-}
-
-/* 移动端不套桌面 0.75 密度：轨道 52×32，手柄 16 / 24，按下 28。 */
 :is(body.body--android, body.body--ios, body.body--harmony) .b3-switch {
-  @apply opt:style:m3:(h-[32px] w-[52px]);
-}
-
-:is(body.body--android, body.body--ios, body.body--harmony) .b3-switch::after {
-  @apply opt:style:m3:(left-[16px] top-1/2 h-[16px] w-[16px]);
-}
-
-:is(body.body--android, body.body--ios, body.body--harmony) .b3-switch::before {
-  @apply opt:style:m3:(left-[16px] top-1/2 h-[40px] w-[40px]);
-}
-
-:is(body.body--android, body.body--ios, body.body--harmony) .b3-switch:checked::after {
-  @apply opt:style:m3:(left-[36px] h-[24px] w-[24px]);
-}
-
-:is(body.body--android, body.body--ios, body.body--harmony) .b3-switch:checked::before {
-  @apply opt:style:m3:(left-[36px]);
-}
-
-:is(body.body--android, body.body--ios, body.body--harmony) .b3-switch:active:not(:disabled)::after,
-:is(body.body--android, body.body--ios, body.body--harmony) .b3-switch:checked:active:not(:disabled)::after {
-  @apply opt:style:m3:(h-[28px] w-[28px] duration-100 ease-linear);
+  @include rc-switch(1, 52px, 32px);
 }

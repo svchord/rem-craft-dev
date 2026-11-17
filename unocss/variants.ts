@@ -15,6 +15,9 @@ export function createDimensionVariants(optionDefaults: Record<string, string>) 
   const optionCondition = (name: string, value: string): string =>
     optionDefaults[name] === value ? ':not([data-rc-' + name + '])' : '[data-rc-' + name + '="' + value + '"]';
 
+  // opt: 只认已登记的维度名，否则会把 p:mobile: 当成第二对条件吞掉。
+  const optionNames = Object.keys(optionDefaults).join('|');
+
   const dimensions: Dimension[] = [
     {
       pattern:
@@ -32,7 +35,7 @@ export function createDimensionVariants(optionDefaults: Record<string, string>) 
     {
       // 链式多条件：opt:a:x:b:y: 表示两个条件同时成立。
       // 条件都在同一个 <html> 上，必须拼复合选择器；后代链永不命中。
-      pattern: /^opt:((?:[a-z0-9-]+:[a-z0-9-]+:)+)(?<rest>.+)$/,
+      pattern: new RegExp('^opt:((?:(?:' + optionNames + '):[a-z0-9-]+:)+)(?<rest>.+)$'),
       build(match) {
         const pairs = (match[1] as string).split(':').filter(Boolean);
         // 条件都在同一个 <html> 上，必须拼复合选择器；后代链永不命中。

@@ -39,9 +39,12 @@ function assertDimensionsDeclared<T extends Record<string, string>>(defaults: T)
       }
       if (!/\.(scss|css)$/.test(entry.name)) continue;
       // opt: 后可跟多对 name:value:（如 opt:a:x:b:y:），逐对收集。
+      // p 是平台变体前缀（p:mobile:），不是选项维度，跳过；其余未登记名字仍报错。
       for (const block of readFileSync(path, 'utf8').matchAll(/opt:((?:[a-z0-9-]+:[a-z0-9-]+:)+)/g)) {
         const pairs = block[1].split(':').filter(Boolean);
-        for (let i = 0; i < pairs.length; i += 2) used.add(pairs[i]);
+        for (let i = 0; i < pairs.length; i += 2) {
+          if (pairs[i] !== 'p') used.add(pairs[i]);
+        }
       }
     }
   };

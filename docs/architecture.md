@@ -566,7 +566,7 @@ for (const [family, palette] of Object.entries(families)) {
 
 约束：
 
-- 风格差异用 `opt:style:<value>:`；平台差异用 `p:`。两者**不能**链式组合：`opt:` 的条件在 `<html>` 上、`p:` 在 `<body>` 上，拼成后代链会得到 `:root` 位于 `.body--*` 内部的永不命中写法。需要平台限定时，用原生 `:is(.body--windows, .body--linux)` 包住选择器，再在内部 `@apply opt:...`。
+- 风格差异用 `opt:style:<value>:`；平台差异用 `p:`。两者可以链式组合，但 `p:` 必须写在 `opt:` **后面**：`opt:style:m3:p:mobile:` 展开为 `:root[data-rc-*] :is(.body--*) .x`。反过来写 `p:mobile:opt:...` 会得到 `:is(.body--*) :root[...] .x`——`:root` 不可能位于 `.body--*` 内部，永不命中。
 
 - 同一元素上的多个选项条件可叠加（如 `opt:a:x:b:y:`），拼成复合选择器 `:root[a][b]`。默认值登记在 `unocss/options.ts`；源码用到未登记的维度会构建失败。
 - 必须使用裸属性选择器，不能写 `:root[data-rc-style="fluent"]`——叠加 `dark:` 后会变成永不命中的后代选择器。

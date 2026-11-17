@@ -55,6 +55,11 @@ describe('bridge layer / B3 coverage', () => {
     expect(names).toHaveLength(138);
   });
 
+  it('maps the app body background to the page surface role', () => {
+    const bodyBackground = declarations.find((declaration) => declaration.name === '--b3-body-background');
+    expect(bodyBackground?.value).toBe('var(--rc-color-surface-container)');
+  });
+
   it('accounts for all 147 color slots: 137 taken over + 10 keyword slots', () => {
     const colorSlots = declarations.filter((declaration) => declaration.name !== '--b3-body-background-gradient');
     expect(colorSlots.length + EXCLUDED_SLOTS.length).toBe(147);

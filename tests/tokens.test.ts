@@ -382,6 +382,52 @@ describe('token layer / B14 + B20 light and dark color blocks', () => {
   });
 });
 
+describe('token layer / Google Account surface alignment', () => {
+  // 同一变量在亮暗两份里重复；取首次出现（亮色）即可，palette 本身只定义一次。
+  const firstDeclarations = new Map<string, string>();
+  for (const declaration of declarations) {
+    if (!firstDeclarations.has(declaration.name)) firstDeclarations.set(declaration.name, declaration.value);
+  }
+  const resolve = (name: string): string => {
+    let value = firstDeclarations.get(name) ?? '';
+    const seen = new Set<string>();
+    while (value.startsWith('var(') && value.endsWith(')') && !seen.has(value)) {
+      seen.add(value);
+      const inner = value.slice(4, -1);
+      value = firstDeclarations.get(inner) ?? value;
+    }
+    return value;
+  };
+
+  it('uses the Google Account GM3 neutral surface ramp', () => {
+    const expected: Record<string, string> = {
+      '--rc-color-background': '#ffffff',
+      '--rc-color-surface': '#ffffff',
+      '--rc-color-surface-bright': '#ffffff',
+      '--rc-color-surface-container-lowest': '#ffffff',
+      '--rc-color-surface-container-low': '#f8fafd',
+      '--rc-color-surface-container': '#f0f4f9',
+      '--rc-color-surface-container-high': '#e9eef6',
+      '--rc-color-surface-container-highest': '#dde3ea',
+      '--rc-color-surface-dim': '#d3dbe5',
+      '--rc-color-surface-variant': '#e1e3e1',
+    };
+    expect(Object.fromEntries(Object.keys(expected).map((name) => [name, resolve(name)]))).toEqual(expected);
+  });
+
+  it('uses GM3 brand roles for accents and text', () => {
+    const expected: Record<string, string> = {
+      '--rc-color-primary': '#0b57d0',
+      '--rc-color-secondary': '#00639b',
+      '--rc-color-tertiary': '#146c2e',
+      '--rc-color-error': '#b3261e',
+      '--rc-color-on-surface': '#1f1f1f',
+      '--rc-color-outline': '#747775',
+    };
+    expect(Object.fromEntries(Object.keys(expected).map((name) => [name, resolve(name)]))).toEqual(expected);
+  });
+});
+
 describe('token layer / B7 contract completeness', () => {
   const expectedNames = [
     ...COLOR_ROLES.map((role) => '--rc-color-' + role),

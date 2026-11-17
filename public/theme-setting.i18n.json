@@ -16,8 +16,8 @@
     "zh-CN": "种子色"
   },
   "seed.description": {
-    "default": "Generates the whole Material 3 palette from this color. The default matches the built-in palette.",
-    "zh-CN": "用这个颜色生成整套 Material 3 调色板。默认值与内置色板一致。"
+    "default": "Generates the whole Material 3 palette from this color. The default writes no override and uses the theme's built-in GM3 palette.",
+    "zh-CN": "用这个颜色生成整套 Material 3 调色板。默认值不写入覆盖，使用主题内置的 GM3 色板。"
   },
   "tab.general": {
     "default": "General",

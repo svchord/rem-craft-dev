@@ -171,7 +171,7 @@ Token 层（实施顺序第 1–7 步）与桥接层（第 8 步）已落地，�
 
 | 类别           | 色族                                                                                                             | 被 `sys-color` 引用 | 消费者             |
 | -------------- | ---------------------------------------------------------------------------------------------------------------- | ------------------- | ------------------ |
-| **动态**（6）  | primary / secondary / tertiary / neutral / neutral-variant / error                                               | ✅ 49 个 tone       | 插件莫奈覆盖       |
+| **动态**（6）  | primary / secondary / tertiary / neutral / neutral-variant / error                                               | ✅ 51 个 tone       | 插件莫奈覆盖       |
 | **静态**（13） | blue / cyan / green / orange / pink / purple / red / yellow / grey / grey-variant / blue-variant / black / white | ❌ 一个都不引用     | 派生色、静态标注色 |
 
 静态色族必须全量落地：派生色需要 container 对（`green90`/`green10` 等），标注色需要 7 个色族 × 2 档，缺档位则无源可引。静态色族不参与莫奈覆盖。
@@ -456,9 +456,9 @@ M3 只有 `error` 一个状态色。**danger 直接复用 M3 `error` 系列**，
 ### 6.1 链路
 
 ```css
-/* ref-palette：M3 tonal 结构，静态值由 MCU SchemeContent 生成（seed #1A73E8） */
+/* ref-palette：M3 tonal 结构，默认由 MCU SchemeContent(seed #0B57D0) 生成并覆盖 GM3 角色值 */
 :root {
-  --md-ref-palette-primary40: #005bc0;
+  --md-ref-palette-primary40: #0b57d0;
 }
 
 /* sys-color：引用 palette */
@@ -469,9 +469,9 @@ M3 只有 `error` 一个状态色。**danger 直接复用 M3 `error` 系列**，
 
 **插件只覆盖 `--md-ref-palette-*`，`--rc-color-*` 通过 `var()` 自动跟随。**
 
-当前 `src/tokens/material/_palette.scss` 的 6 个动态色族由 MCU 0.4.0 `SchemeContent` 从 Google Blue `#1A73E8` 生成（primary → `#005bc0`，tone50 恰为 `#1b73e8`），静态色族照抄官方 34.0.21；`src/tokens/material/_sys-color.scss` 把 48 个颜色角色写成 `var(--md-ref-palette-*)` 引用。
+当前 `src/tokens/material/_palette.scss` 的 6 个动态色族先由 MCU 0.4.0 `SchemeContent` 从 GM3 primary `#0B57D0` 生成，再按 GM3 的 48 个语义角色实际值覆盖对应 tone。surface/text 使用 `neutral`，outline/variant 使用 `neutral-variant`；只有同一 tone 被多个角色要求不同值时，才改用备用 tone。静态色族照抄官方 34.0.21；`src/tokens/material/_sys-color.scss` 的 48 个角色按该映射写成 `var(--md-ref-palette-*)` 引用。未使用的 tone 保留 MCU 生成值。
 
-### 6.2 MCU 生成的就是 palette
+### 6.2 MCU 生成的就是 palette（动态 seed 模式）
 
 `DynamicScheme` 有 6 个 `TonalPalette`（primary / secondary / tertiary / neutral / neutralVariant / error），每个都能 `.tone(t)`（t = 0–100）算出任意 tone。M3 的 `sys-color` 本就是「角色 → 某 palette 的某 tone」的静态映射表。
 

@@ -28,7 +28,7 @@
 
 #model .config--mobile .config-item > .fn__space,
 #menu .config--mobile .config-item > .fn__space {
-  display: none;
+  @apply opt:style:m3:(hidden);
 }
 
 #model .config--mobile .config-item:first-child,
@@ -50,9 +50,10 @@
   @apply opt:style:m3:(text-title-medium font-medium text-on-surface);
 }
 
-/* 对齐 Google Account 的 stack 列表：item 间距 2px，单条最小 56dp。 */
+/* 对齐 Google Account 的 stack 列表：item 间距 2px，单条最小 56dp。
+ * 宿主给 .config-items 铺了 --b3-theme-surface，会让 2px 间隙比页面底色浅一档，先清掉。 */
 .config-items {
-  @apply opt:style:m3:(flex flex-col gap-[2px]);
+  @apply opt:style:m3:(flex flex-col gap-[2px] bg-transparent);
 }
 
 /* 单条 item：12/16 padding、4px 圆角，首条上角/末条下角 20px。 */
@@ -79,9 +80,9 @@
   @apply opt:style:m3:(bg-surface-bright);
 }
 
-/* Google 账号设置的字号：条目名 16/24，说明 14/20；说明需压过思源的 !important。 */
+/* Google 账号设置的字号：条目名 16/24 中等字重，说明 14/20 常规；说明需压过思源的 !important。 */
 .config-item .config-name {
-  @apply opt:style:m3:(text-body-large text-on-surface);
+  @apply opt:style:m3:(text-body-large font-medium text-on-surface);
 }
 
 .config-items .b3-label__text {

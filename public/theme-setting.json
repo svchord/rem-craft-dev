@@ -46,7 +46,7 @@
               "type": "color",
               "title": "$seed.title",
               "description": "$seed.description",
-              "default": "#1a73e8",
+              "default": "#0b57d0",
               "showWhen": {
                 "style": "m3"
               },

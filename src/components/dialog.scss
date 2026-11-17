@@ -9,19 +9,10 @@
   @apply opt:style:m3:(bg-surface-container);
 }
 
-/* 移动端是整屏抽屉：内容区直接着页面底色，不依赖 :has 兼容性。 */
+/* 移动端设置页由 Dialog 动态挂载 <div class="config config--mobile">；
+ * 宿主对 .config--mobile.config--mobile-items 写了背景，用 important 保证覆盖。 */
 .config--mobile {
-  @apply opt:style:m3:(bg-surface-container);
-}
-
-/* 宿主用 #model/#menu 的 ID 选择器写背景，需同权重覆盖。 */
-#model .config--mobile,
-#menu .config--mobile {
-  @apply opt:style:m3:(bg-surface-container);
-}
-
-.side-panel--all:has(.config--mobile) {
-  @apply opt:style:m3:(bg-surface-container);
+  @apply opt:style:m3:(important-bg-surface-container);
 }
 
 /* 左侧 tab 保持宿主原生样式，不覆盖标题与选中态；Google Account 设置页没有导航/内容竖分割线。 */

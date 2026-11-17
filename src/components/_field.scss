@@ -1,3 +1,5 @@
+@use '../foundation/scale' as scale;
+
 /*
  * Field 沿用旧版 field 的底色与 hover：surface-container-highest → surface-dim。
  * 桌面按旧 field 32dp → 28dp（×0.875）缩放：字号 12.25/17.5、左右内边距 7dp，圆角仍 4dp。
@@ -5,7 +7,7 @@
  */
 @mixin m3-field {
   @apply opt:style:m3:(
-      box-border h-[28px] rounded-xs border-0
+      box-border h-[#{scale.rc-scale(56, 0.5)}] rounded-xs border-0
       bg-surface-container-highest text-[12.25px] leading-[17.5px] text-on-surface
       shadow-none outline-none field-sizing-fixed
       hover:(bg-surface-dim shadow-none outline-none)

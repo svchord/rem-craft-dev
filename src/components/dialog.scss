@@ -15,6 +15,32 @@
   @apply opt:style:m3:(important-bg-surface-container);
 }
 
+/* 宿主用 #model/#menu 的 ID 规则给移动端 item 加了 16px 左右 margin 和 16px 0 padding，需同级覆盖。 */
+#model .config--mobile .config-items,
+#menu .config--mobile .config-items {
+  @apply opt:style:m3:(bg-transparent);
+}
+
+#model .config--mobile .config-item,
+#menu .config--mobile .config-item {
+  @apply opt:style:m3:(mx-0 min-h-[56px] gap-[16px] border-b-0 bg-surface-container-lowest px-[16px] py-[12px]);
+}
+
+#model .config--mobile .config-item > .fn__space,
+#menu .config--mobile .config-item > .fn__space {
+  display: none;
+}
+
+#model .config--mobile .config-item:first-child,
+#menu .config--mobile .config-item:first-child {
+  @apply opt:style:m3:(rounded-t-[20px]);
+}
+
+#model .config--mobile .config-item:last-child,
+#menu .config--mobile .config-item:last-child {
+  @apply opt:style:m3:(rounded-b-[20px]);
+}
+
 /* 左侧 tab 保持宿主原生样式，不覆盖标题与选中态；Google Account 设置页没有导航/内容竖分割线。 */
 .config__side {
   @apply opt:style:m3:(border-r-0);

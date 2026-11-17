@@ -1,4 +1,4 @@
-/* 开关：M3 52x32 按 0.75 收到 40x24；手柄 12/18dp，按下放大到 21dp。 */
+/* 开关：桌面按 0.75 收到 40x24；移动端保持 M3 原生 52x32、手柄 16/24、按下 28。 */
 .b3-switch {
   @apply opt:style:m3:(relative box-border h-[24px] w-[40px] rounded-full border-2 border-outline bg-surface-container-highest transition-colors duration-200);
 }
@@ -35,4 +35,30 @@
 .b3-switch:active:not(:disabled)::after,
 .b3-switch:checked:active:not(:disabled)::after {
   @apply opt:style:m3:(h-[21px] w-[21px] duration-100 ease-linear);
+}
+
+/* 移动端不套桌面 0.75 密度：轨道 52×32，手柄 16 / 24，按下 28。 */
+:is(body.body--android, body.body--ios, body.body--harmony) .b3-switch {
+  @apply opt:style:m3:(h-[32px] w-[52px]);
+}
+
+:is(body.body--android, body.body--ios, body.body--harmony) .b3-switch::after {
+  @apply opt:style:m3:(left-[16px] top-1/2 h-[16px] w-[16px]);
+}
+
+:is(body.body--android, body.body--ios, body.body--harmony) .b3-switch::before {
+  @apply opt:style:m3:(left-[16px] top-1/2 h-[40px] w-[40px]);
+}
+
+:is(body.body--android, body.body--ios, body.body--harmony) .b3-switch:checked::after {
+  @apply opt:style:m3:(left-[36px] h-[24px] w-[24px]);
+}
+
+:is(body.body--android, body.body--ios, body.body--harmony) .b3-switch:checked::before {
+  @apply opt:style:m3:(left-[36px]);
+}
+
+:is(body.body--android, body.body--ios, body.body--harmony) .b3-switch:active:not(:disabled)::after,
+:is(body.body--android, body.body--ios, body.body--harmony) .b3-switch:checked:active:not(:disabled)::after {
+  @apply opt:style:m3:(h-[28px] w-[28px] duration-100 ease-linear);
 }

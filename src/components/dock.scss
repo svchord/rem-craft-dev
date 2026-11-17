@@ -1,32 +1,32 @@
 /* 停靠栏：M3 square icon button，32dp 容器 / 18dp 图标。 */
 .dock {
   @apply opt:style:m3:(flex w-dock flex-col gap-md pb-xs);
-}
 
-.dock__items {
-  @apply opt:style:m3:(flex flex-col gap-md);
-}
+  &__items {
+    @apply opt:style:m3:(flex flex-col gap-md);
+  }
 
-.dock__item {
-  @apply opt:style:m3:(mx-auto my-[0px] flex h-[32px] w-[32px] items-center justify-center rounded-sm p-[0px]);
-  @apply relative overflow-hidden;
-  -webkit-tap-highlight-color: transparent;
-}
+  &__item {
+    @apply opt:style:m3:(mx-auto my-[0px] flex h-[32px] w-[32px] items-center justify-center rounded-sm p-[0px]);
+    @apply relative overflow-hidden;
+    -webkit-tap-highlight-color: transparent;
 
-.dock__item svg {
-  @apply opt:style:m3:(h-[18px] w-[18px]);
-}
+    svg {
+      @apply opt:style:m3:(h-[18px] w-[18px]);
+    }
 
-.dock__item--active,
-.dock__item--activefocus {
-  @apply opt:style:m3:(bg-secondary-container text-primary);
-}
+    &--active,
+    &--activefocus {
+      @apply opt:style:m3:(bg-secondary-container text-primary);
+    }
 
-/* hover / pressed 由 ripple feature 的 surface 负责；禁用 feature 时退回 CSS hover。 */
-.dock__item:not(:has(.rc-ripple-surface)):hover {
-  @apply bg-on-surface/8;
-}
+    /* hover / pressed 由 ripple feature 的 surface 负责；禁用 feature 时退回 CSS hover。 */
+    &:not(:has(.rc-ripple-surface)):hover {
+      @apply bg-on-surface/8;
+    }
 
-.dock__item:focus-visible {
-  @apply outline-none ring-2 ring-primary ring-offset-2;
+    &:focus-visible {
+      @apply outline-none ring-2 ring-primary ring-offset-2;
+    }
+  }
 }

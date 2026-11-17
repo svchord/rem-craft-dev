@@ -4,29 +4,29 @@
 .b3-select {
   @include field.m3-field;
   @apply opt:style:m3:(relative flex items-center justify-start py-[0px] pl-[7px] pr-[23px] overflow-hidden text-ellipsis whitespace-nowrap);
-}
 
-/* 移动端不跟桌面密度缩放，回到 M3 field 的原始 56dp 触控高度。 */
-:is(body.body--android, body.body--ios, body.body--harmony) .b3-select {
-  @apply opt:style:m3:(h-[56px] pl-lg pr-[39px] text-body-large);
-}
-
-/*
- * picker 只在思源启用了 base-select 的平台生效——宿主的规则是
- * .body--windows .b3-select, .body--linux .b3-select { appearance: base-select }，
- * 浏览器版（body--win32-browser / body--ios）没有这条，::picker 规则不会命中，
- * 下拉会退回 UA 原生样式。这里用同一组平台类限定，避免写永远不生效的规则。
- */
-@supports (appearance: base-select) {
-  :is(.body--windows, .body--linux) .b3-select::picker(select) {
-    @apply opt:style:m3:(rounded-xs border-0 bg-surface-container p-sm shadow-level2);
+  /* 移动端不跟桌面密度缩放，回到 M3 field 的原始 56dp 触控高度。 */
+  :is(body.body--android, body.body--ios, body.body--harmony) & {
+    @apply opt:style:m3:(h-[56px] pl-lg pr-[39px] text-body-large);
   }
 
-  :is(.body--windows, .body--linux) .b3-select option {
-    @apply opt:style:m3:(h-[36px] rounded-xs px-sm text-label-large font-medium leading-[20px]);
-  }
+  /*
+   * picker 只在思源启用了 base-select 的平台生效——宿主的规则是
+   * .body--windows .b3-select, .body--linux .b3-select { appearance: base-select }，
+   * 浏览器版（body--win32-browser / body--ios）没有这条，::picker 规则不会命中，
+   * 下拉会退回 UA 原生样式。这里用同一组平台类限定，避免写永远不生效的规则。
+   */
+  @supports (appearance: base-select) {
+    :is(.body--windows, .body--linux) &::picker(select) {
+      @apply opt:style:m3:(rounded-xs border-0 bg-surface-container p-sm shadow-level2);
+    }
 
-  :is(.body--windows, .body--linux) .b3-select option:checked {
-    @apply opt:style:m3:(important-bg-secondary-container important-text-on-secondary-container);
+    :is(.body--windows, .body--linux) & option {
+      @apply opt:style:m3:(h-[36px] rounded-xs px-sm text-label-large font-medium leading-[20px]);
+    }
+
+    :is(.body--windows, .body--linux) & option:checked {
+      @apply opt:style:m3:(important-bg-secondary-container important-text-on-secondary-container);
+    }
   }
 }

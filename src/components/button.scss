@@ -4,173 +4,173 @@
     relative isolate inline-flex h-control min-w-[45px] items-center justify-center gap-[6px] overflow-hidden
     rounded-full px-lg py-[4px] font-[Roboto,sans-serif] text-label-large font-medium tracking-[0.00625rem] no-underline bg-primary text-on-primary shadow-none
   );
-}
 
-.b3-button > .rc-ripple-surface {
-  @apply -z-1;
-}
+  > .rc-ripple-surface {
+    @apply -z-1;
+  }
 
-/* M3 状态层：用 currentColor 叠加 8% / 10%，不改变文字颜色。 */
-.b3-button:hover:not(:disabled) {
-  @apply shadow-none;
-}
+  /* M3 状态层：用 currentColor 叠加 8% / 10%，不改变文字颜色。 */
+  &:hover:not(:disabled) {
+    @apply shadow-none;
+  }
 
-.b3-button:hover:not(:disabled):not(:has(> .rc-ripple-surface)) {
-  background-image: linear-gradient(
-    color-mix(in srgb, currentColor 8%, transparent),
-    color-mix(in srgb, currentColor 8%, transparent)
-  );
-}
+  &:hover:not(:disabled):not(:has(> .rc-ripple-surface)) {
+    background-image: linear-gradient(
+      color-mix(in srgb, currentColor 8%, transparent),
+      color-mix(in srgb, currentColor 8%, transparent)
+    );
+  }
 
-.b3-button:focus-visible:not(:disabled) {
-  background-image: linear-gradient(
-    color-mix(in srgb, currentColor 10%, transparent),
-    color-mix(in srgb, currentColor 10%, transparent)
-  );
-  @apply shadow-none outline outline-[3px] outline-offset-[2px] outline-secondary;
-}
+  &:focus-visible:not(:disabled) {
+    background-image: linear-gradient(
+      color-mix(in srgb, currentColor 10%, transparent),
+      color-mix(in srgb, currentColor 10%, transparent)
+    );
+    @apply shadow-none outline outline-[3px] outline-offset-[2px] outline-secondary;
+  }
 
-.b3-button:active:not(:disabled) {
-  @apply shadow-none;
-}
+  &:active:not(:disabled) {
+    @apply shadow-none;
+  }
 
-.b3-button:active:not(:disabled):not(:has(> .rc-ripple-surface)) {
-  background-image: linear-gradient(
-    color-mix(in srgb, currentColor 10%, transparent),
-    color-mix(in srgb, currentColor 10%, transparent)
-  );
-}
+  &:active:not(:disabled):not(:has(> .rc-ripple-surface)) {
+    background-image: linear-gradient(
+      color-mix(in srgb, currentColor 10%, transparent),
+      color-mix(in srgb, currentColor 10%, transparent)
+    );
+  }
 
-.b3-button svg {
-  @apply opt:style:m3:(m-0 h-[14px] w-[14px]);
-}
+  svg {
+    @apply opt:style:m3:(m-0 h-[14px] w-[14px]);
+  }
 
-.b3-button--text {
-  @apply opt:style:m3:(bg-transparent px-md text-primary shadow-none);
-}
+  &--text {
+    @apply opt:style:m3:(bg-transparent px-md text-primary shadow-none);
+  }
 
-.b3-button--outline {
-  @apply opt:style:m3:(bg-transparent px-lg text-on-surface-variant shadow-[inset_0_0_0_1px] shadow-outline-variant);
-}
+  &--outline {
+    @apply opt:style:m3:(bg-transparent px-lg text-on-surface-variant shadow-[inset_0_0_0_1px] shadow-outline-variant);
+  }
 
-.b3-button--cancel {
-  @apply opt:style:m3:(bg-transparent px-md text-on-surface-variant shadow-none);
-}
+  &--cancel {
+    @apply opt:style:m3:(bg-transparent px-md text-on-surface-variant shadow-none);
+  }
 
-.b3-button--remove {
-  @apply opt:style:m3:(bg-transparent px-md text-error shadow-none);
-}
+  &--remove {
+    @apply opt:style:m3:(bg-transparent px-md text-error shadow-none);
+  }
 
-.b3-button--big,
-.b3-button--secondary {
-  @apply opt:style:m3:(bg-secondary-container text-on-secondary-container);
-}
+  &--big,
+  &--secondary {
+    @apply opt:style:m3:(bg-secondary-container text-on-secondary-container);
+  }
 
-.b3-button--error {
-  @apply opt:style:m3:(bg-error-container text-on-error-container);
-}
+  &--error {
+    @apply opt:style:m3:(bg-error-container text-on-error-container);
+  }
 
-.b3-button--warning {
-  @apply opt:style:m3:(bg-warning-container text-on-warning-container);
-}
+  &--warning {
+    @apply opt:style:m3:(bg-warning-container text-on-warning-container);
+  }
 
-.b3-button--info {
-  @apply opt:style:m3:(bg-info-container text-on-info-container);
-}
+  &--info {
+    @apply opt:style:m3:(bg-info-container text-on-info-container);
+  }
 
-.b3-button--success {
-  @apply opt:style:m3:(bg-success-container text-on-success-container);
-}
+  &--success {
+    @apply opt:style:m3:(bg-success-container text-on-success-container);
+  }
 
-.b3-button--pink {
-  @apply opt:style:m3:(bg-tertiary-container text-on-tertiary-container);
-}
+  &--pink {
+    @apply opt:style:m3:(bg-tertiary-container text-on-tertiary-container);
+  }
 
-.b3-button--white {
-  @apply opt:style:m3:(bg-surface-container-lowest text-primary);
-}
+  &--white {
+    @apply opt:style:m3:(bg-surface-container-lowest text-primary);
+  }
 
-.b3-button--progress {
-  @apply opt:style:m3:(bg-transparent text-on-primary);
-}
+  &--progress {
+    @apply opt:style:m3:(bg-transparent text-on-primary);
+  }
 
-.b3-button--wrap {
-  @apply opt:style:m3:(h-auto min-h-[28px] whitespace-normal text-center);
-}
+  &--wrap {
+    @apply opt:style:m3:(h-auto min-h-[28px] whitespace-normal text-center);
+  }
 
-.b3-button--touch {
-  @apply opt:style:m3:(h-auto min-h-[48px] px-lg text-body-large);
-}
+  &--touch {
+    @apply opt:style:m3:(h-auto min-h-[48px] px-lg text-body-large);
+  }
 
-.b3-button--icon {
-  @apply opt:style:m3:(w-control min-w-0 px-[0px]);
-}
+  &--icon {
+    @apply opt:style:m3:(w-control min-w-0 px-[0px]);
+  }
 
-/* 移动端：M3 触控尺寸 40dp，字号不随几何缩放。 */
-:root:not([data-rc-style]) :is(body.body--android, body.body--ios, body.body--harmony) .b3-button {
-  @apply h-[40px] min-h-[40px] gap-sm px-xl py-[8px];
-}
+  /* 移动端：M3 触控尺寸 40dp，字号不随几何缩放。 */
+  :root:not([data-rc-style]) :is(body.body--android, body.body--ios, body.body--harmony) & {
+    @apply h-[40px] min-h-[40px] gap-sm px-xl py-[8px];
 
-:root:not([data-rc-style]) :is(body.body--android, body.body--ios, body.body--harmony) .b3-button svg {
-  @apply h-[20px] w-[20px];
-}
+    svg {
+      @apply h-[20px] w-[20px];
+    }
 
-:root:not([data-rc-style]) :is(body.body--android, body.body--ios, body.body--harmony) .b3-button--text,
-:root:not([data-rc-style]) :is(body.body--android, body.body--ios, body.body--harmony) .b3-button--cancel,
-:root:not([data-rc-style]) :is(body.body--android, body.body--ios, body.body--harmony) .b3-button--remove {
-  @apply px-md;
-}
+    &--text,
+    &--cancel,
+    &--remove {
+      @apply px-md;
+    }
 
-:root:not([data-rc-style]) :is(body.body--android, body.body--ios, body.body--harmony) .b3-button--small {
-  @apply px-lg;
-}
+    &--small {
+      @apply px-lg;
+    }
 
-:root:not([data-rc-style]) :is(body.body--android, body.body--ios, body.body--harmony) .b3-button--icon {
-  @apply h-[40px] w-[40px] min-w-[40px] px-[0px] py-[0px];
-}
+    &--icon {
+      @apply h-[40px] w-[40px] min-w-[40px] px-[0px] py-[0px];
+    }
 
-:root:not([data-rc-style]) :is(body.body--android, body.body--ios, body.body--harmony) .b3-button--wrap {
-  @apply h-auto min-h-[40px];
-}
+    &--wrap {
+      @apply h-auto min-h-[40px];
+    }
 
-:root:not([data-rc-style]) :is(body.body--android, body.body--ios, body.body--harmony) .b3-button--touch {
-  @apply h-auto min-h-[48px];
-}
+    &--touch {
+      @apply h-auto min-h-[48px];
+    }
+  }
 
-/* 状态层由 background-image 叠加；宿主的 hover/focus 底色和阴影不再保留。 */
-.b3-button--text:is(:hover, :focus, :active):not(:disabled),
-.b3-button--cancel:is(:hover, :focus, :active):not(:disabled),
-.b3-button--remove:is(:hover, :focus, :active):not(:disabled) {
-  @apply bg-transparent shadow-none;
-}
+  /* 状态层由 background-image 叠加；宿主的 hover/focus 底色和阴影不再保留。 */
+  &--text:is(:hover, :focus, :active):not(:disabled),
+  &--cancel:is(:hover, :focus, :active):not(:disabled),
+  &--remove:is(:hover, :focus, :active):not(:disabled) {
+    @apply bg-transparent shadow-none;
+  }
 
-.b3-button--outline:is(:hover, :focus, :active):not(:disabled) {
-  @apply bg-transparent shadow-[inset_0_0_0_1px] shadow-outline-variant;
-}
+  &--outline:is(:hover, :focus, :active):not(:disabled) {
+    @apply bg-transparent shadow-[inset_0_0_0_1px] shadow-outline-variant;
+  }
 
-.b3-button--secondary:is(:hover, :focus, :active):not(:disabled) {
-  @apply bg-secondary-container;
-}
+  &--secondary:is(:hover, :focus, :active):not(:disabled) {
+    @apply bg-secondary-container;
+  }
 
-.b3-button--white:is(:hover, :focus, :active):not(:disabled) {
-  @apply bg-surface-container-lowest;
-}
+  &--white:is(:hover, :focus, :active):not(:disabled) {
+    @apply bg-surface-container-lowest;
+  }
 
-.b3-button:disabled {
-  @apply opt:style:m3:(cursor-not-allowed bg-on-surface/10 text-on-surface/38 opacity-100 shadow-none);
-}
+  &:disabled {
+    @apply opt:style:m3:(cursor-not-allowed bg-on-surface/10 text-on-surface/38 opacity-100 shadow-none);
+  }
 
-.b3-button--text:disabled,
-.b3-button--cancel:disabled,
-.b3-button--remove:disabled,
-.b3-button--outline:disabled {
-  @apply opt:style:m3:(bg-transparent shadow-none);
-}
+  &--text:disabled,
+  &--cancel:disabled,
+  &--remove:disabled,
+  &--outline:disabled {
+    @apply opt:style:m3:(bg-transparent shadow-none);
+  }
 
-.b3-button--outline:disabled {
-  @apply opt:style:m3:(shadow-[inset_0_0_0_1px] shadow-on-surface/12);
-}
+  &--outline:disabled {
+    @apply opt:style:m3:(shadow-[inset_0_0_0_1px] shadow-on-surface/12);
+  }
 
-.b3-button--remove:disabled {
-  @apply opt:style:m3:(text-error/38);
+  &--remove:disabled {
+    @apply opt:style:m3:(text-error/38);
+  }
 }

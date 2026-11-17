@@ -2,27 +2,67 @@
  * 菜单：M3 menu 容器 + 列表项。
  *
  * 尺寸按 M3 comp token：容器内边距 8dp、item 高度 48dp、容器圆角 corner-extra-small。
- * 思源桌面按 0.67 收到 32dp；移动端 `.b3-menu--fullscreen` 是整页列表，宿主自己给了
- * 36px 行高 + 16px 上下留白，主题不能再压——所以 fullscreen 下完全不接管 item。
+ * 思源桌面按 0.67 收到 32dp；移动端普通 .b3-menu--fullscreen 是整页列表，宿主给了
+ * 36px 行高 + 16px 上下留白，主题不接管；mobile-main-menu__groups 例外，按设置页列表处理。
  */
-.b3-menu,
-.b3-menu__submenu {
-  @apply opt:style:m3:(overflow-hidden rounded-md shadow-level2);
+@use './list' as list;
+
+.b3-menu {
+  &,
+  &__submenu {
+    @apply opt:style:m3:(overflow-hidden rounded-md shadow-level2);
+  }
+
+  &:not(.b3-menu--fullscreen) {
+    @apply opt:style:m3:(py-2);
+
+    .b3-menu__item {
+      @apply opt:style:m3:(my-[0px] flex h-[32px] items-center rounded-sm px-sm text-body-medium);
+      @apply relative overflow-hidden;
+    }
+  }
+
+  &__item--selected {
+    @apply opt:style:m3:(bg-secondary-container text-on-secondary-container);
+  }
+
+  &__separator {
+    @apply opt:style:m3:(bg-surface-variant);
+  }
 }
 
-.b3-menu:not(.b3-menu--fullscreen) {
-  @apply opt:style:m3:(py-2);
-}
+/* 宿主给全屏菜单的 .b3-menu__items 铺了 --b3-theme-surface，比设置页的
+ * surface-container 浅一档；分组容器透明、卡片 20px 圆角、标题 16/24 中等字重，和设置页一致。 */
+#menu .mobile-main-menu__groups {
+  @apply opt:style:m3:(bg-transparent);
 
-.b3-menu:not(.b3-menu--fullscreen) .b3-menu__item {
-  @apply opt:style:m3:(my-[0px] flex h-[32px] items-center rounded-sm px-sm text-body-medium);
-  @apply relative overflow-hidden;
-}
+  .b3-menu__group-items {
+    @include list.m3-list;
+    @apply opt:style:m3:(rounded-[20px]);
+  }
 
-.b3-menu__item--selected {
-  @apply opt:style:m3:(bg-secondary-container text-on-secondary-container);
-}
+  .b3-menu__item {
+    @include list.m3-list-item;
+    @apply opt:style:m3:(flex items-center gap-[16px] text-body-large);
 
-.b3-menu__separator {
-  @apply opt:style:m3:(bg-surface-variant);
+    .b3-menu__label {
+      @apply opt:style:m3:(m-0 text-body-large font-medium);
+    }
+
+    .b3-menu__icon {
+      @apply opt:style:m3:(m-0 h-[18px] w-[18px]);
+    }
+
+    &:first-child {
+      @apply opt:style:m3:(rounded-t-[20px]);
+    }
+
+    &:last-child {
+      @apply opt:style:m3:(rounded-b-[20px]);
+    }
+  }
+
+  .b3-menu__group-title {
+    @apply opt:style:m3:(text-title-medium font-medium text-on-surface);
+  }
 }

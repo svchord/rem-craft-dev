@@ -1,0 +1,11 @@
+/*
+ * 设置页与移动端主菜单共用的列表结构：
+ * 纵向排列、2px 间隔，条目为白色卡片，最小高度 56dp、12/16 内边距、4dp 圆角。
+ */
+@mixin m3-list {
+  @apply opt:style:m3:(flex flex-col gap-[2px] bg-transparent);
+}
+
+@mixin m3-list-item {
+  @apply opt:style:m3:(mx-0 min-h-[56px] rounded-xs border-0 bg-surface-container-lowest px-[16px] py-[12px]);
+}

@@ -1,24 +1,18 @@
 /* 输入框尾部图标按钮：M3 standard icon button 40dp / 24dp 图标，按 0.7 收到 28 / 16，垂直居中于 28dp 的 field。 */
-.b3-form__icona-icon,
-.b3-form__icon-clear,
-.search__rmpath {
+:is(.b3-form__icona-icon, .b3-form__icon-clear, .search__rmpath) {
   @apply opt:style:m3:(absolute right-[2px] top-1/2 -translate-y-1/2 box-border inline-flex h-[24px] w-[24px] items-center justify-center rounded-full p-[5px] text-on-surface-variant opacity-100 cursor-pointer transition-colors duration-150);
+
+  &:focus-visible {
+    @apply outline-none ring-[3px] ring-secondary ring-offset-2;
+  }
 }
 
 .b3-form__icona-icon:hover,
-.b3-form__icon-clear:hover:not([disabled]),
-.search__rmpath:hover:not([disabled]) {
+:is(.b3-form__icon-clear, .search__rmpath):hover:not([disabled]) {
   @apply bg-on-surface-variant/8 text-on-surface-variant;
 }
 
 .b3-form__icona-icon:active,
-.b3-form__icon-clear:active:not([disabled]),
-.search__rmpath:active:not([disabled]) {
+:is(.b3-form__icon-clear, .search__rmpath):active:not([disabled]) {
   @apply bg-on-surface-variant/10 text-on-surface-variant;
-}
-
-.b3-form__icona-icon:focus-visible,
-.b3-form__icon-clear:focus-visible,
-.search__rmpath:focus-visible {
-  @apply outline-none ring-[3px] ring-secondary ring-offset-2;
 }

@@ -1,6 +1,6 @@
 /* 停靠栏：M3 square icon button，32dp 容器 / 18dp 图标。 */
 .dock {
-  @apply opt:style:m3:(flex w-dock flex-col gap-md pb-xs);
+  @apply opt:style:m3:(flex w-[44px] flex-col gap-md pb-xs);
 
   &__items {
     @apply opt:style:m3:(flex flex-col gap-md);

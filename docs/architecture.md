@@ -346,7 +346,6 @@ $deprecated:
 | 派生状态色    | `success` / `on-success` / `success-container` / `on-success-container` × success、warning、info | 12        |
 | 静态标注色    | `static-{red,orange,yellow,green,pink,blue,purple,cyan}-{40,90,30,80}`                           | 22        |
 | 项目扩展·间距 | `space-xs` / `sm` / `md` / `lg` / `xl`                                                           | 5         |
-| 项目扩展·尺寸 | `size-row` / `size-control` / `size-dock` / `size-panel`                                         | 4         |
 | 项目扩展·阴影 | `shadow-level0` … `shadow-level5`                                                                | 6         |
 
 - 组件、`bridge.scss`、`uno.config.ts` 只消费 `--rc-*`，不得直接消费 `--md-ref-*`。
@@ -619,16 +618,15 @@ preflight 通过 `transformIndexHtml` 钩子注入，只有存在 `index.html` �
 
 ### 8.3 `theme` 映射与四个陷阱
 
-| `theme` key                 | 命名空间                       | 映射来源                                                 |
-| --------------------------- | ------------------------------ | -------------------------------------------------------- |
-| `colors`                    | `bg-*` / `text-*` / `border-*` | 48 个 `color-*` + 12 个派生 + 22 个静态标注              |
-| `borderRadius`              | `rounded-*`                    | 24 个 `shape-*`                                          |
-| `spacing`                   | `p-*` / `gap-*`                | `space-xs` / `sm` / `md` / `lg` / `xl`                   |
-| `height` / `width`          | `h-*` / `w-*`                  | `size-row` / `size-control` / `size-dock` / `size-panel` |
-| `fontSize`                  | `text-*`                       | 15 组 `typescale-<level>-size` + line-height             |
-| `lineHeight` / `fontWeight` | `leading-*` / `font-*`         | 各组 `typescale-*` 对应值                                |
-| `boxShadow`                 | `shadow-*`                     | **`--rc-shadow-level*`**（不是 `elevation-*`）           |
-| `duration` / `easing`       | `duration-*` / `ease-*`        | `motion-duration-*` / `motion-easing-*`                  |
+| `theme` key                 | 命名空间                       | 映射来源                                       |
+| --------------------------- | ------------------------------ | ---------------------------------------------- |
+| `colors`                    | `bg-*` / `text-*` / `border-*` | 48 个 `color-*` + 12 个派生 + 22 个静态标注    |
+| `borderRadius`              | `rounded-*`                    | 24 个 `shape-*`                                |
+| `spacing`                   | `p-*` / `gap-*`                | `space-xs` / `sm` / `md` / `lg` / `xl`         |
+| `fontSize`                  | `text-*`                       | 15 组 `typescale-<level>-size` + line-height   |
+| `lineHeight` / `fontWeight` | `leading-*` / `font-*`         | 各组 `typescale-*` 对应值                      |
+| `boxShadow`                 | `shadow-*`                     | **`--rc-shadow-level*`**（不是 `elevation-*`） |
+| `duration` / `easing`       | `duration-*` / `ease-*`        | `motion-duration-*` / `motion-easing-*`        |
 
 **陷阱 1：`fontSize` 与 `colors` 同占 `text-*`，颜色赢。** 同名时 `text-body` 只解析成颜色，字号静默失效。约定两者键名不得重名（字号带层级：`body-large` / `label-small`）。
 
@@ -684,19 +682,19 @@ Sass 管 token 层（§4.2），UnoCSS 管组件层。两者处理不同输入�
 - M3 的尺寸 token 在 comp 层，没有独立 metrics 层，尺寸写在 components。
 - 紧凑不能用统一乘数：思源各组件的普通/紧凑比值不统一，必须逐组件给值。
 - **主题不使用 `--b3-ui-*`。** 思源在 `util/_density.scss` 用 `:where(:root[data-ui-density="compact"])` 定义 31 个 `--b3-ui-*`，同时用 `:where(.protyle-wysiwyg), :where(.b3-typography)` 重置为 `initial`；思源自己消费时全部带回退值（`var(--b3-ui-menu-height, 28px)`）。普通模式下这些变量不存在，主题读了只是重复思源的默认值，还会在思源改默认值时产生隐性耦合。
-- 尺寸全部走项目自己的 `--rc-size-*`，紧凑差异用 `:root[data-ui-density="compact"]` 覆盖。
+- 组件尺寸由各组件内的局部变量或字面值表达，不设全局 `--rc-size-*`；紧凑差异按组件分别处理。
 
 M3 comp token 是移动端触控尺寸，思源桌面按组件分别映射（没有统一乘数）：
 
-| 组件            | M3    | 思源  | 比例                 |
-| --------------- | ----- | ----- | -------------------- |
-| switch          | 52×32 | 40×24 | 0.75                 |
-| select          | 56    | 36    | 0.64                 |
-| 输入框          | 56    | 36    | 0.64                 |
-| button          | 40    | 28    | 0.7（M3 density -3） |
-| linear progress | 4     | 4     | 1                    |
+| 组件            | M3    | 思源  | 比例            |
+| --------------- | ----- | ----- | --------------- |
+| switch          | 52×32 | 40×24 | 0.75            |
+| select          | 56    | 36    | 0.64            |
+| 输入框          | 56    | 36    | 0.64            |
+| button          | 40    | 32    | 0.8（XS 32 档） |
+| linear progress | 4     | 4     | 1               |
 
-字体：button 用 `label-large` 14/20；桌面 select / text field 用 `body-medium` 14/20，移动端回到 `body-large` 16/24。移动端不套用桌面密度，field 保持 M3 原始 56dp 触控高度。`textarea` 按 Compose Material Catalog 的 TextArea 示例 100dp，桌面紧凑档取 64px。
+字体：button 用 `label-large` 14/20（桌面 XS 与移动端 small 同一档）；桌面 select / text field 用 `body-medium` 14/20，移动端回到 `body-large` 16/24。移动端不套用桌面密度，field 保持 M3 原始 56dp 触控高度。`textarea` 按 Compose Material Catalog 的 TextArea 示例 100dp，桌面紧凑档取 64px。
 
 ---
 

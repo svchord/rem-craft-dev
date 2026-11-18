@@ -50,18 +50,6 @@ export const theme: PresetWind3Theme = {
     lg: 'var(--rc-space-lg)',
     xl: 'var(--rc-space-xl)',
   },
-  height: {
-    row: 'var(--rc-size-row)',
-    control: 'var(--rc-size-control)',
-    dock: 'var(--rc-size-dock)',
-    panel: 'var(--rc-size-panel)',
-  },
-  width: {
-    row: 'var(--rc-size-row)',
-    control: 'var(--rc-size-control)',
-    dock: 'var(--rc-size-dock)',
-    panel: 'var(--rc-size-panel)',
-  },
   // 字号键名带层级（body-large / label-small），与颜色键名零交集（B22）。
   fontSize: Object.fromEntries(
     TYPESCALE.map((level): [string, [string, string]] => [

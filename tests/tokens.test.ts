@@ -341,9 +341,8 @@ describe('token layer / B6 declaration counts', () => {
     expect(namesMatching(/^--rc-static-/)).toHaveLength(18);
   });
 
-  it('lands 5 spacing, 4 size and 6 shadow extension tokens', () => {
+  it('lands 5 spacing and 6 shadow extension tokens', () => {
     expect(countMatching(/^--rc-space-/)).toBe(5);
-    expect(countMatching(/^--rc-size-/)).toBe(4);
     expect(countMatching(/^--rc-shadow-level[0-5]$/)).toBe(6);
   });
 });
@@ -449,7 +448,6 @@ describe('token layer / B7 contract completeness', () => {
     ...DERIVED_ROLES.map((role) => '--rc-' + role),
     ...STATIC_TONES.map((tone) => '--rc-static-' + tone),
     ...['xs', 'sm', 'md', 'lg', 'xl'].map((step) => '--rc-space-' + step),
-    ...['row', 'control', 'dock', 'panel'].map((size) => '--rc-size-' + size),
     ...[0, 1, 2, 3, 4, 5].map((level) => '--rc-shadow-level' + level),
   ];
 
@@ -463,10 +461,10 @@ describe('token layer / B7 contract completeness', () => {
     expect(rcNames.filter((name) => !expectedNames.includes(name))).toEqual([]);
   });
 
-  it('counts 596 unique --rc-* names (48 + 24 + 6 + 45 + 5 + 3 + 210 + 210 + 12 + 18 + 5 + 4 + 6)', () => {
+  it('counts 592 unique --rc-* names (48 + 24 + 6 + 45 + 5 + 3 + 210 + 210 + 12 + 18 + 5 + 6)', () => {
     // 架构 §13.4 B7 写的 648 是「颜色算亮暗 96 + 静态算含重复 22」的口径；
-    // 唯一变量名口径是 596，二者差异全部来自重复声明，不是契约缺失。
-    expect(rcNames).toHaveLength(596);
+    // 唯一变量名口径是 592，二者差异全部来自重复声明，不是契约缺失。
+    expect(rcNames).toHaveLength(592);
   });
 });
 

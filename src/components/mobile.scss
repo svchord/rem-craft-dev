@@ -31,7 +31,7 @@
     @apply opt:style:m3:(relative flex-1 overflow-hidden rounded-full bg-surface-container-high h-[56px] ml-[4px] mr-[4px]);
 
     &::before {
-      @apply content-[''] absolute left-[16px] top-1/2 h-[24px] w-[24px] -translate-y-1/2 bg-current text-on-surface pointer-events-none;
+      @apply content-[''] absolute left-[16px] inset-y-0 my-auto h-[24px] w-[24px] bg-current text-on-surface pointer-events-none;
       /* mask-* 没有对应工具类，保留原生属性；几何直接复用宿主 #iconSearch。 */
       mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m21 21-4.34-4.34'/%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3C/svg%3E");
       mask-repeat: no-repeat;

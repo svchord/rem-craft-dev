@@ -1,5 +1,5 @@
-/* 下拉框：filled 容器；桌面紧凑档用 body-medium 20 + 2×8 = 36px。 */
-$select-height: 36px;
+/* 下拉框：filled 容器；桌面紧凑档 32px。 */
+$select-height: 32px;
 $select-padding-inline: 12px;
 
 .b3-select {
@@ -26,7 +26,7 @@ $select-padding-inline: 12px;
     }
 
     :is(.body--windows, .body--linux) & option {
-      @apply opt:style:m3:(h-[36px] rounded-xs px-sm text-label-large font-medium leading-[20px]);
+      @apply opt:style:m3:(h-[32px] rounded-xs px-sm text-label-large font-medium leading-[20px]);
     }
 
     :is(.body--windows, .body--linux) & option:checked {

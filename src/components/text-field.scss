@@ -1,6 +1,6 @@
-/* M3 outlined text field 的桌面紧凑档：body-medium 20 行高 + 2×8 垂直内边距 = 36px。 */
-$text-field-height: 36px;
-$text-field-padding-block: 8px;
+/* M3 outlined text field 的桌面紧凑档：body-medium 20 行高 + 2×6 垂直内边距 = 32px。 */
+$text-field-height: 32px;
+$text-field-padding-block: 6px;
 $text-field-padding-inline: 12px;
 $text-field-focus-outline-width: 2px;
 $text-field-textarea-height: 64px;
@@ -33,7 +33,7 @@ $text-field-textarea-height: 64px;
   }
 }
 
-/* 文本输入：M3 outlined text field；桌面 36dp 高（body-medium 20 + 2×8）、4dp 圆角、12dp 左右内边距。 */
+/* 文本输入：M3 outlined text field；桌面 32dp 高（body-medium 20 + 2×6）、4dp 圆角、12dp 左右内边距。 */
 .b3-text-field {
   @include m3-field-outlined;
   @apply opt:style:m3:(block);

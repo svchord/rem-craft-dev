@@ -1,6 +1,6 @@
-/* 输入框尾部图标按钮：M3 standard icon button 40dp / 24dp 图标，按 0.7 收到 28 / 16，垂直居中于 28dp 的 field。 */
+/* 输入框尾部图标按钮：24dp 容器 / 14dp 图标，垂直居中于 32dp field。 */
 :is(.b3-form__icona-icon, .b3-form__icon-clear, .search__rmpath) {
-  @apply opt:style:m3:(absolute right-[2px] top-1/2 -translate-y-1/2 box-border inline-flex h-[24px] w-[24px] items-center justify-center rounded-full p-[5px] text-on-surface-variant opacity-100 cursor-pointer transition-colors duration-150);
+  @apply opt:style:m3:(absolute right-[2px] inset-y-0 my-auto box-border inline-flex h-[24px] w-[24px] items-center justify-center rounded-full p-[5px] text-on-surface-variant opacity-100 cursor-pointer transition-colors duration-150);
 
   &:focus-visible {
     @apply outline-none ring-[3px] ring-secondary ring-offset-2;

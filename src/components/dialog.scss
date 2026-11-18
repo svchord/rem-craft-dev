@@ -57,16 +57,16 @@
 
     /* 标题、搜索框、tab 统一到 12px 内缩这条轴：宿主给标题 -24/-20 的负外边距是为了出血，正是左边缘错位的原因。 */
     .config__tab-head {
-      @apply opt:style:m3:(mx-[0px] mt-[0px] mb-[8px]);
+      @apply opt:style:m3:(mx-[0px] mt-[0px] mb-md);
     }
 
-    /* 标题按 tab 的度量走：36 行高、18 图标、12/20 字、12 内边距、12 图标间距。 */
+    /* 标题按 tab 的度量走：32 行高、14 图标（与 button 一致）、12/20 字、12 内边距、8 图标间距。 */
     .config__tab-title {
-      @apply opt:style:m3:(mx-[0px] mt-[0px] mb-[8px] h-[36px] gap-[12px] px-[12px] py-[0px] text-label-large font-medium text-on-surface);
+      @apply opt:style:m3:(mx-[0px] mt-[0px] mb-md h-[32px] gap-[8px] px-[12px] py-[0px] text-label-large font-medium text-on-surface);
     }
 
     .config__tab-title .b3-list-item__graphic {
-      @apply opt:style:m3:(m-[0px] h-[18px] w-[18px] p-[0px]);
+      @apply opt:style:m3:(m-[0px] h-[14px] w-[14px] p-[0px]);
     }
 
     .config__tab-title .b3-list-item__text {
@@ -75,7 +75,7 @@
 
     /* 侧栏搜索：沿用主题的 outlined text field（1px 描边、聚焦 2px primary），只把圆角拉满成胶囊。 */
     .config__tab-head .b3-text-field {
-      @apply opt:style:m3:(h-[36px] rounded-full px-[16px] text-body-medium);
+      @apply opt:style:m3:(h-[32px] rounded-full px-[16px] text-body-medium);
     }
 
     /* M3 expressive rail 的 item 间距是 4dp；用 flex + gap，避免 li 的 margin 上下塌陷把间距吃掉。 */
@@ -109,14 +109,14 @@
       @apply opt:style:m3:(bg-secondary-container text-on-secondary-container);
     }
 
-    /* 宽屏展开态：行高与 select 同为 36（M3 里 drawer item 和 text field 都是 56dp）。 */
+    /* 宽屏展开态按离散档位降到 32：20 图标、8 图标间距；搜索框同为 32。 */
     @media (min-width: 751px) {
       .b3-list-item {
-        @apply opt:style:m3:(mx-[0px] my-[0px] h-[36px] gap-[12px] rounded-full px-[12px] text-label-large font-medium leading-[20px]);
+        @apply opt:style:m3:(mx-[0px] my-[0px] h-[32px] gap-[8px] rounded-full px-[12px] text-label-large font-medium leading-[20px]);
       }
 
       svg.b3-list-item__graphic {
-        @apply opt:style:m3:(m-[0px] h-[18px] w-[18px] p-[0px]);
+        @apply opt:style:m3:(m-[0px] h-[14px] w-[14px] p-[0px]);
       }
     }
 
@@ -129,7 +129,7 @@
       }
 
       svg.b3-list-item__graphic {
-        @apply opt:style:m3:(m-[0px] h-[18px] w-[18px] p-[0px]);
+        @apply opt:style:m3:(m-[0px] h-[14px] w-[14px] p-[0px]);
       }
 
       /* 文字已被宿主隐藏，齿轮标题要和下面的图标列同一条中线。 */

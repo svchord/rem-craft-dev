@@ -11,8 +11,7 @@
 @mixin rc-slider($ratio) {
   $track-height: math.round(scale.rc-scale(16px, $ratio));
   $thumb-height: math.round(scale.rc-scale(44px, $ratio));
-  $thumb-width: math.round(scale.rc-scale(4px, $ratio));
-  $focus-width: math.div(scale.rc-scale(4px, $ratio), 2);
+  $thumb-width: 4px;
   $thumb-offset: math.div($thumb-height - $track-height, 2);
   $gap: math.round(scale.rc-scale(6px, $ratio));
 
@@ -72,15 +71,6 @@
     }
   }
 
-  &:focus-visible,
-  &:active {
-    --slider-visual-width: #{$focus-width};
-
-    &::-moz-range-thumb {
-      @apply w-[#{$focus-width}];
-    }
-  }
-
   &:disabled {
     @apply opacity-[0.38];
   }
@@ -122,13 +112,33 @@
   }
 }
 
-/* 动态滚动条：父级已 rotate(90deg)，直接复用横向 M3 slider 的几何。 */
-.protyle-scroll__bar .b3-slider {
-  @include rc-slider(math.div(32, 44));
-}
+/* 动态滚动条：父级已 rotate(90deg)，这里用竖向 thumb（视觉 32×4px）。 */
+@media (hover: hover) and (pointer: fine) {
+  .protyle-scroll__bar .b3-slider {
+    @apply opt:style:m3:(w-[var(--b3-dynamicscroll-width)] h-[16px] rounded-none bg-transparent p-[0px] text-primary);
 
-:is(body.body--android, body.body--ios, body.body--harmony) .protyle-scroll__bar .b3-slider {
-  @include rc-slider(1);
+    &::-webkit-slider-runnable-track {
+      @apply opt:style:m3:(h-[2px] rounded-full bg-outline-variant);
+    }
+
+    &::-webkit-slider-thumb {
+      @apply opt:style:m3:(h-[4px] w-[32px] rounded-full bg-primary shadow-none transform-none);
+      -webkit-appearance: none;
+      @apply mt-[-1px];
+    }
+
+    &::-moz-range-track {
+      @apply opt:style:m3:(h-[2px] rounded-full bg-outline-variant);
+    }
+
+    &::-moz-range-progress {
+      @apply opt:style:m3:(h-[2px] rounded-full bg-primary);
+    }
+
+    &::-moz-range-thumb {
+      @apply opt:style:m3:(h-[4px] w-[32px] rounded-full border-0 bg-primary shadow-none transform-none);
+    }
+  }
 }
 
 .b3-slider:not(.protyle-scroll__bar .b3-slider) {

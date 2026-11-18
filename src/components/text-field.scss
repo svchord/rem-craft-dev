@@ -1,22 +1,52 @@
-@use './field' as field;
-@use '../foundation/scale' as scale;
+/* M3 outlined text field 的桌面紧凑档：body-medium 20 行高 + 2×8 垂直内边距 = 36px。 */
+$text-field-height: 36px;
+$text-field-padding-block: 8px;
+$text-field-padding-inline: 12px;
+$text-field-focus-outline-width: 2px;
+$text-field-textarea-height: 64px;
 
-/* 文本输入：沿用旧 field 的容器与底色；桌面 28dp 高、4dp 圆角、7dp 左右内边距（32→28 ×0.875）。 */
-.b3-text-field {
-  @include field.m3-field;
-  @apply opt:style:m3:(block px-[7px] py-[0px]);
+/*
+ * 文本输入按 M3 outlined text field：透明容器 + 1dp outline 描边（corner-extra-small）。
+ * hover 描边转 on-surface；focus 描边转 primary。桌面用 M3 body-medium 14/20，
+ * 移动端在 .b3-text-field 的移动端覆盖里回到 body-large 16/24。
+ */
+@mixin m3-field-outlined($height: $text-field-height) {
+  /* 用 outline 而不是 border：M3 的 outlined field 是独立描边层，描边增粗不能影响布局。 */
+  @apply opt:style:m3:(
+      box-border rounded-xs border-0
+      outline outline-[1px] outline-solid outline-outline outline-offset-[-1px]
+      bg-transparent text-on-surface
+      shadow-none field-sizing-fixed
+      h-[#{$height}]
+      px-[#{$text-field-padding-inline}]
+      py-[#{$text-field-padding-block}]
+      text-body-medium
+    );
 
-  /* 移动端不跟桌面密度缩放，回到 M3 field 的原始 56dp 触控高度。 */
-  :is(body.body--android, body.body--ios, body.body--harmony) & {
-    @apply opt:style:m3:(h-[56px] px-lg text-body-large);
+  /* 交互态必须带 opt: 前缀，否则选择器特异性低于基础规则，描边颜色不生效。 */
+  &:hover:not(:disabled) {
+    @apply opt:style:m3:(outline-on-surface shadow-none);
+  }
+
+  &:focus:not(:disabled) {
+    @apply opt:style:m3:(outline-primary outline-[#{$text-field-focus-outline-width}] outline-offset-[-#{$text-field-focus-outline-width}] shadow-none);
   }
 }
 
-/* HTML <textarea> 对应 Compose Material Catalog 的 TextArea 示例（100dp）；桌面按 50% 收到 50dp。 */
-textarea.b3-text-field:not(.search__input) {
-  @apply opt:style:m3:(h-[#{scale.rc-scale(100px, 0.5)}] px-sm py-sm text-[12.25px] leading-[17.5px]);
+/* 文本输入：M3 outlined text field；桌面 36dp 高（body-medium 20 + 2×8）、4dp 圆角、12dp 左右内边距。 */
+.b3-text-field {
+  @include m3-field-outlined;
+  @apply opt:style:m3:(block);
 
-  :is(body.body--android, body.body--ios, body.body--harmony) & {
-    @apply opt:style:m3:(h-[100px] px-lg py-[16px] text-body-large);
-  }
+  /* 移动端回到 M3 原始 56dp：body-large 24 行高 + 2×16 垂直内边距。 */
+  @apply opt:style:m3:p:mobile:(h-[56px] px-lg py-[16px] text-body-large);
+
+  /* 移动端用原生 3dp 聚焦描边；outline 不影响布局。 */
+  @apply opt:style:m3:p:mobile:focus:(outline-[3px] outline-offset-[-3px] outline-primary);
+}
+
+/* HTML <textarea> 对应 Compose Material Catalog 的 TextArea 示例（100dp）；桌面取紧凑档 64px。 */
+textarea.b3-text-field:not(.search__input) {
+  @include m3-field-outlined($text-field-textarea-height);
+  @apply opt:style:m3:p:mobile:(h-[100px] px-lg py-[16px] text-body-large);
 }

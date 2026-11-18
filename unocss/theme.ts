@@ -1,9 +1,26 @@
 import type { PresetWind3Theme } from 'unocss';
-import { COLOR_ROLES, DERIVED_ROLES, STATIC_COLORS, TYPESCALE, DURATIONS, EASINGS, color } from './tokens';
+import {
+  COLOR_ROLES,
+  DERIVED_ROLES,
+  STATIC_COLORS,
+  TYPESCALE,
+  DURATIONS,
+  EASINGS,
+  STATE_LAYERS,
+  color,
+  stateColor,
+} from './tokens';
 
 export const theme: PresetWind3Theme = {
   colors: {
     ...Object.fromEntries(COLOR_ROLES.map((role) => [role, color(`--rc-color-${role}`)])),
+    ...Object.fromEntries(
+      STATE_LAYERS.flatMap((state) => [
+        [`state-${state}-transparent`, stateColor('transparent', state)],
+        ...COLOR_ROLES.map((role) => [`state-${state}-${role}`, stateColor(`var(--rc-color-${role})`, state)]),
+        ...DERIVED_ROLES.map((role) => [`state-${state}-${role}`, stateColor(`var(--rc-${role})`, state)]),
+      ])
+    ),
     ...Object.fromEntries(DERIVED_ROLES.map((role) => [role, color(`--rc-${role}`)])),
     ...Object.fromEntries(STATIC_COLORS.map((tone) => [`static-${tone}`, color(`--rc-static-${tone}`)])),
   },

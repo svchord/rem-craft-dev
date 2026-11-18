@@ -1,3 +1,17 @@
+@mixin m3-button-state($role) {
+  &:hover:not(:disabled):not(:has(> .rc-ripple-surface)) {
+    @apply bg-state-hover-#{$role};
+  }
+
+  &:focus-visible:not(:disabled) {
+    @apply bg-state-focus-#{$role};
+  }
+
+  &:active:not(:disabled):not(:has(> .rc-ripple-surface)) {
+    @apply bg-state-pressed-#{$role};
+  }
+}
+
 /* 按钮：M3 filled button 40dp 按 0.7 收到 28dp；文字 label-large 14/20。 */
 .b3-button {
   @apply opt:style:m3:(
@@ -9,35 +23,18 @@
     @apply -z-1;
   }
 
-  /* M3 状态层：用 currentColor 叠加 8% / 10%，不改变文字颜色。 */
+  @include m3-button-state(primary);
+
   &:hover:not(:disabled) {
     @apply shadow-none;
   }
 
-  &:hover:not(:disabled):not(:has(> .rc-ripple-surface)) {
-    background-image: linear-gradient(
-      color-mix(in srgb, currentColor 8%, transparent),
-      color-mix(in srgb, currentColor 8%, transparent)
-    );
-  }
-
   &:focus-visible:not(:disabled) {
-    background-image: linear-gradient(
-      color-mix(in srgb, currentColor 10%, transparent),
-      color-mix(in srgb, currentColor 10%, transparent)
-    );
     @apply shadow-none outline outline-[3px] outline-offset-[2px] outline-secondary;
   }
 
   &:active:not(:disabled) {
     @apply shadow-none;
-  }
-
-  &:active:not(:disabled):not(:has(> .rc-ripple-surface)) {
-    background-image: linear-gradient(
-      color-mix(in srgb, currentColor 10%, transparent),
-      color-mix(in srgb, currentColor 10%, transparent)
-    );
   }
 
   svg {
@@ -46,51 +43,63 @@
 
   &--text {
     @apply opt:style:m3:(bg-transparent px-md text-primary shadow-none);
+    @include m3-button-state('transparent');
   }
 
   &--outline {
     @apply opt:style:m3:(bg-transparent px-lg text-on-surface-variant shadow-[inset_0_0_0_1px] shadow-outline-variant);
+    @include m3-button-state('transparent');
   }
 
   &--cancel {
     @apply opt:style:m3:(bg-transparent px-md text-on-surface-variant shadow-none);
+    @include m3-button-state('transparent');
   }
 
   &--remove {
     @apply opt:style:m3:(bg-transparent px-md text-error shadow-none);
+    @include m3-button-state('transparent');
   }
 
   &--big,
   &--secondary {
     @apply opt:style:m3:(bg-secondary-container text-on-secondary-container);
+    @include m3-button-state(secondary-container);
   }
 
   &--error {
     @apply opt:style:m3:(bg-error-container text-on-error-container);
+    @include m3-button-state(error-container);
   }
 
   &--warning {
     @apply opt:style:m3:(bg-warning-container text-on-warning-container);
+    @include m3-button-state(warning-container);
   }
 
   &--info {
     @apply opt:style:m3:(bg-info-container text-on-info-container);
+    @include m3-button-state(info-container);
   }
 
   &--success {
     @apply opt:style:m3:(bg-success-container text-on-success-container);
+    @include m3-button-state(success-container);
   }
 
   &--pink {
     @apply opt:style:m3:(bg-tertiary-container text-on-tertiary-container);
+    @include m3-button-state(tertiary-container);
   }
 
   &--white {
     @apply opt:style:m3:(bg-surface-container-lowest text-primary);
+    @include m3-button-state(surface-container-lowest);
   }
 
   &--progress {
     @apply opt:style:m3:(bg-transparent text-on-primary);
+    @include m3-button-state('transparent');
   }
 
   &--wrap {
@@ -136,23 +145,9 @@
     }
   }
 
-  /* 状态层由 background-image 叠加；宿主的 hover/focus 底色和阴影不再保留。 */
-  &--text:is(:hover, :focus, :active):not(:disabled),
-  &--cancel:is(:hover, :focus, :active):not(:disabled),
-  &--remove:is(:hover, :focus, :active):not(:disabled) {
-    @apply bg-transparent shadow-none;
-  }
-
+  /* outline 的 1px 内描边在所有交互态保持。 */
   &--outline:is(:hover, :focus, :active):not(:disabled) {
-    @apply bg-transparent shadow-[inset_0_0_0_1px] shadow-outline-variant;
-  }
-
-  &--secondary:is(:hover, :focus, :active):not(:disabled) {
-    @apply bg-secondary-container;
-  }
-
-  &--white:is(:hover, :focus, :active):not(:disabled) {
-    @apply bg-surface-container-lowest;
+    @apply shadow-[inset_0_0_0_1px] shadow-outline-variant;
   }
 
   &:disabled {

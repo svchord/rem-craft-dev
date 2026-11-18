@@ -142,3 +142,9 @@ export const EASINGS = [
 /* <alpha-value> 占位符必须有，否则 bg-surface/50 会被静默丢弃（§8.4）。 */
 export const color = (variable: string) =>
   `color-mix(in oklab, var(${variable}) calc(<alpha-value> * 100%), transparent)`;
+
+/* M3 状态层：用对应状态的 opacity token 与容器角色合成，得到不透明实色。 */
+export const STATE_LAYERS = ['hover', 'focus', 'pressed', 'dragged', 'disabled'] as const;
+
+export const stateColor = (baseColor: string, state: (typeof STATE_LAYERS)[number]) =>
+  `color-mix(in srgb, currentColor calc(var(--rc-state-${state}-state-layer-opacity) * 100%), ${baseColor})`;

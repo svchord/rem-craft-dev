@@ -1,0 +1,177 @@
+@use 'sass:math';
+@use '../foundation/scale' as scale;
+
+/*
+ * 滑块：M3 slider 的桌面紧凑档。M3 的 44dp 触控高度按 32px 收（0.73），
+ * 轨道 16dp→12px、手柄 4×44dp→3×32px。
+ * 思源原生 range 只有 track/thumb 两个伪元素，material-web 的 active track
+ * 是独立层；这里用父级 aria-label 算进度（思源在 input 事件里同步当前值）。
+ * typed attr() 不可用时只丢 active 填充，轨道仍按 secondary-container 显示。
+ */
+@mixin rc-slider($ratio) {
+  $track-height: math.round(scale.rc-scale(16px, $ratio));
+  $thumb-height: math.round(scale.rc-scale(44px, $ratio));
+  $thumb-width: math.round(scale.rc-scale(4px, $ratio));
+  $focus-width: math.div(scale.rc-scale(4px, $ratio), 2);
+  $thumb-offset: math.div($thumb-height - $track-height, 2);
+  $gap: math.round(scale.rc-scale(6px, $ratio));
+
+  @apply opt:style:m3:(
+    box-border h-[#{$thumb-height}] rounded-none bg-transparent p-[0px] text-primary
+  );
+
+  /* 原生 range 的 thumb 在 (100% - thumb 宽) 内移动，进度要按同一坐标系算。 */
+  --slider-thumb-width: #{$thumb-width};
+  --slider-thumb-height: #{$thumb-height};
+  --slider-thumb-half: #{math.div($thumb-width, 2)};
+  --slider-visual-width: #{$thumb-width};
+  --slider-min: attr(min type(<number>), 0);
+  --slider-max: attr(max type(<number>), 100);
+  --slider-value: var(--slider-parent-value, 0);
+  --slider-fraction: calc((var(--slider-value) - var(--slider-min)) / (var(--slider-max) - var(--slider-min)) * 100%);
+  --slider-progress: calc(
+    (var(--slider-value) - var(--slider-min)) / (var(--slider-max) - var(--slider-min)) *
+      (100% - var(--slider-thumb-width)) + var(--slider-thumb-half)
+  );
+  --slider-gap: #{$gap};
+  --slider-active-end: max(0px, calc(var(--slider-progress) - var(--slider-thumb-half) - var(--slider-gap)));
+  --slider-inactive-start: min(100%, calc(var(--slider-progress) + var(--slider-thumb-half) + var(--slider-gap)));
+
+  &::-webkit-slider-runnable-track {
+    @apply opt:style:m3:(h-[#{$track-height}] rounded-full bg-secondary-container);
+  }
+
+  &::-webkit-slider-thumb {
+    @apply opt:style:m3:(h-[#{$thumb-height}] w-[#{$thumb-width}] rounded-full bg-primary shadow-none transform-none);
+    -webkit-appearance: none;
+    @apply mt-[-#{$thumb-offset}] transition-[width] duration-100 ease-out;
+  }
+
+  &::-moz-range-track {
+    @apply opt:style:m3:(h-[#{$track-height}] rounded-full bg-secondary-container);
+  }
+
+  &::-moz-range-progress {
+    @apply opt:style:m3:(h-[#{$track-height}] rounded-full bg-primary);
+  }
+
+  &::-moz-range-thumb {
+    @apply opt:style:m3:(h-[#{$thumb-height}] w-[#{$thumb-width}] rounded-full border-0 bg-primary shadow-none transform-none);
+    @apply transition-[width] duration-100 ease-out;
+  }
+
+  /* 思源原样式在 hover/focus 时把 thumb 放大 1.5 倍，M3 不缩放手柄。 */
+  &:hover,
+  &:focus {
+    &::-webkit-slider-thumb {
+      @apply transform-none;
+    }
+
+    &::-moz-range-thumb {
+      @apply transform-none;
+    }
+  }
+
+  &:focus-visible,
+  &:active {
+    --slider-visual-width: #{$focus-width};
+
+    &::-moz-range-thumb {
+      @apply w-[#{$focus-width}];
+    }
+  }
+
+  &:disabled {
+    @apply opacity-[0.38];
+  }
+}
+
+/* 只有能拿到当前值的滑块才做 active track/两侧间隔，避免其他原生 range 丢手柄。 */
+@mixin rc-slider-progress {
+  /* 原生 thumb 被 mask 遮掉，视觉 thumb 画在 input 背景上，避开 mask 对子元素的裁剪。 */
+  @supports selector(::-webkit-slider-runnable-track) {
+    background-image: linear-gradient(currentColor, currentColor);
+    background-size: var(--slider-visual-width) var(--slider-thumb-height);
+    background-position: var(--slider-fraction) center;
+    background-repeat: no-repeat;
+
+    &::-webkit-slider-thumb {
+      @apply opacity-0;
+    }
+  }
+
+  &::-webkit-slider-runnable-track {
+    /* 左侧用 currentColor 填到当前值；mask 在 thumb 两侧挖出 M3 的 6dp 间隔。 */
+    background-image: linear-gradient(
+      to right,
+      currentColor 0 var(--slider-active-end, 0),
+      transparent var(--slider-active-end, 0)
+    );
+    -webkit-mask-image: linear-gradient(
+      to right,
+      black 0 var(--slider-active-end, 0),
+      transparent var(--slider-active-end, 0) var(--slider-inactive-start, 100%),
+      black var(--slider-inactive-start, 100%) 100%
+    );
+    mask-image: linear-gradient(
+      to right,
+      black 0 var(--slider-active-end, 0),
+      transparent var(--slider-active-end, 0) var(--slider-inactive-start, 100%),
+      black var(--slider-inactive-start, 100%) 100%
+    );
+  }
+}
+
+/*
+ * 动态滚动条：父级已 rotate(90deg)。竖向 M3 里轨道宽度是视觉宽度，
+ * thumb 的 width 沿轨道方向、height 跨轨道方向，所以这里是 3×32px 的竖向手柄。
+ */
+@media (hover: hover) and (pointer: fine) {
+  .protyle-scroll__bar .b3-slider {
+    @apply opt:style:m3:(w-[var(--b3-dynamicscroll-width)] h-[16px] rounded-none bg-transparent p-[0px] text-primary);
+
+    &::-webkit-slider-runnable-track {
+      @apply opt:style:m3:(h-[2px] rounded-full bg-outline-variant);
+    }
+
+    &::-webkit-slider-thumb {
+      @apply opt:style:m3:(h-[3px] w-[32px] rounded-full bg-primary shadow-none transform-none);
+      -webkit-appearance: none;
+      @apply mt-[-0.5px];
+    }
+
+    &::-moz-range-track {
+      @apply opt:style:m3:(h-[2px] rounded-full bg-outline-variant);
+    }
+
+    &::-moz-range-progress {
+      @apply opt:style:m3:(h-[2px] rounded-full bg-primary);
+    }
+
+    &::-moz-range-thumb {
+      @apply opt:style:m3:(h-[3px] w-[32px] rounded-full border-0 bg-primary shadow-none transform-none);
+    }
+  }
+}
+
+.b3-slider:not(.protyle-scroll__bar .b3-slider) {
+  @include rc-slider(math.div(32, 44));
+}
+
+:is(body.body--android, body.body--ios, body.body--harmony) .b3-slider:not(.protyle-scroll__bar .b3-slider) {
+  @include rc-slider(1);
+}
+
+/* 思源在设置项/工具栏的容器上维护当前值，供 active track 计算使用。 */
+:is(.config-range__desktop[aria-label], .b3-tooltips[aria-label]):has(.b3-slider) {
+  --slider-parent-value: attr(aria-label type(<number>), 0);
+}
+
+.b3-slider[aria-label] {
+  --slider-parent-value: attr(aria-label type(<number>), 0);
+}
+
+:is(.config-range__desktop[aria-label], .b3-tooltips[aria-label]):has(.b3-slider) .b3-slider,
+.b3-slider[aria-label] {
+  @include rc-slider-progress;
+}

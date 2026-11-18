@@ -100,7 +100,7 @@ src/
 │   └── fluent/  shadcn/      预留
 └── components/
     button.scss  dialog.scss  dock.scss  menu.scss
-    progress.scss  select.scss  switch.scss  text-field.scss
+    progress.scss  select.scss  slider.scss  switch.scss  text-field.scss
 ```
 
 `theme.scss` 的 `@use` 顺序固定：**foundation → tokens（material → derived）→ bridge → components**。
@@ -119,7 +119,7 @@ Token 层（实施顺序第 1–7 步）与桥接层（第 8 步）已落地，�
 | `src/tokens/bridge.scss`           | ✅ 已落地 | 137 条 `--b3-*`，映射到 49 个目标，alpha 全用 `color-mix()`                              |
 | `src/tokens/fluent/_index.scss`    | ✅ 空壳   | `:root[data-rc-style='fluent']` 覆盖入口                                                 |
 | `src/tokens/shadcn/_index.scss`    | ✅ 空壳   | `:root[data-rc-style='shadcn']` 覆盖入口                                                 |
-| `src/components/`                  | 🟡 初版   | button / dialog / dock / menu / progress / select / switch / text-field                  |
+| `src/components/`                  | 🟡 初版   | button / dialog / dock / menu / progress / select / slider / switch / text-field         |
 | `@material/web`（devDependency）   | ✅ 已引入 | **2.5.0 精确锁定**（`"@material/web": "2.5.0"`，无 `^`）；内置 token 34.0.21             |
 
 旧文件已按计划处理：`src/theme.css` 改名重写为 `theme.scss`，`src/foundation/semantic.css` 与 `tests/theme-entry.test.ts` 一并删除。`--rc-contract-version` 已从架构中移除：插件不读它，`vite-plugin-siyuan` 不读它，唯一引用它的旧测试已删除。
@@ -689,6 +689,7 @@ M3 comp token 是移动端触控尺寸，思源桌面按组件分别映射（没
 | 组件            | M3    | 思源  | 比例            |
 | --------------- | ----- | ----- | --------------- |
 | switch          | 52×32 | 40×24 | 0.75            |
+| slider          | 44    | 32    | 0.73            |
 | select          | 56    | 32    | 0.57            |
 | 输入框          | 56    | 32    | 0.57            |
 | button          | 40    | 32    | 0.8（XS 32 档） |

@@ -11,6 +11,11 @@
     @apply opt:style:m3:(bg-surface-container);
   }
 
+  /* Google Account 设置页正文底部留白：桌面 56px。 */
+  &__tab-wrap > &__tab-container:not([data-name='bazaar']):not([data-name='assets']) {
+    @apply pb-[56px];
+  }
+
   /* 移动端设置页由 Dialog 动态挂载 <div class="config config--mobile">；
    * 宿主对 .config--mobile.config--mobile-items 写了背景，用 important 保证覆盖。 */
   &--mobile {
@@ -26,24 +31,23 @@
 
     .config-item {
       @include list.m3-list-item;
+      @include list.m3-list-item-edges;
       @apply opt:style:m3:(gap-[16px]);
 
       > .fn__space {
         @apply opt:style:m3:(hidden);
       }
-
-      &:first-child {
-        @apply opt:style:m3:(rounded-t-[20px]);
-      }
-
-      &:last-child {
-        @apply opt:style:m3:(rounded-b-[20px]);
-      }
     }
 
     .config-title {
-      @apply opt:style:m3:(text-title-medium font-medium text-on-surface);
+      @include list.m3-list-title;
     }
+  }
+
+  /* 宿主 .config__drag::before 在配置滚动区顶部铺了 80% 的 --b3-theme-background + 10px 模糊 + 渐变遮罩，
+   * 纯白背景叠在 surface-container 上会显成偏白的渐变阴影；拖拽热区在 .config__drag 自身，去掉伪元素不影响拖动。 */
+  &__drag::before {
+    @apply hidden;
   }
 
   /* 左侧 tab 保持宿主原生样式，不覆盖标题与选中态；Google Account 设置页没有导航/内容竖分割线。 */
@@ -52,7 +56,7 @@
   }
 
   &-title {
-    @apply opt:style:m3:(text-title-medium font-medium text-on-surface);
+    @include list.m3-list-title;
   }
 
   /* 对齐 Google Account 的 stack 列表：item 间距 2px，单条最小 56dp。
@@ -69,23 +73,20 @@
    * 条目名 16/24 中等字重，说明 14/20 常规。 */
   &-item {
     @include list.m3-list-item;
+    @include list.m3-list-item-edges;
 
     & .config-name {
       @apply opt:style:m3:(text-body-large font-medium text-on-surface);
     }
-
-    &:first-child {
-      @apply opt:style:m3:(rounded-t-[20px]);
-    }
-
-    &:last-child {
-      @apply opt:style:m3:(rounded-b-[20px]);
-    }
   }
 
-  /* 分组之间 16px。 */
+  /* 分组之间 16px；原生设置弹窗按 Google Account 桌面版用 32px。 */
   &-group {
     @apply opt:style:m3:(mb-lg);
+  }
+
+  .b3-dialog--open[data-key='dialog-setting'] &-group {
+    @apply opt:style:m3:(important-mb-[32px]);
   }
 
   /* 集市/资源页没有 config-items 白卡片，卡片自身需要从页面底色里提出来。 */

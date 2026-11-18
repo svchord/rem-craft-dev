@@ -6,6 +6,24 @@
   @apply opt:style:m3:(flex flex-col gap-[2px] bg-transparent);
 }
 
+@mixin m3-list-title {
+  @apply opt:style:m3:(text-title-medium font-medium text-on-surface);
+}
+
 @mixin m3-list-item {
   @apply opt:style:m3:(mx-0 min-h-[56px] rounded-xs border-0 bg-surface-container-lowest px-[16px] py-[12px]);
+}
+
+/* 搜索会隐藏部分 item，首尾圆角必须按“可见项”计算。 */
+@mixin m3-list-item-edges($item: '.config-item') {
+  &:first-child,
+  &:nth-child(1 of #{$item}:not(.config-search-hidden):not(.fn__none)) {
+    @apply opt:style:m3:(rounded-t-[20px]);
+  }
+
+  &:last-child,
+  &.config-item--last-visible,
+  &:nth-last-child(1 of #{$item}:not(.config-search-hidden):not(.fn__none)) {
+    @apply opt:style:m3:(rounded-b-[20px]);
+  }
 }

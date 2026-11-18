@@ -32,9 +32,14 @@
 }
 
 /* 宿主给全屏菜单的 .b3-menu__items 铺了 --b3-theme-surface，比设置页的
- * surface-container 浅一档；分组容器透明、卡片 20px 圆角、标题 16/24 中等字重，和设置页一致。 */
+ * surface-container 浅一档；分组容器透明、卡片 20px 圆角、标题 16/24 中等字重，和设置页一致。
+ * 分组间距 24px、容器底部 56px，分别对齐 Google Account 移动版与桌面设置页。 */
 #menu .mobile-main-menu__groups {
-  @apply opt:style:m3:(bg-transparent);
+  @apply opt:style:m3:(bg-transparent pb-[max(56px,var(--mobile-bottom-bar-safe-area))]);
+
+  .b3-menu__group {
+    @apply opt:style:m3:(mb-[24px]);
+  }
 
   .b3-menu__group-items {
     @include list.m3-list;
@@ -53,16 +58,31 @@
       @apply opt:style:m3:(m-0 h-[18px] w-[18px]);
     }
 
-    &:first-child {
-      @apply opt:style:m3:(rounded-t-[20px]);
-    }
-
-    &:last-child {
-      @apply opt:style:m3:(rounded-b-[20px]);
-    }
+    @include list.m3-list-item-edges('.b3-menu__item');
   }
 
   .b3-menu__group-title {
-    @apply opt:style:m3:(text-title-medium font-medium text-on-surface);
+    @include list.m3-list-title;
+  }
+
+  /* 分组折叠按钮按 M3 xsmall icon button 的 square 形态：32dp 容器、corner-medium、20dp 图标。 */
+  .mobile-main-menu__collapse {
+    @apply opt:style:m3:(flex h-[32px] w-[32px] items-center justify-center rounded-md p-[0px] my-[-4px] mx-[0px] text-on-surface transition-colors duration-150);
+
+    svg {
+      @apply opt:style:m3:(h-[20px] w-[20px]);
+    }
+
+    &:hover {
+      @apply opt:style:m3:(bg-on-surface/8);
+    }
+
+    &:active {
+      @apply opt:style:m3:(bg-on-surface/10);
+    }
+
+    &:focus-visible {
+      @apply outline-none ring-[3px] ring-secondary ring-offset-2;
+    }
   }
 }

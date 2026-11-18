@@ -1,0 +1,98 @@
+/*
+ * 移动端设置面板顶栏：M3 small top app bar。
+ * 宿主原样式是 48px 白底 + 1px 分隔线 + 17px 标题，和设置页的 surface-container 断层。
+ * 只接管 #menu / #model 的直属顶栏；主题设置插件使用独立 side-panel，由插件自行适配。
+ */
+@use './list' as list;
+
+#menu > .toolbar,
+#model > .toolbar {
+  @apply opt:style:m3:(h-[64px] bg-surface-container text-on-surface border-b-0 py-[0px]);
+  @apply pl-[max(4px,env(safe-area-inset-left))] pr-[max(4px,env(safe-area-inset-right))];
+
+  .toolbar__text {
+    @apply opt:style:m3:(text-title-large font-normal text-on-surface important-pl-[16px]);
+  }
+
+  .toolbar__icon {
+    @apply opt:style:m3:(h-[24px] w-[24px] p-[8px] m-[4px] rounded-full text-on-surface) box-content;
+  }
+
+  .toolbar__button {
+    @apply opt:style:m3:(h-[40px] w-[40px] m-[4px] rounded-full text-on-surface);
+
+    svg {
+      @apply h-[24px] w-[24px];
+    }
+  }
+
+  /* 顶栏展开的搜索框按 M3 search bar：56dp、full shape、surface-container-high、无描边。 */
+  .mobile-main-menu__search {
+    @apply opt:style:m3:(relative flex-1 overflow-hidden rounded-full bg-surface-container-high h-[56px] ml-[4px] mr-[4px]);
+
+    &::before {
+      @apply content-[''] absolute left-[16px] top-1/2 h-[24px] w-[24px] -translate-y-1/2 bg-current text-on-surface pointer-events-none;
+      /* mask-* 没有对应工具类，保留原生属性；几何直接复用宿主 #iconSearch。 */
+      mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m21 21-4.34-4.34'/%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3C/svg%3E");
+      mask-repeat: no-repeat;
+      mask-position: center;
+      mask-size: 24px 24px;
+    }
+
+    .b3-text-field {
+      @apply opt:style:m3:(h-[56px] w-full rounded-full bg-transparent pl-[56px] pr-lg text-body-large text-on-surface shadow-none outline-none border-0) box-border;
+
+      &:hover,
+      &:focus {
+        @apply opt:style:m3:(bg-transparent shadow-none outline-none);
+      }
+
+      &::placeholder {
+        @apply opt:style:m3:(text-on-surface-variant);
+      }
+    }
+  }
+
+  .toolbar__icon,
+  .toolbar__button {
+    @apply transition-colors duration-150;
+
+    &:hover {
+      @apply bg-on-surface/8;
+    }
+
+    &:active {
+      @apply bg-on-surface/10;
+    }
+
+    &:focus-visible {
+      @apply outline-none ring-[3px] ring-secondary ring-offset-2;
+    }
+  }
+}
+
+/* 搜索命中的设置项也走移动端设置列表的卡片样式，避免回落到宿主默认的 config 样式。 */
+#menu .mobile-setting-menu__result {
+  .config-group {
+    @apply opt:style:m3:(mb-[24px]);
+  }
+
+  .config-title {
+    @include list.m3-list-title;
+  }
+
+  .config-items {
+    @include list.m3-list;
+    @apply opt:style:m3:(rounded-[20px]);
+  }
+
+  .config-item {
+    @include list.m3-list-item;
+    @include list.m3-list-item-edges;
+    @apply opt:style:m3:(gap-[16px] important-mx-[0px] important-px-[16px] important-py-[12px]);
+
+    > .fn__space {
+      @apply opt:style:m3:(hidden);
+    }
+  }
+}

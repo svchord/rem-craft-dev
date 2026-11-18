@@ -1,6 +1,6 @@
 /*
  * 设置弹窗：按 Google Account 设置页的容器层级——浅灰蓝页面、独立白色 item 卡片、无分割线。
- * 左侧 tab 保持宿主原生样式，只移除导航/内容之间的竖线。
+ * 左侧导航按 M3 navigation rail 做两种形态：宽屏展开态、≤750px 折叠态。
  */
 @use './list' as list;
 
@@ -50,9 +50,93 @@
     @apply hidden;
   }
 
-  /* 左侧 tab 保持宿主原生样式，不覆盖标题与选中态；Google Account 设置页没有导航/内容竖分割线。 */
+  /* 左侧导航：M3 navigation rail 的两种形态。
+   * 宿主给的行高/外边距来自 --b3-ui-config-nav-*，这里整体覆盖，密度差异由主题自己适配。 */
   &__side {
-    @apply opt:style:m3:(border-r-0);
+    @apply opt:style:m3:(border-r-0 p-[12px] pb-[16px]);
+
+    /* 标题、搜索框、tab 统一到 12px 内缩这条轴：宿主给标题 -24/-20 的负外边距是为了出血，正是左边缘错位的原因。 */
+    .config__tab-head {
+      @apply opt:style:m3:(mx-[0px] mt-[0px] mb-[8px]);
+    }
+
+    /* 标题按 tab 的度量走：36 行高、18 图标、12/20 字、12 内边距、12 图标间距。 */
+    .config__tab-title {
+      @apply opt:style:m3:(mx-[0px] mt-[0px] mb-[8px] h-[36px] gap-[12px] px-[12px] py-[0px] text-label-large font-medium text-on-surface);
+    }
+
+    .config__tab-title .b3-list-item__graphic {
+      @apply opt:style:m3:(m-[0px] h-[18px] w-[18px] p-[0px]);
+    }
+
+    .config__tab-title .b3-list-item__text {
+      @apply opt:style:m3:(leading-[20px]);
+    }
+
+    /* 侧栏搜索：沿用主题的 outlined text field（1px 描边、聚焦 2px primary），只把圆角拉满成胶囊。 */
+    .config__tab-head .b3-text-field {
+      @apply opt:style:m3:(h-[36px] rounded-full px-[16px] text-body-medium);
+    }
+
+    /* M3 expressive rail 的 item 间距是 4dp；用 flex + gap，避免 li 的 margin 上下塌陷把间距吃掉。 */
+    .config__tab-scroll {
+      @apply opt:style:m3:(flex flex-col gap-xs);
+    }
+
+    .b3-list-item {
+      /* 列表是 flex 列，默认 flex-shrink:1 会在窗口变矮时把行高压扁，而不是交给 .config__tab-scroll 滚动。 */
+      @apply opt:style:m3:(bg-transparent text-on-surface-variant shrink-0);
+
+      /* 宿主 .b3-list--background 的 hover 规则是 (0,7,0)，会和水波纹的 ::before 叠成两层；
+       * 只在 ripple surface 存在时用 important 压掉宿主底色。 */
+      &:not(.b3-list-item--focus):has(.rc-ripple-surface):hover,
+      &:not(.b3-list-item--focus):has(.rc-ripple-surface):active {
+        @apply opt:style:m3:(important-bg-transparent);
+      }
+
+      &:not(.b3-list-item--focus):not(:has(.rc-ripple-surface)):hover {
+        @apply opt:style:m3:(bg-on-surface/8);
+      }
+
+      &:not(.b3-list-item--focus):not(:has(.rc-ripple-surface)):active {
+        @apply opt:style:m3:(bg-on-surface/10);
+      }
+    }
+
+    /* 选中态走 navigation drawer 的角色：secondary-container 胶囊 + on-secondary-container 内容。 */
+    .b3-list-item--focus,
+    .b3-list-item--focus:hover {
+      @apply opt:style:m3:(bg-secondary-container text-on-secondary-container);
+    }
+
+    /* 宽屏展开态：行高与 select 同为 36（M3 里 drawer item 和 text field 都是 56dp）。 */
+    @media (min-width: 751px) {
+      .b3-list-item {
+        @apply opt:style:m3:(mx-[0px] my-[0px] h-[36px] gap-[12px] rounded-full px-[12px] text-label-large font-medium leading-[20px]);
+      }
+
+      svg.b3-list-item__graphic {
+        @apply opt:style:m3:(m-[0px] h-[18px] w-[18px] p-[0px]);
+      }
+    }
+
+    /* 宿主 ≤750px 隐藏文字并把 item 压到 24px；补成 80px 栏宽 + 56×32 胶囊。 */
+    @media (max-width: 750px) {
+      @apply opt:style:m3:(w-[80px] shrink-0);
+
+      .b3-list-item {
+        @apply opt:style:m3:(mx-auto my-[0px] h-[32px] w-[56px] justify-center gap-[0px] rounded-full p-[0px]);
+      }
+
+      svg.b3-list-item__graphic {
+        @apply opt:style:m3:(m-[0px] h-[18px] w-[18px] p-[0px]);
+      }
+
+      /* 文字已被宿主隐藏，齿轮标题要和下面的图标列同一条中线。 */
+      .config__tab-title {
+        @apply opt:style:m3:(justify-center px-[0px]);
+      }
+    }
   }
 
   &-title {

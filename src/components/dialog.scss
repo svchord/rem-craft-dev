@@ -55,18 +55,18 @@
   &__side {
     @apply opt:style:m3:(border-r-0 p-[12px] pb-[16px]);
 
-    /* 标题、搜索框、tab 统一到 12px 内缩这条轴：宿主给标题 -24/-20 的负外边距是为了出血，正是左边缘错位的原因。 */
+    /* 标题、搜索框、tab 统一到 14px 内缩这条轴：宿主给标题 -24/-20 的负外边距是为了出血，正是左边缘错位的原因。 */
     .config__tab-head {
       @apply opt:style:m3:(mx-[0px] mt-[0px] mb-md);
     }
 
-    /* 标题按 tab 的度量走：32 行高、14 图标（与 button 一致）、12/20 字、12 内边距、8 图标间距。 */
+    /* 标题按 tab 的度量走：36 行高、18 图标、14/20 字、14 内边距、10 图标间距。 */
     .config__tab-title {
-      @apply opt:style:m3:(mx-[0px] mt-[0px] mb-md h-[32px] gap-[8px] px-[12px] py-[0px] text-label-large font-medium text-on-surface);
+      @apply opt:style:m3:(mx-[0px] mt-[0px] mb-md h-[36px] gap-[10px] px-[14px] py-[0px] text-label-large font-medium text-on-surface);
     }
 
     .config__tab-title .b3-list-item__graphic {
-      @apply opt:style:m3:(m-[0px] h-[14px] w-[14px] p-[0px]);
+      @apply opt:style:m3:(m-[0px] h-[18px] w-[18px] p-[0px]);
     }
 
     .config__tab-title .b3-list-item__text {
@@ -75,12 +75,13 @@
 
     /* 侧栏搜索：沿用主题的 outlined text field（1px 描边、聚焦 2px primary），只把圆角拉满成胶囊。 */
     .config__tab-head .b3-text-field {
-      @apply opt:style:m3:(h-[32px] rounded-full px-[16px] text-body-medium);
+      @apply opt:style:m3:(h-[36px] rounded-full px-[16px] text-body-medium);
     }
 
-    /* M3 expressive rail 的 item 间距是 4dp；用 flex + gap，避免 li 的 margin 上下塌陷把间距吃掉。 */
+    /* 原生 drawer item 56 高、零间距；这里行高降到 36，留 4dp 让悬浮/选中胶囊不与相邻行粘连。
+     * 用 flex + gap 而不是 li 的 margin，避免上下 margin 塌陷。 */
     .config__tab-scroll {
-      @apply opt:style:m3:(flex flex-col gap-xs);
+      @apply opt:style:m3:(flex flex-col gap-[4px]);
     }
 
     .b3-list-item {
@@ -109,27 +110,28 @@
       @apply opt:style:m3:(bg-secondary-container text-on-secondary-container);
     }
 
-    /* 宽屏展开态按离散档位降到 32：20 图标、8 图标间距；搜索框同为 32。 */
+    /* 宽屏展开态：18 图标、10 图标间距、14 内边距，字号保持 label-large 14/20 不缩，
+     * 只压缩几何尺寸——字缩到 9~12px 会掉出可读下限，且中文比拉丁文更需要字号。 */
     @media (min-width: 751px) {
       .b3-list-item {
-        @apply opt:style:m3:(mx-[0px] my-[0px] h-[32px] gap-[8px] rounded-full px-[12px] text-label-large font-medium leading-[20px]);
+        @apply opt:style:m3:(mx-[0px] my-[0px] h-[36px] gap-[10px] rounded-full px-[14px] text-label-large font-medium leading-[20px]);
       }
 
       svg.b3-list-item__graphic {
-        @apply opt:style:m3:(m-[0px] h-[14px] w-[14px] p-[0px]);
+        @apply opt:style:m3:(m-[0px] h-[18px] w-[18px] p-[0px]);
       }
     }
 
-    /* 宿主 ≤750px 隐藏文字并把 item 压到 24px；补成 80px 栏宽 + 56×32 胶囊。 */
+    /* 宿主 ≤750px 隐藏文字并把 item 压到 24px；补成 80px 栏宽 + 56×36 胶囊。 */
     @media (max-width: 750px) {
       @apply opt:style:m3:(w-[80px] shrink-0);
 
       .b3-list-item {
-        @apply opt:style:m3:(mx-auto my-[0px] h-[32px] w-[56px] justify-center gap-[0px] rounded-full p-[0px]);
+        @apply opt:style:m3:(mx-auto my-[0px] h-[36px] w-[56px] justify-center gap-[0px] rounded-full p-[0px]);
       }
 
       svg.b3-list-item__graphic {
-        @apply opt:style:m3:(m-[0px] h-[14px] w-[14px] p-[0px]);
+        @apply opt:style:m3:(m-[0px] h-[18px] w-[18px] p-[0px]);
       }
 
       /* 文字已被宿主隐藏，齿轮标题要和下面的图标列同一条中线。 */

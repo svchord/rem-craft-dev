@@ -134,9 +134,14 @@
         @apply opt:style:m3:(m-[0px] h-[18px] w-[18px] p-[0px]);
       }
 
-      /* 文字已被宿主隐藏，齿轮标题要和下面的图标列同一条中线。 */
+      /* 文字已被宿主隐藏，齿轮标题要和下面的图标列同一条中线；
+       * 搜索框收掉后标题下方的 24px 空白会让首个胶囊沉到正文首卡下面，压到与 item 相同的 4dp。 */
       .config__tab-title {
-        @apply opt:style:m3:(justify-center px-[0px]);
+        @apply opt:style:m3:(justify-center px-[0px] mb-[4px]);
+      }
+
+      .config__tab-head {
+        @apply opt:style:m3:(mb-[0px]);
       }
     }
   }

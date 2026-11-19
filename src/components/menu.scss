@@ -26,6 +26,12 @@
     @apply opt:style:m3:(bg-secondary-container text-on-secondary-container);
   }
 
+  /* 状态层全部交给 ripple：宿主 .b3-menu__item:hover 会铺 --b3-list-hover（8%），
+   * 不清掉就和 ::before 叠成两层。selected / show 的底色要保住。 */
+  &__item:not(.b3-menu__item--selected):not(.b3-menu__item--show):is(:hover, :active) {
+    @apply opt:style:m3:(bg-transparent);
+  }
+
   &__separator {
     @apply opt:style:m3:(bg-surface-variant);
   }

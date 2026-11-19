@@ -88,19 +88,10 @@
       /* 列表是 flex 列，默认 flex-shrink:1 会在窗口变矮时把行高压扁，而不是交给 .config__tab-scroll 滚动。 */
       @apply opt:style:m3:(bg-transparent text-on-surface-variant shrink-0);
 
-      /* 宿主 .b3-list--background 的 hover 规则是 (0,7,0)，会和水波纹的 ::before 叠成两层；
-       * 只在 ripple surface 存在时用 important 压掉宿主底色。 */
-      &:not(.b3-list-item--focus):has(.rc-ripple-surface):hover,
-      &:not(.b3-list-item--focus):has(.rc-ripple-surface):active {
-        @apply opt:style:m3:(important-bg-transparent);
-      }
-
-      &:not(.b3-list-item--focus):not(:has(.rc-ripple-surface)):hover {
-        @apply opt:style:m3:(bg-on-surface/8);
-      }
-
-      &:not(.b3-list-item--focus):not(:has(.rc-ripple-surface)):active {
-        @apply opt:style:m3:(bg-on-surface/10);
+      /* 状态层全部交给 ripple：宿主 .b3-list--background 的 hover 规则堆了 5 个 :not()，特异性 (0,8,0)。
+       * 用设置弹窗的 ID 前缀把主题侧抬到 (1,x,0)，不用 !important。选中项（--focus）保留自己的底色。 */
+      :is(#model, #menu, .b3-dialog) &:not(.b3-list-item--focus):is(:hover, :active) {
+        @apply opt:style:m3:(bg-transparent);
       }
     }
 

@@ -1,0 +1,42 @@
+/*
+ * 顶栏图标按钮：套主题已有的 button XS 档（architecture §9.2：M3 button 40 → 桌面 32）。
+ * 容器 32、图标 18（M3 with-icon-icon-size）、字号 label-large 14/20（M3 button label-text）。
+ * 18 + 7×2 = 32，圆角沿用主题的 8dp（和停靠栏、.b3-button 同档）。
+ *
+ * 字号必须写在 .toolbar__text 上——宿主自己给它 12px，会盖掉 item 继承下来的值。
+ * 状态层按 M3：hover 8%、pressed / focus 10%，焦点环沿用 .b3-button 的 3px secondary。
+ */
+#toolbar .toolbar__item:not(.toolbar__item--win):not(.toolbar__item--close) {
+  /* 垂直 padding 不要：高度固定 32 + items-center 已经能居中，垂直 padding 只会把内容盒压小；
+   * 水平 7 是给图标按钮撑 32 宽（18 + 7×2）。 */
+  @apply opt:style:m3:(m-[0px] h-[32px] items-center rounded-sm px-[7px] py-[0px]);
+
+  /* 状态层全部交给 ripple：宿主的 hover 底色不清掉会和 ::before 叠成两层。 */
+  &:is(:hover, :active) {
+    @apply opt:style:m3:(bg-transparent);
+  }
+
+  &:focus-visible {
+    @apply opt:style:m3:(bg-on-surface/10 outline outline-[3px] outline-offset-[2px] outline-secondary);
+  }
+}
+
+/* 水波纹用 currentColor 叠 opacity；item 的颜色是 68% 透明度的 on-surface，
+ * 直接继承会让 8% 的 hover 层再打一次折，这里给 surface 一个不透明的 on-surface。 */
+#toolbar .toolbar__item .rc-ripple-surface {
+  @apply opt:style:m3:(text-on-surface);
+}
+
+#toolbar .toolbar__item .toolbar__text {
+  @apply opt:style:m3:(text-label-large font-medium);
+}
+
+/* 折叠箭头也是 18 档；宿主给它 12×15.5 外加 margin 0 -3px 0 2px 来收紧缝隙，
+ * 统一成 18 后那个负外边距会让它压到文字，一并清掉。 */
+#toolbar .toolbar__item svg {
+  @apply opt:style:m3:(h-[18px] w-[18px]);
+}
+
+#toolbar .toolbar__svg {
+  @apply opt:style:m3:(m-[0px]);
+}

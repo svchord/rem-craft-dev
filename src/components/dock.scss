@@ -20,9 +20,17 @@
       @apply opt:style:m3:(bg-secondary-container text-primary);
     }
 
-    /* hover / pressed 由 ripple feature 的 surface 负责；禁用 feature 时退回 CSS hover。 */
-    &:not(:has(.rc-ripple-surface)):hover {
-      @apply bg-on-surface/8;
+    /* 水波纹用 currentColor 叠 opacity；普通 item 的颜色是 68% 透明度的 on-surface，
+     * 直接继承会让 8% 的 hover 层再打一次折，这里给 surface 一个不透明的 on-surface。
+     * 选中项本身是实色，保持继承（primary / on-primary）。 */
+    &:not(.dock__item--active):not(.dock__item--activefocus) .rc-ripple-surface {
+      @apply opt:style:m3:(text-on-surface);
+    }
+
+    /* 状态层（hover / pressed）全部交给 ripple：宿主 .dock__item:hover 自己会铺 8%，
+     * 不清掉就会和 ::before 叠成两层。选中项保留自己的底色。 */
+    &:not(.dock__item--active):not(.dock__item--activefocus):is(:hover, :active) {
+      @apply opt:style:m3:(bg-transparent);
     }
 
     &:focus-visible {

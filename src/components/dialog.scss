@@ -165,6 +165,12 @@
   &-item {
     @include list.m3-list-item;
     @include list.m3-list-item-edges;
+    @apply opt:style:m3:(gap-[16px]);
+
+    /* 宿主用 8px 的 .fn__space 做间隔；桌面改为和移动端一致的 16px gap。 */
+    > .fn__space {
+      @apply opt:style:m3:(hidden);
+    }
 
     & .config-name {
       @apply opt:style:m3:(text-body-large font-medium text-on-surface);

@@ -49,7 +49,7 @@ components
 | 3   | Token 存完整颜色值；透明度统一用 `color-mix()`；组件不出现字面色值。                                          |
 | 4   | 明暗由 token 自动切换，不是变体；风格、密度、平台是变体。                                                     |
 | 5   | 思源内置主题的 **185** 个 `--b3-*` 中，**147 个颜色语义变量全量接管**。                                       |
-| 6   | 产物无 JS；插件只写属性与注入 palette，不参与渲染。                                                           |
+| 6   | 产物无 JS；插件只写属性/变量、注入 palette 或添加装饰性覆盖层，基础渲染不依赖插件。                           |
 | 7   | UnoCSS 只做构建期 CSS 生成器：`@apply` 展开进组件选择器，产物是普通 CSS。                                     |
 | 8   | 当前只实现 Material；Fluent、shadcn 只保留目录与覆盖入口。                                                    |
 
@@ -709,7 +709,7 @@ M3 comp token 是移动端触控尺寸，思源桌面按组件分别映射（没
 | 中     | 预设 palette（`data-rc-palette` 属性）                             | 插件提供预设配色时生效 |
 | 高     | 插件注入的 `<style>`                                               | 动态生成               |
 
-- 必须注入 `<style>`，不能写内联变量（内联优先级高于任何选择器，切换暗色会坏）。
+- 必须注入 `<style>`，不能写内联变量（内联优先级高于任何选择器，切换暗色会坏）。**例外**：滑块 feature 的 `--slider-ratio` 写在具体 `input` 上，只承载几何比例，与明暗无关。
 - 注入样式必须同时写亮色与暗色两块。**例外**：覆盖 `--md-ref-palette-*` 只写一份（palette 与明暗无关）。
 - 选择器 `:root:root`，特异性 (0,2,0)，压过主题 `:root` (0,1,0)。
 - 卸载时删除注入的 `<style>`，清理 `data-rc-palette` 属性。
@@ -752,6 +752,15 @@ const high = new SchemeTonalSpot(hct, isDark, 1.0);
 | 插件提供对比度开关     | 改 `contrastLevel` 重建 scheme，**覆盖 `--rc-color-*`（不是 palette）** |
 | 纯静态主题也要高对比度 | 才需要把 4 个静态文件落地，用 `:root[data-rc-contrast='high']` 覆盖     |
 | 两者都没有             | 不落地                                                                  |
+
+### 10.5 滑块进度增强
+
+滑块的基础样式（轨道、手柄、尺寸）在主题 CSS 里完整实现，不依赖插件。插件只做渐进增强：
+
+- 主题在 `.b3-slider` 上声明 `--slider-ratio`：没有插件时由 `attr()` 从当前值容器的 `aria-label` 计算，插件在时由 feature 直接写入内联的实时值。
+- `theme-setting.json` 的 `features.slider` 声明 feature；插件提供“滑块增强”开关，关闭后移除内联变量和装饰层，CSS 兜底继续生效。
+- 有插件时，插件在滑块父级上放一个 `border-radius` 的装饰 thumb，解决 `background-image` 无法做真正圆角的问题；没有插件时回退到 CSS 背景图 thumb。
+- 普通滑块和 `.protyle-scroll__bar` 动态滚动条共用同一套变量与 mixin；滚动条始终复用普通滑块的完整几何（本地 4×32 的 thumb 旋转后是横向 32×4，轨道同为 12px）。
 
 ---
 

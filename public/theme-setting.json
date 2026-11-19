@@ -6,6 +6,10 @@
       "selector": ".dock__item, .b3-menu__item, .config__side .b3-list-item, .b3-button:not(:disabled)",
       "className": "rc-ripple",
       "duration": 450
+    },
+    "slider": {
+      "tab": "general",
+      "group": "slider"
     }
   },
   "tabs": [
